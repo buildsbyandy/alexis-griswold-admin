@@ -37,13 +37,22 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       console.log('SignIn callback:', { user: user?.email, provider: account?.provider })
+      console.log('AUTHORIZED_ADMINS raw:', process.env.ALLOWED_ADMIN_EMAILS)
+      console.log('AUTHORIZED_ADMINS parsed:', AUTHORIZED_ADMINS)
+      
       if (account?.provider !== 'google') {
         console.log('Provider is not Google:', account?.provider)
         return false
       }
       const email = (user.email || '').toLowerCase()
       const isAuthorized = !!email && AUTHORIZED_ADMINS.includes(email)
-      console.log('Authorization check:', { email, isAuthorized, allowedEmails: AUTHORIZED_ADMINS })
+      console.log('Authorization check:', { 
+        email, 
+        isAuthorized, 
+        allowedEmails: AUTHORIZED_ADMINS,
+        emailLength: email.length,
+        allowedEmailsLength: AUTHORIZED_ADMINS.length
+      })
       return isAuthorized
     },
     async jwt({ token, user }) {
