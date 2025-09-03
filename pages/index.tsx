@@ -19,14 +19,14 @@ const AdminContent: React.FC = () => {
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('all');
-  const [stats, setStats] = useState(recipeService.getRecipeStats());
+  const [stats, setStats] = useState({ total: 0, byFolder: {}, beginners: 0, recipeOfWeek: 0 });
   const [sfItems, setSfItems] = useState<StorefrontProduct[]>([]);
   const [sfEditing, setSfEditing] = useState<StorefrontProduct | null>(null);
   const [sfIsAdding, setSfIsAdding] = useState(false);
   const [sfSearch, setSfSearch] = useState('');
   const [sfCategory, setSfCategory] = useState<string>('all');
   const [sfStatus, setSfStatus] = useState<string>('all');
-  const [sfStats, setSfStats] = useState(storefrontService.getStats());
+  const [sfStats, setSfStats] = useState({ total: 0, byStatus: { draft: 0, published: 0, archived: 0 }, byCategory: {}, favorites: 0 });
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -83,6 +83,30 @@ const AdminContent: React.FC = () => {
     featuredVideoTitle: 'Healing Journey Introduction',
     featuredVideoDate: '2024-01-15'
   });
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const recipeStats = await recipeService.getRecipeStats();
+        setStats(recipeStats);
+        
+        const recipesList = await recipeService.getAllRecipes();
+        setRecipes(recipesList);
+
+        const storefrontStats = await storefrontService.getStats();
+        setSfStats(storefrontStats);
+
+        const storefrontItems = await storefrontService.getAll();
+        setSfItems(storefrontItems);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        toast.error('Failed to load dashboard data');
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Main dashboard render
   return (

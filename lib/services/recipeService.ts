@@ -30,13 +30,23 @@ export interface LegacyRecipe {
 class RecipeService {
   private readonly STORAGE_KEY = 'adminRecipes';
 
-  getAllRecipes(): Recipe[] {
-    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
-    return savedRecipes ? JSON.parse(savedRecipes) : [];
+  async getAllRecipes(): Promise<Recipe[]> {
+    try {
+      const response = await fetch('/api/recipes');
+      if (!response.ok) throw new Error('Failed to fetch recipes');
+      const data = await response.json();
+      return data.recipes || [];
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+      // Fallback to localStorage for development
+      const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
+      return savedRecipes ? JSON.parse(savedRecipes) : [];
+    }
   }
 
-  getLegacyRecipes(): LegacyRecipe[] {
-    return this.getAllRecipes().map(recipe => ({
+  async getLegacyRecipes(): Promise<LegacyRecipe[]> {
+    const recipes = await this.getAllRecipes();
+    return recipes.map(recipe => ({
       title: recipe.title,
       slug: recipe.slug,
       images: recipe.images,
@@ -45,16 +55,19 @@ class RecipeService {
     }));
   }
 
-  getBeginnerRecipes(): Recipe[] {
-    return this.getAllRecipes().filter(recipe => recipe.isBeginner);
+  async getBeginnerRecipes(): Promise<Recipe[]> {
+    const recipes = await this.getAllRecipes();
+    return recipes.filter(recipe => recipe.isBeginner);
   }
 
-  getRecipeOfWeek(): Recipe | null {
-    return this.getAllRecipes().find(recipe => recipe.isRecipeOfWeek) || null;
+  async getRecipeOfWeek(): Promise<Recipe | null> {
+    const recipes = await this.getAllRecipes();
+    return recipes.find(recipe => recipe.isRecipeOfWeek) || null;
   }
 
-  getRecipesByFolder(folder: string): Recipe[] {
-    return this.getAllRecipes().filter(recipe => recipe.folder === folder);
+  async getRecipesByFolder(folder: string): Promise<Recipe[]> {
+    const recipes = await this.getAllRecipes();
+    return recipes.filter(recipe => recipe.folder === folder);
   }
 
   addRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Recipe {
@@ -88,8 +101,8 @@ class RecipeService {
     return true;
   }
 
-  searchRecipes(query: string, folder?: string): Recipe[] {
-    const recipes = folder ? this.getRecipesByFolder(folder) : this.getAllRecipes();
+  async searchRecipes(query: string, folder?: string): Promise<Recipe[]> {
+    const recipes = folder ? await this.getRecipesByFolder(folder) : await this.getAllRecipes();
     const lower = (query || '').toLowerCase();
     return recipes.filter(r =>
       r.title.toLowerCase().includes(lower) ||
@@ -145,8 +158,8 @@ class RecipeService {
   importRecipes(jsonData: string): void { const parsed = JSON.parse(jsonData); this.saveRecipes(parsed); }
   clearAllRecipes(): void { if (typeof localStorage !== 'undefined') localStorage.removeItem(this.STORAGE_KEY); }
 
-  getRecipeStats(): { total: number; byFolder: Record<string, number>; beginners: number; recipeOfWeek: number; } {
-    const recipes = this.getAllRecipes();
+  async getRecipeStats(): Promise<{ total: number; byFolder: Record<string, number>; beginners: number; recipeOfWeek: number; }> {
+    const recipes = await this.getAllRecipes();
     const byFolder: Record<string, number> = {};
     recipes.forEach(r => { byFolder[r.folder] = (byFolder[r.folder] || 0) + 1; });
     return { total: recipes.length, byFolder, beginners: recipes.filter(r => r.isBeginner).length, recipeOfWeek: recipes.filter(r => r.isRecipeOfWeek).length };
