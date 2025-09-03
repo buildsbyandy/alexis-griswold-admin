@@ -77,9 +77,35 @@ class VlogService {
   async getFeaturedVlog(): Promise<VlogVideo | null> { const v = await this.getAllVlogs(); return v.find(x => x.isFeatured) || v[0] || null; }
   async getDisplayVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
   async getPersonalVlogs(): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => (v as any).type === 'PERSONAL'); }
-  addVlog(input: Omit<VlogVideo,'id'|'createdAt'|'updatedAt'>): boolean { try { const v = this.getAllVlogs(); v.push({ ...input, id: Date.now().toString(), createdAt: new Date(), updatedAt: new Date() }); this.saveVlogs(v); return true; } catch { return false; } }
-  updateVlog(id: string, u: Partial<VlogVideo>): boolean { try { const v=this.getAllVlogs(); const i=v.findIndex(x=>x.id===id); if(i===-1) return false; v[i]={...v[i],...u,updatedAt:new Date()}; this.saveVlogs(v); return true;} catch {return false;} }
-  deleteVlog(id: string): boolean { try { const next=this.getAllVlogs().filter(v=>v.id!==id); this.saveVlogs(next); return true;} catch {return false;} }
+  addVlog(input: Omit<VlogVideo,'id'|'createdAt'|'updatedAt'>): boolean { 
+    try { 
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
+      const v = stored ? JSON.parse(stored) : this.getDefaultVlogs();
+      v.push({ ...input, id: Date.now().toString(), createdAt: new Date(), updatedAt: new Date() }); 
+      this.saveVlogs(v); 
+      return true; 
+    } catch { return false; } 
+  }
+  updateVlog(id: string, u: Partial<VlogVideo>): boolean { 
+    try { 
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
+      const v = stored ? JSON.parse(stored) : this.getDefaultVlogs();
+      const i=v.findIndex((x: any)=>x.id===id); 
+      if(i===-1) return false; 
+      v[i]={...v[i],...u,updatedAt:new Date()}; 
+      this.saveVlogs(v); 
+      return true;
+    } catch {return false;} 
+  }
+  deleteVlog(id: string): boolean { 
+    try { 
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
+      const v = stored ? JSON.parse(stored) : this.getDefaultVlogs();
+      const next=v.filter((vlog: any)=>vlog.id!==id); 
+      this.saveVlogs(next); 
+      return true;
+    } catch {return false;} 
+  }
   getYouTubeChannelUrl(): string { return this.YOUTUBE_CHANNEL_URL; }
   getInstagramUrl(): string { return this.INSTAGRAM_URL; }
   getSpotifyProfileUrl(): string { return this.SPOTIFY_PROFILE_URL; }
@@ -97,7 +123,11 @@ class VlogService {
   deleteAlbum(id: string): boolean { try { const list=this.getAllAlbums().filter(a=>a.id!==id); this.saveAlbums(list); return true;} catch {return false;} }
   addPhotoToAlbum(albumId: string, photo: Omit<Photo,'id'>): boolean { try { const albums=this.getAllAlbums(); const i=albums.findIndex(a=>a.id===albumId); if(i===-1) return false; const newPhoto: Photo = { ...photo, id: Date.now().toString() }; albums[i].photos.push(newPhoto); albums[i].updatedAt=new Date(); this.saveAlbums(albums); return true;} catch {return false;} }
   removePhotoFromAlbum(albumId: string, photoId: string): boolean { try { const albums=this.getAllAlbums(); const i=albums.findIndex(a=>a.id===albumId); if(i===-1) return false; albums[i].photos = albums[i].photos.filter(p=>p.id!==photoId); albums[i].updatedAt=new Date(); this.saveAlbums(albums); return true;} catch {return false;} }
-  exportData(): string { return JSON.stringify({ vlogs: this.getAllVlogs(), albums: this.getAllAlbums() }, null, 2); }
+  exportData(): string { 
+    const storedVlogs = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
+    const vlogs = storedVlogs ? JSON.parse(storedVlogs) : this.getDefaultVlogs();
+    return JSON.stringify({ vlogs, albums: this.getAllAlbums() }, null, 2); 
+  }
   importData(json: string): boolean { try { const d=JSON.parse(json); if(d.vlogs) this.saveVlogs(d.vlogs); if(d.albums) this.saveAlbums(d.albums); return true;} catch {return false;} }
   async getStats() { const v=await this.getAllVlogs(); const a=this.getAllAlbums(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.isFeatured).length, totalAlbums: a.length, totalPhotos: a.reduce((s,al)=>s+al.photos.length,0), categories: a.reduce((m,al)=>{(m as any)[al.category]=(m as any)[al.category] ? (m as any)[al.category]+1 : 1; return m; }, {} as Record<string, number>) } }
 

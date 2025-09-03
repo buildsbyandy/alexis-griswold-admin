@@ -90,22 +90,28 @@ class RecipeService {
     return recipes.filter(recipe => recipe.folder === folder);
   }
 
-  addRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Recipe {
+  async addRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Promise<Recipe> {
+    // For now, use localStorage for adding (API endpoint would need POST implementation)
     const newRecipe: Recipe = {
       ...recipe,
       id: Date.now().toString(),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    const recipes = this.getAllRecipes();
+    
+    // Fallback to localStorage for adding recipes
+    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
+    const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
     recipes.push(newRecipe);
     this.saveRecipes(recipes);
     return newRecipe;
   }
 
-  updateRecipe(id: string, updates: Partial<Recipe>): Recipe | null {
-    const recipes = this.getAllRecipes();
-    const index = recipes.findIndex(recipe => recipe.id === id);
+  async updateRecipe(id: string, updates: Partial<Recipe>): Promise<Recipe | null> {
+    // Fallback to localStorage for updating recipes
+    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
+    const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
+    const index = recipes.findIndex((recipe: Recipe) => recipe.id === id);
     if (index === -1) return null;
     const updated: Recipe = { ...recipes[index], ...updates, updatedAt: new Date() };
     recipes[index] = updated;
@@ -113,9 +119,11 @@ class RecipeService {
     return updated;
   }
 
-  deleteRecipe(id: string): boolean {
-    const recipes = this.getAllRecipes();
-    const filtered = recipes.filter(recipe => recipe.id !== id);
+  async deleteRecipe(id: string): Promise<boolean> {
+    // Fallback to localStorage for deleting recipes
+    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
+    const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
+    const filtered = recipes.filter((recipe: Recipe) => recipe.id !== id);
     if (filtered.length === recipes.length) return false;
     this.saveRecipes(filtered);
     return true;
@@ -174,7 +182,7 @@ class RecipeService {
     if (typeof localStorage !== 'undefined') localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recipes));
   }
 
-  exportRecipes(): string { return JSON.stringify(this.getAllRecipes(), null, 2); }
+  async exportRecipes(): Promise<string> { const recipes = await this.getAllRecipes(); return JSON.stringify(recipes, null, 2); }
   importRecipes(jsonData: string): void { const parsed = JSON.parse(jsonData); this.saveRecipes(parsed); }
   clearAllRecipes(): void { if (typeof localStorage !== 'undefined') localStorage.removeItem(this.STORAGE_KEY); }
 
