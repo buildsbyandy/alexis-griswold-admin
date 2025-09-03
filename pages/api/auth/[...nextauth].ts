@@ -10,6 +10,17 @@ const AUTHORIZED_ADMINS = (process.env.ALLOWED_ADMIN_EMAILS || '')
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  logger: {
+    error(code, metadata) {
+      console.error('NextAuth Error:', code, metadata)
+    },
+    warn(code) {
+      console.warn('NextAuth Warning:', code)
+    },
+    debug(code, metadata) {
+      console.log('NextAuth Debug:', code, metadata)
+    }
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -25,9 +36,15 @@ export const authOptions: NextAuthOptions = {
   jwt: { maxAge: 30 * 24 * 60 * 60 },
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider !== 'google') return false
+      console.log('SignIn callback:', { user: user?.email, provider: account?.provider })
+      if (account?.provider !== 'google') {
+        console.log('Provider is not Google:', account?.provider)
+        return false
+      }
       const email = (user.email || '').toLowerCase()
-      return !!email && AUTHORIZED_ADMINS.includes(email)
+      const isAuthorized = !!email && AUTHORIZED_ADMINS.includes(email)
+      console.log('Authorization check:', { email, isAuthorized, allowedEmails: AUTHORIZED_ADMINS })
+      return isAuthorized
     },
     async jwt({ token, user }) {
       if (user?.email) token.role = AUTHORIZED_ADMINS.includes(user.email.toLowerCase()) ? 'ADMIN' : 'USER'
@@ -46,7 +63,7 @@ export const authOptions: NextAuthOptions = {
       return `${baseUrl}/`
     },
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: true, // Enable debug mode to see what's failing
 }
 
 export default NextAuth(authOptions)
