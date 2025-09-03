@@ -40,8 +40,10 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
+      // Always redirect to home page after successful sign in
       if (url.startsWith('/')) return `${baseUrl}${url}`
-      return baseUrl
+      if (url.startsWith(baseUrl)) return url
+      return `${baseUrl}/`
     },
   },
   debug: process.env.NODE_ENV === 'development',

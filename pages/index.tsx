@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSession, signIn } from 'next-auth/react';
-import { ALLOWED_ADMIN_EMAILS } from '../lib/env';
+import { useSession } from 'next-auth/react';
+import { withAdminSSP } from '../lib/auth/withAdminSSP';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import recipeService from '../lib/services/recipeService';
@@ -93,36 +93,13 @@ const AdminContent: React.FC = () => {
   );
 };
 
-// Main component that handles authentication
+// Main component - now protected by server-side auth
 const Admin: React.FC = () => {
-  const { data: session, status } = useSession();
-  const isLoadingSession = status === 'loading';
-  const allowed = (ALLOWED_ADMIN_EMAILS || '')
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (isLoadingSession) {
-    return <div className="p-6">Loading...</div>;
-  }
-
-  if (!session) {
-    return (
-      <div className="p-6">
-        <h1 className="text-xl mb-4 font-serif">Admin Login Required</h1>
-        <button className="px-4 py-2 bg-black text-white rounded" onClick={() => signIn('google')}>
-          Sign in with Google
-        </button>
-      </div>
-    );
-  }
-
-  const userEmail = (session.user?.email || '').toLowerCase();
-  if (!userEmail || !allowed.includes(userEmail)) {
-    return <div className="p-6 text-red-700">Access denied</div>;
-  }
-
   return <AdminContent />;
 };
+
+export const getServerSideProps = withAdminSSP(async () => {
+  return { props: {} };
+});
 
 export default Admin;
