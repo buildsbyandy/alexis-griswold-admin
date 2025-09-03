@@ -1,0 +1,41 @@
+{
+  "name": "alexis-griswold-admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "dev:db": "prisma db push",
+    "deploy:db": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "next": "^15.4.7",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "next-auth": "^4.24.11",
+    "@next-auth/prisma-adapter": "^1.0.7",
+    "@prisma/client": "^5.18.0",
+    "@supabase/supabase-js": "^2.55.0",
+    "framer-motion": "^12.18.1",
+    "react-hot-toast": "^2.6.0",
+    "react-icons": "^5.0.1",
+    "@heroicons/react": "^2.1.5",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.35",
+    "autoprefixer": "^10.4.18",
+    "@types/node": "^24.2.1",
+    "prisma": "^5.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "latest"
+  }
+}
+
