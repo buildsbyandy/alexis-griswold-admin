@@ -213,16 +213,16 @@ const AdminContent: React.FC = () => {
                 <div className="text-sm text-gray-600">Total Recipes</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-green-600">{stats.published}</div>
-                <div className="text-sm text-gray-600">Published</div>
+                <div className="text-2xl font-bold text-green-600">{stats.beginners}</div>
+                <div className="text-sm text-gray-600">Beginner Recipes</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-yellow-600">{stats.draft}</div>
-                <div className="text-sm text-gray-600">Drafts</div>
+                <div className="text-2xl font-bold text-yellow-600">{stats.recipeOfWeek}</div>
+                <div className="text-sm text-gray-600">Recipe of Week</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-purple-600">{stats.featuredCount}</div>
-                <div className="text-sm text-gray-600">Featured</div>
+                <div className="text-2xl font-bold text-purple-600">{Object.keys(stats.byFolder).length}</div>
+                <div className="text-sm text-gray-600">Folders</div>
               </div>
             </div>
 
@@ -401,16 +401,16 @@ const AdminContent: React.FC = () => {
                 <div className="text-sm text-gray-600">Total Products</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-green-600">{sfStats.published}</div>
+                <div className="text-2xl font-bold text-green-600">{sfStats.byStatus.published}</div>
                 <div className="text-sm text-gray-600">Published</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-purple-600">{sfStats.featured}</div>
-                <div className="text-sm text-gray-600">Alexis Picks</div>
+                <div className="text-2xl font-bold text-purple-600">{sfStats.favorites}</div>
+                <div className="text-sm text-gray-600">Favorites</div>
               </div>
               <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-orange-600">{sfStats.topClicked}</div>
-                <div className="text-sm text-gray-600">Top Clicked</div>
+                <div className="text-2xl font-bold text-orange-600">{sfStats.byStatus.draft}</div>
+                <div className="text-sm text-gray-600">Drafts</div>
               </div>
             </div>
 
