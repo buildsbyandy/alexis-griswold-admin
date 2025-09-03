@@ -2,6 +2,8 @@
 
 Admin dashboard for managing content on the Alexis Griswold website.
 
+**Status**: Deployed and operational ✅
+
 ## Features
 - Content management for recipes, vlogs, storefront
 - NextAuth authentication with Google OAuth
