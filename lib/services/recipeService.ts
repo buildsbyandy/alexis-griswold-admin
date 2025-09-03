@@ -35,7 +35,27 @@ class RecipeService {
       const response = await fetch('/api/recipes');
       if (!response.ok) throw new Error('Failed to fetch recipes');
       const data = await response.json();
-      return data.recipes || [];
+      // Map database fields to service interface
+      return (data.recipes || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        slug: r.slug,
+        description: r.description || '',
+        category: r.category || '',
+        folder: r.folder || '',
+        isBeginner: r.isBeginner || false,
+        isRecipeOfWeek: r.isRecipeOfWeek || false,
+        images: r.images || [],
+        ingredients: r.ingredients || [],
+        instructions: r.instructions || [],
+        prepTime: r.prepTime || '',
+        cookTime: r.cookTime || '',
+        servings: r.servings || 1,
+        difficulty: r.difficulty || 'Easy',
+        tags: r.tags || [],
+        createdAt: new Date(r.created_at),
+        updatedAt: new Date(r.updated_at)
+      }));
     } catch (error) {
       console.error('Error fetching recipes:', error);
       // Fallback to localStorage for development

@@ -39,21 +39,21 @@ class StorefrontService {
       // Map database fields to service interface
       return (data.products || []).map((p: any) => ({
         id: p.id,
-        title: p.product_title,
+        title: p.product_title || '',
         slug: p.slug || '',
-        category: p.category_name || 'home' as any,
-        amazonUrl: p.amazon_url,
+        category: this.mapCategoryFromDB(p.category_name) as any,
+        amazonUrl: p.amazon_url || '',
         image: p.product_image_path || '',
-        imageAlt: p.imageAlt || '',
-        noteShort: p.noteShort || '',
-        noteLong: p.noteLong,
-        tags: p.tags || [],
+        imageAlt: p.imageAlt || p.product_title || '',
+        noteShort: p.noteShort || p.product_description || '',
+        noteLong: p.noteLong || '',
+        tags: Array.isArray(p.tags) ? p.tags : [],
         isAlexisPick: p.isAlexisPick || false,
         showInFavorites: p.showInFavorites || false,
         status: p.status as any || 'draft',
         sortWeight: p.sortWeight || 0,
         usedIn: p.usedIn || [],
-        pairsWith: p.pairsWith || [],
+        pairsWith: Array.isArray(p.pairsWith) ? p.pairsWith : [],
         createdAt: p.created_at,
         updatedAt: p.updated_at,
         clicks30d: p.clicks30d || 0
@@ -87,6 +87,16 @@ class StorefrontService {
   private save(list: StorefrontProduct[]) { if (typeof localStorage==='undefined') return; localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list)); }
   private generateId() { return 'sf_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
   slugify(input: string) { return (input||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)+/g,''); }
+  private mapCategoryFromDB(dbCategory: string): string {
+    // Map database category names to service category names
+    const mapping: Record<string, string> = {
+      'Food': 'food',
+      'Healing': 'healing', 
+      'Home': 'home',
+      'Personal Care': 'personal-care'
+    };
+    return mapping[dbCategory] || 'home';
+  }
   private ensureUniqueSlug(base: string): string { const all=this.getAll(); let slug=base; let i=1; const existing=new Set(all.map(p=>p.slug)); while(existing.has(slug)){ slug=`${base}-${i++}`; } return slug; }
   private nextSortWeightForCategory(category: StorefrontProduct['category']): number { const all=this.getAll().filter(p=>p.category===category); if(!all.length) return 0; return Math.max(...all.map(p=>p.sortWeight||0))+1; }
 }
