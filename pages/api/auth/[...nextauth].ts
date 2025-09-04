@@ -1,4 +1,5 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth'
+import { encode } from 'next-auth/jwt'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prisma } from '../../../lib/prisma'
@@ -32,8 +33,35 @@ export const authOptions: NextAuthOptions = {
     signIn: '/auth/signin',
     error: '/auth/error',
   },
-  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
-  jwt: { maxAge: 30 * 24 * 60 * 60 },
+  session: { 
+    strategy: 'jwt', 
+    maxAge: 4 * 60 * 60, // 4 hours for admin security
+    updateAge: 1 * 60 * 60, // Update session every 1 hour if active
+  },
+  jwt: { 
+    maxAge: 4 * 60 * 60, // 4 hours
+    // Add extra security claims
+    encode: async ({ token, secret }) => {
+      // Add timestamp for additional security checks
+      if (token) {
+        (token as any).lastActivity = Math.floor(Date.now() / 1000);
+      }
+      return encode({ token, secret });
+    },
+  },
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        // Session expires when browser closes (no persistent cookie)
+        maxAge: undefined, 
+      },
+    },
+  },
   callbacks: {
     async signIn({ user, account }) {
       console.log('SignIn callback:', { user: user?.email, provider: account?.provider })

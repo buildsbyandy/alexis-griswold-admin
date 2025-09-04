@@ -7,6 +7,9 @@ export interface Recipe {
   folder: string;
   isBeginner: boolean;
   isRecipeOfWeek: boolean;
+  isPublished: boolean;
+  isFavorite: boolean;
+  imageUrl?: string;
   images: string[];
   ingredients: string[];
   instructions: string[];
@@ -150,6 +153,9 @@ class RecipeService {
       folder: this.mapCategoryToFolder(legacy.category, legacy.label),
       isBeginner: this.isBeginnerRecipe(legacy.title),
       isRecipeOfWeek: false,
+      isPublished: true,
+      isFavorite: false,
+      imageUrl: legacy.images[0] || undefined,
       images: legacy.images,
       ingredients: [''],
       instructions: [''],

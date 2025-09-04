@@ -7,11 +7,15 @@ export interface StorefrontProduct {
   category: 'food' | 'healing' | 'home' | 'personal-care';
   amazonUrl: string;
   image: string;
+  imageUrl?: string;
   imageAlt: string;
   noteShort: string;
   noteLong?: string;
+  description?: string;
+  price?: number;
   tags: string[];
   isAlexisPick: boolean;
+  isFavorite?: boolean;
   showInFavorites: boolean;
   status: StorefrontStatus;
   sortWeight: number;
