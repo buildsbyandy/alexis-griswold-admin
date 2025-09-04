@@ -379,7 +379,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   onChange={(e) => setFormData(prev => ({ ...prev, isAlexisPick: e.target.checked }))}
                   className="mr-2"
                 />
-                <span className="text-sm text-[#383B26]">Alexis' Pick</span>
+                <span className="text-sm text-[#383B26]">Alexis&apos; Pick</span>
               </label>
               <label className="flex items-center">
                 <input
