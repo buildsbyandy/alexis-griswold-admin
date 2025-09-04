@@ -6,9 +6,14 @@ import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
 import RecipeModal from '../components/modals/RecipeModal';
 import VlogModal from '../components/modals/VlogModal';
+import HealingProductModal, { type HealingProduct } from '../components/modals/HealingProductModal';
+import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
+import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
+import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
 import vlogService, { type VlogVideo } from '../lib/services/vlogService';
+import healingService from '../lib/services/healingService';
 import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
@@ -24,6 +29,14 @@ const AdminContent: React.FC = () => {
   const [editingVlog, setEditingVlog] = useState<VlogVideo | null>(null);
   const [isAddingVlog, setIsAddingVlog] = useState(false);
   const [vlogActiveTab, setVlogActiveTab] = useState<'hero' | 'videos' | 'gallery' | 'spotify'>('hero');
+  const [healingProducts, setHealingProducts] = useState<HealingProduct[]>([]);
+  const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProduct | null>(null);
+  const [isAddingHealingProduct, setIsAddingHealingProduct] = useState(false);
+  const [editingCarouselHeader, setEditingCarouselHeader] = useState<CarouselHeader | null>(null);
+  const [editingHealingFeaturedVideo, setEditingHealingFeaturedVideo] = useState<HealingFeaturedVideo | null>(null);
+  const [sfProducts, setSfProducts] = useState<StorefrontProduct[]>([]);
+  const [editingSfProduct, setEditingSfProduct] = useState<StorefrontProduct | null>(null);
+  const [isAddingSfProduct, setIsAddingSfProduct] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('all');
   const [stats, setStats] = useState({ total: 0, byFolder: {}, beginners: 0, recipeOfWeek: 0 });
@@ -150,6 +163,77 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  // Healing save functionality
+  const handleSaveHealingProduct = async (productData: Omit<HealingProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingHealingProduct) {
+        const success = await healingService.updateProduct(editingHealingProduct.id, productData);
+        if (!success) throw new Error('Failed to update healing product');
+      } else {
+        const success = await healingService.addProduct(productData);
+        if (!success) throw new Error('Failed to create healing product');
+      }
+      
+      // Reload products
+      const productsList = await healingService.getAllProducts();
+      setHealingProducts(productsList);
+
+      setIsAddingHealingProduct(false);
+      setEditingHealingProduct(null);
+    } catch (error) {
+      console.error('Error saving healing product:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveCarouselHeader = async (headerData: Omit<CarouselHeader, 'id' | 'updatedAt'>) => {
+    try {
+      const success = await healingService.updateCarouselHeader(headerData);
+      if (!success) throw new Error('Failed to update carousel header');
+      
+      setEditingCarouselHeader(null);
+    } catch (error) {
+      console.error('Error saving carousel header:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveHealingFeaturedVideo = async (videoData: Omit<HealingFeaturedVideo, 'id' | 'updatedAt'>) => {
+    try {
+      const success = await healingService.updateFeaturedVideo(videoData);
+      if (!success) throw new Error('Failed to update healing featured video');
+      
+      setEditingHealingFeaturedVideo(null);
+    } catch (error) {
+      console.error('Error saving healing featured video:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveStorefrontProduct = async (productData: Omit<StorefrontProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingSfProduct) {
+        // Update existing product - need to implement this in storefrontService
+        // const success = await storefrontService.updateProduct(editingSfProduct.id, productData);
+        // if (!success) throw new Error('Failed to update storefront product');
+      } else {
+        // Create new product - need to implement this in storefrontService  
+        // const success = await storefrontService.addProduct(productData);
+        // if (!success) throw new Error('Failed to create storefront product');
+      }
+      
+      // Reload products
+      const productsList = await storefrontService.getAll();
+      setSfProducts(productsList);
+
+      setIsAddingSfProduct(false);
+      setEditingSfProduct(null);
+    } catch (error) {
+      console.error('Error saving storefront product:', error);
+      throw error;
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
@@ -171,6 +255,9 @@ const AdminContent: React.FC = () => {
 
         const vlogsList = await vlogService.getAllVlogs();
         setVlogs(vlogsList);
+
+        const healingProductsList = await healingService.getAllProducts();
+        setHealingProducts(healingProductsList);
 
         const playlists = await vlogService.getAllPlaylists();
         setSpotifyStats({
@@ -813,7 +900,25 @@ const AdminContent: React.FC = () => {
                       <p className="text-sm text-[#8F907E]"><strong>Duration:</strong> 8:32</p>
                       <p className="text-sm text-[#8F907E]"><strong>Published:</strong> Jan 15, 2024</p>
                     </div>
-                    <button className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm">
+                    <button 
+                      onClick={() => {
+                        // Load current featured video data
+                        healingService.getFeaturedVideo().then(video => {
+                          setEditingHealingFeaturedVideo(video || {
+                            id: '',
+                            title: '',
+                            description: '',
+                            videoUrl: '',
+                            thumbnailUrl: '',
+                            duration: '',
+                            publishedAt: '',
+                            isActive: true,
+                            updatedAt: new Date()
+                          } as HealingFeaturedVideo);
+                        });
+                      }}
+                      className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm"
+                    >
                       Change Featured Video
                     </button>
                   </div>
@@ -1129,13 +1234,39 @@ const AdminContent: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="border rounded-lg p-4">
+                    <div className="border rounded-lg p-4 relative group">
                       <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 1: Candida Cleanse</h3>
                       <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
+                      <button
+                        onClick={() => setEditingCarouselHeader({
+                          id: 'part1',
+                          title: 'Gut Healing Part 1: Candida Cleanse',
+                          description: 'Educational videos for candida cleansing process',
+                          type: 'part1',
+                          isActive: true,
+                          updatedAt: new Date()
+                        })}
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <FaEdit />
+                      </button>
                     </div>
-                    <div className="border rounded-lg p-4">
+                    <div className="border rounded-lg p-4 relative group">
                       <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 2: Rebuild & Repair</h3>
                       <p className="text-sm text-[#8F907E]">Videos focused on rebuilding gut health after cleansing</p>
+                      <button
+                        onClick={() => setEditingCarouselHeader({
+                          id: 'part2',
+                          title: 'Gut Healing Part 2: Rebuild & Repair',
+                          description: 'Videos focused on rebuilding gut health after cleansing',
+                          type: 'part2',
+                          isActive: true,
+                          updatedAt: new Date()
+                        })}
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <FaEdit />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1161,7 +1292,10 @@ const AdminContent: React.FC = () => {
                       <h2 className="text-xl font-semibold text-[#383B26]">Healing Products & Supplements</h2>
                       <p className="text-[#8F907E] text-sm">Essential products to support your healing journey</p>
                     </div>
-                    <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
+                    <button 
+                      onClick={() => setIsAddingHealingProduct(true)}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                    >
                       <FaPlus className="mr-2" />
                       Add Product
                     </button>
@@ -1451,6 +1585,44 @@ const AdminContent: React.FC = () => {
         }}
         vlog={editingVlog}
         onSave={handleSaveVlog}
+      />
+
+      {/* Healing Product Modal */}
+      <HealingProductModal
+        isOpen={isAddingHealingProduct || !!editingHealingProduct}
+        onClose={() => {
+          setIsAddingHealingProduct(false);
+          setEditingHealingProduct(null);
+        }}
+        product={editingHealingProduct}
+        onSave={handleSaveHealingProduct}
+      />
+
+      {/* Carousel Header Modal */}
+      <CarouselHeaderModal
+        isOpen={!!editingCarouselHeader}
+        onClose={() => setEditingCarouselHeader(null)}
+        carouselHeader={editingCarouselHeader}
+        onSave={handleSaveCarouselHeader}
+      />
+
+      {/* Healing Featured Video Modal */}
+      <HealingFeaturedVideoModal
+        isOpen={!!editingHealingFeaturedVideo}
+        onClose={() => setEditingHealingFeaturedVideo(null)}
+        currentVideo={editingHealingFeaturedVideo}
+        onSave={handleSaveHealingFeaturedVideo}
+      />
+
+      {/* Storefront Product Modal */}
+      <StorefrontProductModal
+        isOpen={isAddingSfProduct || !!editingSfProduct}
+        onClose={() => {
+          setIsAddingSfProduct(false);
+          setEditingSfProduct(null);
+        }}
+        product={editingSfProduct}
+        onSave={handleSaveStorefrontProduct}
       />
     </div>
   );
