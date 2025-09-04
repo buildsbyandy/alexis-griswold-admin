@@ -3,9 +3,12 @@ import { useSession } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import FileUpload from '../components/ui/FileUpload';
+import RecipeModal from '../components/modals/RecipeModal';
+import VlogModal from '../components/modals/VlogModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
-import vlogService from '../lib/services/vlogService';
+import vlogService, { type VlogVideo } from '../lib/services/vlogService';
 import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
@@ -17,6 +20,10 @@ const AdminContent: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
+  const [vlogs, setVlogs] = useState<VlogVideo[]>([]);
+  const [editingVlog, setEditingVlog] = useState<VlogVideo | null>(null);
+  const [isAddingVlog, setIsAddingVlog] = useState(false);
+  const [vlogActiveTab, setVlogActiveTab] = useState<'hero' | 'videos' | 'gallery' | 'spotify'>('hero');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('all');
   const [stats, setStats] = useState({ total: 0, byFolder: {}, beginners: 0, recipeOfWeek: 0 });
@@ -88,6 +95,61 @@ const AdminContent: React.FC = () => {
   const [vlogStats, setVlogStats] = useState({ totalVlogs: 0, featuredVlogs: 0, totalAlbums: 0, totalPhotos: 0 });
   const [spotifyStats, setSpotifyStats] = useState({ totalPlaylists: 0, activePlaylists: 0 });
 
+  // Recipe save functionality
+  const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const response = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recipeData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save recipe');
+      
+      // Reload recipes
+      const recipesList = await recipeService.getAllRecipes();
+      setRecipes(recipesList);
+      
+      // Update stats
+      const recipeStats = await recipeService.getRecipeStats();
+      setStats(recipeStats);
+
+      setIsAddingRecipe(false);
+      setEditingRecipe(null);
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      throw error;
+    }
+  };
+
+  // Vlog save functionality
+  const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingVlog) {
+        // Update existing vlog
+        const success = await vlogService.updateVlog(editingVlog.id, vlogData);
+        if (!success) throw new Error('Failed to update vlog');
+      } else {
+        // Create new vlog
+        const success = await vlogService.addVlog(vlogData);
+        if (!success) throw new Error('Failed to create vlog');
+      }
+      
+      // Reload vlogs and stats
+      const vlogsList = await vlogService.getAllVlogs();
+      setVlogs(vlogsList);
+      
+      const vlogStatsData = await vlogService.getStats();
+      setVlogStats(vlogStatsData);
+
+      setIsAddingVlog(false);
+      setEditingVlog(null);
+    } catch (error) {
+      console.error('Error saving vlog:', error);
+      throw error;
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
@@ -107,11 +169,21 @@ const AdminContent: React.FC = () => {
         const vlogStatsData = await vlogService.getStats();
         setVlogStats(vlogStatsData);
 
+        const vlogsList = await vlogService.getAllVlogs();
+        setVlogs(vlogsList);
+
         const playlists = await vlogService.getAllPlaylists();
         setSpotifyStats({
           totalPlaylists: playlists.length,
           activePlaylists: playlists.filter(p => p.isActive).length
         });
+
+        // Load home content
+        const homeResponse = await fetch('/api/home');
+        if (homeResponse.ok) {
+          const homeData = await homeResponse.json();
+          setHomePageContent(homeData.content);
+        }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
         toast.error('Failed to load dashboard data');
@@ -224,11 +296,31 @@ const AdminContent: React.FC = () => {
                     Video Background
                   </h3>
                   <div className="bg-gray-100 p-4 rounded-lg">
-                    <div className="bg-gray-200 h-48 flex items-center justify-center rounded">
-                      <div className="text-center text-gray-500">
-                        <FaVideo className="mx-auto mb-2 text-2xl" />
-                        <p>Video Preview</p>
-                        <p className="text-sm">Current: /alexisHome.mp4</p>
+                    <div className="bg-gray-200 h-48 flex items-center justify-center rounded relative group">
+                      {homePageContent.videoBackground ? (
+                        <video 
+                          src={homePageContent.videoBackground} 
+                          className="w-full h-full object-cover rounded"
+                          muted
+                          loop
+                          controls
+                        />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <FaVideo className="mx-auto mb-2 text-2xl" />
+                          <p>No Video</p>
+                          <p className="text-sm">Upload a background video</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <FileUpload
+                          accept="video/*"
+                          uploadType="video"
+                          onUpload={(url) => setHomePageContent(prev => ({ ...prev, videoBackground: url }))}
+                          className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                        >
+                          Upload Video
+                        </FileUpload>
                       </div>
                     </div>
                     <div className="mt-3">
@@ -246,11 +338,29 @@ const AdminContent: React.FC = () => {
                     <span className="ml-2 px-2 py-1 text-xs bg-[#E3D4C2] text-[#383B26] rounded">Mobile & Fallback</span>
                   </h3>
                   <div className="bg-gray-100 p-4 rounded-lg">
-                    <div className="bg-gray-200 h-48 flex items-center justify-center rounded">
-                      <div className="text-center text-gray-500">
-                        <FaImage className="mx-auto mb-2 text-2xl" />
-                        <p>Image Preview</p>
-                        <p className="text-sm">Current: /public/images/home-fallback.jpg</p>
+                    <div className="bg-gray-200 h-48 flex items-center justify-center rounded relative group">
+                      {homePageContent.fallbackImage ? (
+                        <img 
+                          src={homePageContent.fallbackImage} 
+                          alt="Fallback Image"
+                          className="w-full h-full object-cover rounded"
+                        />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <FaImage className="mx-auto mb-2 text-2xl" />
+                          <p>No Image</p>
+                          <p className="text-sm">Upload a fallback image</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <FileUpload
+                          accept="image/*"
+                          uploadType="image"
+                          onUpload={(url) => setHomePageContent(prev => ({ ...prev, fallbackImage: url }))}
+                          className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                        >
+                          Upload Image
+                        </FileUpload>
                       </div>
                     </div>
                     <div className="mt-3">
@@ -311,9 +421,24 @@ const AdminContent: React.FC = () => {
                   </div>
                   
                   <button
-                    onClick={() => {
-                      setEditingHomeContent(false);
-                      toast.success('Homepage content updated!');
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/home', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(homePageContent)
+                        });
+                        
+                        if (response.ok) {
+                          setEditingHomeContent(false);
+                          toast.success('Homepage content saved successfully!');
+                        } else {
+                          throw new Error('Failed to save');
+                        }
+                      } catch (error) {
+                        toast.error('Failed to save homepage content');
+                        console.error('Save error:', error);
+                      }
                     }}
                     className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
                   >
@@ -592,7 +717,7 @@ const AdminContent: React.FC = () => {
               {/* Action Buttons */}
               <div className="flex space-x-3 mt-4">
                 <button
-                  onClick={() => setShowVlogModal(true)}
+                  onClick={() => setIsAddingVlog(true)}
                   className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                 >
                   <FaPlus className="mr-2" />
@@ -615,26 +740,33 @@ const AdminContent: React.FC = () => {
             {/* Vlog Section Navigation */}
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
               <div className="flex space-x-6 border-b">
-                <button className="px-4 py-2 border-b-2 border-[#B8A692] text-[#383B26] font-medium flex items-center">
-                  <FaStar className="mr-2" />
-                  Hero Section
-                </button>
-                <button className="px-4 py-2 border-b-2 border-transparent text-[#8F907E] hover:text-[#383B26] flex items-center">
-                  <FaVideo className="mr-2" />
-                  Video Carousels
-                </button>
-                <button className="px-4 py-2 border-b-2 border-transparent text-[#8F907E] hover:text-[#383B26] flex items-center">
-                  <FaImage className="mr-2" />
-                  Photo Gallery
-                </button>
-                <button className="px-4 py-2 border-b-2 border-transparent text-[#8F907E] hover:text-[#383B26] flex items-center">
-                  <FaVideo className="mr-2" />
-                  Spotify Section
-                </button>
+                {[
+                  { id: 'hero', name: 'Hero Section', icon: FaStar },
+                  { id: 'videos', name: 'Video Carousels', icon: FaVideo },
+                  { id: 'gallery', name: 'Photo Gallery', icon: FaImage },
+                  { id: 'spotify', name: 'Spotify Section', icon: FaVideo }
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setVlogActiveTab(tab.id as any)}
+                      className={`px-4 py-2 border-b-2 font-medium flex items-center transition-colors ${
+                        vlogActiveTab === tab.id
+                          ? 'border-[#B8A692] text-[#383B26]'
+                          : 'border-transparent text-[#8F907E] hover:text-[#383B26]'
+                      }`}
+                    >
+                      <Icon className="mr-2" />
+                      {tab.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Hero Section Content */}
+            {vlogActiveTab === 'hero' && (
             <div className="bg-white p-6 rounded-lg shadow-md mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -688,6 +820,108 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             </div>
+            )}
+
+            {/* Videos Tab */}
+            {vlogActiveTab === 'videos' && (
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-[#383B26]">Video Management</h2>
+                  <p className="text-[#8F907E] text-sm">Manage your YouTube videos and featured content</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddingVlog(true)}
+                  className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                >
+                  <FaPlus className="mr-2" />
+                  Add Video
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {vlogs.map((vlog) => (
+                  <div key={vlog.id} className="border rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <img src={vlog.thumbnailUrl} alt={vlog.title} className="w-24 h-16 object-cover rounded" />
+                      <div>
+                        <h3 className="font-medium text-[#383B26]">{vlog.title}</h3>
+                        <p className="text-sm text-[#8F907E]">{vlog.description}</p>
+                        <div className="flex items-center space-x-4 text-xs text-[#8F907E] mt-1">
+                          <span>{vlog.duration}</span>
+                          <span>{vlog.views} views</span>
+                          <span>{vlog.publishedAt}</span>
+                          {vlog.isFeatured && <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Featured</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setEditingVlog(vlog)}
+                        className="p-2 text-[#B8A692] hover:bg-gray-100 rounded"
+                      >
+                        <FaEdit />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this vlog?')) {
+                            vlogService.deleteVlog(vlog.id).then(() => {
+                              setVlogs(vlogs.filter(v => v.id !== vlog.id));
+                            });
+                          }
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            )}
+
+            {/* Photo Gallery Tab */}
+            {vlogActiveTab === 'gallery' && (
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-[#383B26]">Photo Gallery Management</h2>
+                  <p className="text-[#8F907E] text-sm">Organize your photo albums and collections</p>
+                </div>
+                <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
+                  <FaPlus className="mr-2" />
+                  Add Album
+                </button>
+              </div>
+              
+              <div className="text-center py-12 text-[#8F907E]">
+                <FaImage className="mx-auto text-4xl mb-4 opacity-50" />
+                <p>Photo Gallery management coming soon...</p>
+              </div>
+            </div>
+            )}
+
+            {/* Spotify Tab */}
+            {vlogActiveTab === 'spotify' && (
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-[#383B26]">Spotify Playlist Management</h2>
+                  <p className="text-[#8F907E] text-sm">Manage your featured Spotify playlists</p>
+                </div>
+                <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
+                  <FaPlus className="mr-2" />
+                  Add Playlist
+                </button>
+              </div>
+              
+              <div className="text-center py-12 text-[#8F907E]">
+                <FaVideo className="mx-auto text-4xl mb-4 opacity-50" />
+                <p>Spotify playlist management coming soon...</p>
+              </div>
+            </div>
+            )}
 
             {/* Content Analytics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1196,6 +1430,28 @@ const AdminContent: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Recipe Modal */}
+      <RecipeModal
+        isOpen={isAddingRecipe || !!editingRecipe}
+        onClose={() => {
+          setIsAddingRecipe(false);
+          setEditingRecipe(null);
+        }}
+        recipe={editingRecipe}
+        onSave={handleSaveRecipe}
+      />
+
+      {/* Vlog Modal */}
+      <VlogModal
+        isOpen={isAddingVlog || !!editingVlog}
+        onClose={() => {
+          setIsAddingVlog(false);
+          setEditingVlog(null);
+        }}
+        vlog={editingVlog}
+        onSave={handleSaveVlog}
+      />
     </div>
   );
 };

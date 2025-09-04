@@ -74,38 +74,78 @@ class VlogService {
       try { const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; return stored ? JSON.parse(stored) : this.getDefaultVlogs(); } catch { return this.getDefaultVlogs(); }
     }
   }
+
+  async addVlog(input: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
+    try {
+      // Map interface to database fields
+      const vlogData = {
+        title: input.title,
+        description: input.description,
+        thumbnail_url: input.thumbnailUrl,
+        published_at: input.publishedAt,
+        views: input.views,
+        duration: input.duration,
+        is_featured: input.isFeatured,
+        display_order: input.order
+      };
+
+      const response = await fetch('/api/vlogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vlogData)
+      });
+
+      if (!response.ok) throw new Error('Failed to create vlog');
+      return true;
+    } catch (error) {
+      console.error('Error adding vlog:', error);
+      return false;
+    }
+  }
+
+  async updateVlog(id: string, input: Partial<VlogVideo>): Promise<boolean> {
+    try {
+      // Map interface to database fields
+      const vlogData: any = {};
+      if (input.title !== undefined) vlogData.title = input.title;
+      if (input.description !== undefined) vlogData.description = input.description;
+      if (input.thumbnailUrl !== undefined) vlogData.thumbnail_url = input.thumbnailUrl;
+      if (input.publishedAt !== undefined) vlogData.published_at = input.publishedAt;
+      if (input.views !== undefined) vlogData.views = input.views;
+      if (input.duration !== undefined) vlogData.duration = input.duration;
+      if (input.isFeatured !== undefined) vlogData.is_featured = input.isFeatured;
+      if (input.order !== undefined) vlogData.display_order = input.order;
+
+      const response = await fetch(`/api/vlogs/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vlogData)
+      });
+
+      if (!response.ok) throw new Error('Failed to update vlog');
+      return true;
+    } catch (error) {
+      console.error('Error updating vlog:', error);
+      return false;
+    }
+  }
+
+  async deleteVlog(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/vlogs/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete vlog');
+      return true;
+    } catch (error) {
+      console.error('Error deleting vlog:', error);
+      return false;
+    }
+  }
   async getFeaturedVlog(): Promise<VlogVideo | null> { const v = await this.getAllVlogs(); return v.find(x => x.isFeatured) || v[0] || null; }
   async getDisplayVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
   async getPersonalVlogs(): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => (v as any).type === 'PERSONAL'); }
-  addVlog(input: Omit<VlogVideo,'id'|'createdAt'|'updatedAt'>): boolean { 
-    try { 
-      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
-      const v = stored ? JSON.parse(stored) : this.getDefaultVlogs();
-      v.push({ ...input, id: Date.now().toString(), createdAt: new Date(), updatedAt: new Date() }); 
-      this.saveVlogs(v); 
-      return true; 
-    } catch { return false; } 
-  }
-  updateVlog(id: string, u: Partial<VlogVideo>): boolean { 
-    try { 
-      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
-      const v = stored ? JSON.parse(stored) : this.getDefaultVlogs();
-      const i=v.findIndex((x: any)=>x.id===id); 
-      if(i===-1) return false; 
-      v[i]={...v[i],...u,updatedAt:new Date()}; 
-      this.saveVlogs(v); 
-      return true;
-    } catch {return false;} 
-  }
-  deleteVlog(id: string): boolean { 
-    try { 
-      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
-      const v = stored ? JSON.parse(stored) : this.getDefaultVlogs();
-      const next=v.filter((vlog: any)=>vlog.id!==id); 
-      this.saveVlogs(next); 
-      return true;
-    } catch {return false;} 
-  }
   getYouTubeChannelUrl(): string { return this.YOUTUBE_CHANNEL_URL; }
   getInstagramUrl(): string { return this.INSTAGRAM_URL; }
   getSpotifyProfileUrl(): string { return this.SPOTIFY_PROFILE_URL; }
