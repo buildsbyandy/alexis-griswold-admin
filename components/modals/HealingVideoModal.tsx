@@ -52,6 +52,19 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
     }
   }, [video]);
 
+  // Extract YouTube video ID from URL
+  const extractYouTubeId = (url: string): string | null => {
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
+  // Get YouTube thumbnail URL
+  const getYouTubeThumbnail = (url: string): string => {
+    const videoId = extractYouTubeId(url);
+    return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -72,8 +85,14 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
       return;
     }
 
+    // Auto-extract YouTube thumbnail if no custom thumbnail provided
+    const submitData = {
+      ...formData,
+      thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl)
+    };
+
     try {
-      await onSave(formData);
+      await onSave(submitData);
       onClose();
       toast.success(`Video ${video ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -211,7 +230,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="https://example.com/custom-thumbnail.jpg (optional)"
               />
-              <p className="text-xs text-gray-600 mt-1">Override YouTube&apos;s auto-generated thumbnail (leave blank to use default)</p>
+              <p className="text-xs text-gray-600 mt-1">Override YouTube&apos;s auto-generated thumbnail. Leave blank to automatically use YouTube&apos;s default thumbnail.</p>
             </div>
           </div>
 
