@@ -7,7 +7,3 @@ node_modules
 dist
 .vercel
 
-# Reference materials (not part of the codebase)
-old-site-reference/
-screenshots/
-REBUILD_NOTES.md
