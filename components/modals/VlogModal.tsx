@@ -58,6 +58,19 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     }
   }, [vlog]);
 
+  // Extract YouTube video ID from URL
+  const extractYouTubeId = (url: string): string | null => {
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
+  // Get YouTube thumbnail URL
+  const getYouTubeThumbnail = (url: string): string => {
+    const videoId = extractYouTubeId(url);
+    return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -77,8 +90,14 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       return;
     }
 
+    // Auto-extract YouTube thumbnail if no custom thumbnail provided
+    const submitData = {
+      ...formData,
+      thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl)
+    };
+
     try {
-      await onSave(formData);
+      await onSave(submitData);
       onClose();
       toast.success(`Vlog ${vlog ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -209,7 +228,8 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
 
             {/* Thumbnail Upload */}
             <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-3">Thumbnail Image *</label>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">Thumbnail Image (Optional)</label>
+              <p className="text-xs text-gray-600 mb-3">Upload a custom thumbnail to override YouTube&apos;s auto-generated thumbnail. Leave blank to use YouTube&apos;s default.</p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {formData.thumbnailUrl ? (
                   <div className="relative">
