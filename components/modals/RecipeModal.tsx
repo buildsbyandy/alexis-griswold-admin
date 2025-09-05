@@ -219,7 +219,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   value={formData.slug}
                   onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  placeholder="auto-generated-from-title"
                 />
+                <p className="text-xs text-gray-600 mt-1">URL-friendly version (auto-generated from title)</p>
               </div>
             </div>
 
@@ -229,12 +231,15 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                placeholder="Brief description of the recipe (shown in recipe cards and search results)"
               />
+              <p className="text-xs text-gray-600 mt-1">2-3 sentences describing what makes this recipe special</p>
             </div>
 
             {/* Image Upload */}
             <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-3">Recipe Image</label>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">Recipe Image</label>
+              <p className="text-xs text-gray-600 mb-3">Main image shown on recipe cards (recommended: 800x600px)</p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {formData.imageUrl ? (
                   <div className="relative">
@@ -281,6 +286,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   <option value="desserts">Desserts</option>
                   <option value="beverages">Beverages</option>
                 </select>
+                <p className="text-xs text-gray-600 mt-1">Recipe category for organization and filtering</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Difficulty</label>
@@ -302,7 +308,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   onChange={(e) => setFormData(prev => ({ ...prev, servings: parseInt(e.target.value) || 1 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="1"
+                  placeholder="4"
                 />
+                <p className="text-xs text-gray-600 mt-1">Number of people this recipe serves</p>
               </div>
             </div>
 
@@ -332,7 +340,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
             {/* Ingredients */}
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-[#383B26]">Ingredients</label>
                 <button
                   type="button"
@@ -343,6 +351,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   Add
                 </button>
               </div>
+              <p className="text-xs text-gray-600 mb-3">Include quantities and specify organic/brand preferences when relevant</p>
               <div className="space-y-2">
                 {formData.ingredients.map((ingredient, index) => (
                   <div key={index} className="flex gap-2">
@@ -350,7 +359,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                       type="text"
                       value={ingredient}
                       onChange={(e) => updateIngredient(index, e.target.value)}
-                      placeholder={`Ingredient ${index + 1}`}
+                      placeholder={index === 0 ? "e.g., 2 cups organic flour" : `Ingredient ${index + 1}`}
                       className="flex-1 p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                     />
                     {formData.ingredients.length > 1 && (
@@ -369,7 +378,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
             {/* Instructions */}
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-[#383B26]">Instructions</label>
                 <button
                   type="button"
@@ -380,6 +389,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   Add Step
                 </button>
               </div>
+              <p className="text-xs text-gray-600 mb-3">Clear step-by-step instructions - each step should be one action</p>
               <div className="space-y-3">
                 {formData.instructions.map((instruction, index) => (
                   <div key={index} className="flex gap-2">
@@ -389,7 +399,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                     <textarea
                       value={instruction}
                       onChange={(e) => updateInstruction(index, e.target.value)}
-                      placeholder={`Step ${index + 1}`}
+                      placeholder={index === 0 ? "Preheat oven to 350°F and grease a 9x13 baking dish..." : `Step ${index + 1}`}
                       className="flex-1 p-2 border border-gray-300 rounded-md h-20 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                     />
                     {formData.instructions.length > 1 && (
@@ -408,7 +418,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
             {/* Tags */}
             <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-3">Tags</label>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
+              <p className="text-xs text-gray-600 mb-3">Keywords to help users find this recipe (e.g., "gluten-free", "30-minute", "comfort food")</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {formData.tags.map((tag, index) => (
                   <span
@@ -432,7 +443,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  placeholder="Add a tag..."
+                  placeholder="e.g., gluten-free, dairy-free, quick"
                   className="flex-1 p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
                 <button

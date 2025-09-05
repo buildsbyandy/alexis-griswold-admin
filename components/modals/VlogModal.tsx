@@ -71,6 +71,12 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       return;
     }
 
+    // Validate URL format
+    if (!formData.youtubeUrl.startsWith('https://')) {
+      toast.error('YouTube URL must start with https://');
+      return;
+    }
+
     try {
       await onSave(formData);
       onClose();
@@ -111,9 +117,10 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="Enter vlog title..."
+                  placeholder="e.g., Morning Routine | What I Eat in a Day"
                   required
                 />
+                <p className="text-xs text-gray-600 mt-1">Engaging title that describes the vlog content</p>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
@@ -122,10 +129,10 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   value={formData.youtubeUrl}
                   onChange={(e) => setFormData(prev => ({ ...prev, youtubeUrl: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="https://www.youtube.com/watch?v=..."
+                  placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                   required
                 />
-                <p className="text-xs text-[#8F907E] mt-1">Paste any YouTube video URL. Thumbnail will be auto-generated.</p>
+                <p className="text-xs text-gray-600 mt-1">Full YouTube URL - thumbnail and video info will be auto-extracted</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel *</label>
@@ -157,7 +164,9 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   onChange={(e) => setFormData(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="0"
+                  placeholder="0"
                 />
+                <p className="text-xs text-gray-600 mt-1">Lower numbers appear first (0 = most recent)</p>
               </div>
             </div>
 
@@ -167,8 +176,9 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Enter vlog description..."
+                placeholder="Brief description of what viewers can expect in this vlog..."
               />
+              <p className="text-xs text-gray-600 mt-1">1-2 sentences summarizing the vlog content</p>
             </div>
 
             {/* Video Stats */}
@@ -182,6 +192,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   placeholder="e.g., 8:32"
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
+                <p className="text-xs text-gray-600 mt-1">Video length in MM:SS format</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Views</label>
@@ -192,6 +203,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   placeholder="e.g., 12.5K"
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
+                <p className="text-xs text-gray-600 mt-1">Current view count from YouTube (e.g., 1.2K, 450, 2.1M)</p>
               </div>
             </div>
 

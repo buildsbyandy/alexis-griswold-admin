@@ -134,9 +134,10 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Enter playlist name..."
+                placeholder="e.g., Morning Coffee Vibes"
                 required
               />
+              <p className="text-xs text-gray-600 mt-1">Display name for the playlist card</p>
             </div>
 
             {/* Mood/Theme */}
@@ -147,10 +148,10 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 value={formData.mood}
                 onChange={(e) => setFormData(prev => ({ ...prev, mood: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="e.g. Chill Vibes, Energy Boost, Feel Good..."
+                placeholder="e.g., Chill Vibes, Energy Boost, Feel Good"
                 required
               />
-              <p className="text-xs text-[#8F907E] mt-1">Describe the mood or theme of this playlist</p>
+              <p className="text-xs text-gray-600 mt-1">Short description of the playlist's mood or theme</p>
             </div>
 
             {/* Theme Color */}

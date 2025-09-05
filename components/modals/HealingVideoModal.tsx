@@ -112,9 +112,10 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="Enter video title..."
+                  placeholder="e.g., Day 1: Starting Your Candida Cleanse Journey"
                   required
                 />
+                <p className="text-xs text-gray-600 mt-1">Clear, descriptive title for this healing video</p>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
@@ -151,6 +152,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                   min="0"
                   placeholder="0"
                 />
+                <p className="text-xs text-gray-600 mt-1">Lower numbers appear first in the carousel</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Duration</label>
@@ -159,8 +161,9 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                   value={formData.duration}
                   onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="e.g. 12:45"
+                  placeholder="e.g., 12:45"
                 />
+                <p className="text-xs text-gray-600 mt-1">Video length in MM:SS format</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Views</label>
@@ -169,8 +172,9 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                   value={formData.views}
                   onChange={(e) => setFormData(prev => ({ ...prev, views: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="e.g. 2.4K"
+                  placeholder="e.g., 2.4K"
                 />
+                <p className="text-xs text-gray-600 mt-1">YouTube view count (e.g., 1.2K, 450, 2.1M)</p>
               </div>
               <div className="flex items-center">
                 <input
@@ -192,8 +196,9 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Enter video description..."
+                placeholder="Brief description of what this healing video covers..."
               />
+              <p className="text-xs text-gray-600 mt-1">1-2 sentences about the video content and what viewers will learn</p>
             </div>
 
             {/* Optional custom thumbnail */}
@@ -204,9 +209,9 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                 value={formData.thumbnailUrl}
                 onChange={(e) => setFormData(prev => ({ ...prev, thumbnailUrl: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Leave blank to use YouTube thumbnail automatically"
+                placeholder="https://example.com/custom-thumbnail.jpg (optional)"
               />
-              <p className="text-xs text-[#8F907E] mt-1">Optional: Override the auto-generated YouTube thumbnail</p>
+              <p className="text-xs text-gray-600 mt-1">Override YouTube's auto-generated thumbnail (leave blank to use default)</p>
             </div>
           </div>
 
