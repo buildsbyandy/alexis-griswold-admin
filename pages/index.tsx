@@ -381,9 +381,9 @@ const AdminContent: React.FC = () => {
 
   const handleSaveStorefrontProduct = async (productData: Omit<StorefrontProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      if (editingSfProduct) {
+      if (sfEditing && !sfIsAdding) {
         // Update existing product
-        await storefrontService.update(editingSfProduct.id, productData);
+        await storefrontService.update(sfEditing.id, productData);
       } else {
         // Create new product
         await storefrontService.add(productData);
@@ -397,8 +397,8 @@ const AdminContent: React.FC = () => {
       const storefrontStats = await storefrontService.getStats();
       setSfStats(storefrontStats);
 
-      setIsAddingSfProduct(false);
-      setEditingSfProduct(null);
+      setSfIsAdding(false);
+      setSfEditing(null);
     } catch (error) {
       console.error('Error saving storefront product:', error);
       throw error;
@@ -2116,243 +2116,342 @@ const AdminContent: React.FC = () => {
             {/* Header */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h1 className="text-3xl font-bold text-[#383B26] mb-2">Storefront Management</h1>
-              <p className="text-[#8F907E]">Manage your product catalog and storefront settings</p>
+              <p className="text-[#8F907E]">Add, edit, and organize products</p>
               
-              {/* Quick Stats */}
+              {/* Enhanced Stats */}
               <div className="grid grid-cols-2 gap-4 mt-4 md:grid-cols-4">
                 <div className="bg-[#E3D4C2] p-3 rounded-lg text-center">
                   <div className="text-2xl font-bold text-[#383B26]">{sfStats.total}</div>
-                  <div className="text-sm text-[#8F907E]">Total Products</div>
-                </div>
-                <div className="bg-[#E3D4C2] p-3 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-[#383B26]">{sfStats.byStatus.published}</div>
-                  <div className="text-sm text-[#8F907E]">Published</div>
+                  <div className="text-sm text-[#8F907E]">Total Items</div>
                 </div>
                 <div className="bg-[#E3D4C2] p-3 rounded-lg text-center">
                   <div className="text-2xl font-bold text-[#383B26]">{sfStats.favorites}</div>
                   <div className="text-sm text-[#8F907E]">Favorites</div>
                 </div>
                 <div className="bg-[#E3D4C2] p-3 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-[#383B26]">{sfStats.byStatus.draft}</div>
-                  <div className="text-sm text-[#8F907E]">Drafts</div>
+                  <div className="text-2xl font-bold text-[#383B26]">{sfStats.byStatus.published}</div>
+                  <div className="text-sm text-[#8F907E]">Published</div>
+                </div>
+                <div className="bg-[#E3D4C2] p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-[#383B26]">{sfStats.byStatus.archived}</div>
+                  <div className="text-sm text-[#8F907E]">Archived</div>
                 </div>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setSfIsAdding(true)}
-                  className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
-                >
-                  <FaPlus className="mr-2" />
-                  Add New Product
-                </button>
-                <button className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center">
-                  <FaDownload className="mr-2" />
-                  Export Catalog
-                </button>
-                <button className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center">
-                  <FaUploadIcon className="mr-2" />
-                  Import Products
-                </button>
-                <button className="px-4 py-2 bg-[#A0956C] text-white rounded-md hover:bg-[#8F907E] flex items-center">
-                  <FaStar className="mr-2" />
-                  Featured Products
-                </button>
+            {/* Enhanced Controls */}
+            <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => {
+                      const now = new Date().toISOString();
+                      const draft: StorefrontProduct = {
+                        id: 'tmp_' + Date.now(),
+                        title: '',
+                        slug: '',
+                        category: 'food',
+                        amazonUrl: '',
+                        image: '',
+                        imageAlt: '',
+                        noteShort: '',
+                        noteLong: '',
+                        description: '',
+                        price: undefined,
+                        tags: [],
+                        isAlexisPick: false,
+                        isFavorite: false,
+                        showInFavorites: false,
+                        status: 'draft',
+                        sortWeight: 0,
+                        usedIn: [],
+                        pairsWith: [],
+                        createdAt: now,
+                        updatedAt: now,
+                      };
+                      setSfEditing(draft);
+                      setSfIsAdding(true);
+                    }}
+                    className="bg-[#B89178] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#A67B62] transition-colors"
+                  >
+                    <FaPlus /> Add Product
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const dataStr = storefrontService.export();
+                        const blob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'storefront-backup.json';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success('Products exported!');
+                      } catch (error) {
+                        toast.error('Export failed');
+                      }
+                    }}
+                    className="bg-[#8F907E] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#7A7B6A] transition-colors"
+                  >
+                    <FaDownload /> Export
+                  </button>
+                  <button
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = '.json';
+                      input.onchange = async (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          try {
+                            const text = await file.text();
+                            storefrontService.import(text);
+                            const products = await storefrontService.getAll();
+                            setSfProducts(products);
+                            setSfItems(products);
+                            const stats = await storefrontService.getStats();
+                            setSfStats(stats);
+                            toast.success('Products imported!');
+                          } catch (error) {
+                            toast.error('Import failed');
+                          }
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="bg-[#8F907E] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#7A7B6A] transition-colors"
+                  >
+                    <FaUploadIcon /> Import
+                  </button>
+                </div>
+                
+                {/* Search */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={sfSearch}
+                    onChange={(e) => setSfSearch(e.target.value)}
+                    className="w-64 px-3 py-2 border border-gray-300 rounded-lg focus:border-[#B89178] focus:ring-1 focus:ring-[#B89178]"
+                  />
+                  <select
+                    value={sfCategory}
+                    onChange={(e) => setSfCategory(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:border-[#B89178] focus:ring-1 focus:ring-[#B89178]"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="food">Food</option>
+                    <option value="healing">Healing</option>
+                    <option value="home">Home</option>
+                    <option value="personal-care">Personal Care</option>
+                  </select>
+                  <select
+                    value={sfStatus}
+                    onChange={(e) => setSfStatus(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:border-[#B89178] focus:ring-1 focus:ring-[#B89178]"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Search and Filter */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={sfSearch}
-                  onChange={(e) => setSfSearch(e.target.value)}
-                  className="flex-1 p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                />
-                <select
-                  value={sfCategory}
-                  onChange={(e) => setSfCategory(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="food">Food</option>
-                  <option value="healing">Healing</option>
-                  <option value="home">Home</option>
-                  <option value="personal-care">Personal Care</option>
-                </select>
-                <select
-                  value={sfStatus}
-                  onChange={(e) => setSfStatus(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                >
-                  <option value="all">All Status</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Product Grid */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold text-[#383B26] mb-4">Product Catalog</h2>
-              
+            {/* Enhanced Product Grid */}
+            <div className="space-y-4">
               {sfItems.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sfItems
-                    .filter(product => {
-                      const matchesCategory = sfCategory === 'all' || product.category === sfCategory;
-                      const matchesStatus = sfStatus === 'all' || product.status === sfStatus;
-                      const matchesSearch = sfSearch === '' || product.title.toLowerCase().includes(sfSearch.toLowerCase());
-                      return matchesCategory && matchesStatus && matchesSearch;
-                    })
-                    .map(product => (
-                      <div key={product.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                sfItems
+                  .filter(product => {
+                    const matchesCategory = sfCategory === 'all' || product.category === sfCategory;
+                    const matchesStatus = sfStatus === 'all' || product.status === sfStatus;
+                    const matchesSearch = sfSearch === '' || 
+                      product.title.toLowerCase().includes(sfSearch.toLowerCase()) ||
+                      (product.tags && product.tags.some(tag => tag.toLowerCase().includes(sfSearch.toLowerCase())));
+                    return matchesCategory && matchesStatus && matchesSearch;
+                  })
+                  .map(product => (
+                    <div key={product.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-4">
                         {/* Product Image */}
-                        <div className="h-48 bg-gray-200 flex items-center justify-center">
-                          {product.imageUrl ? (
-                            <img src={product.imageUrl} alt={product.title} className="w-full h-full object-cover" />
+                        <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                          {(product.image || product.imageUrl) ? (
+                            <img 
+                              src={product.image || product.imageUrl} 
+                              alt={product.title} 
+                              className="w-full h-full object-cover" 
+                            />
                           ) : (
-                            <div className="text-center text-gray-500">
-                              <FaStore className="mx-auto mb-2 text-2xl" />
-                              <p className="text-sm">No Image</p>
+                            <div className="w-full h-full flex items-center justify-center">
+                              <FaStore className="text-gray-400 text-xl" />
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Product Info */}
-                        <div className="p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-semibold text-[#383B26] truncate">{product.title}</h3>
-                            {product.isFavorite && <FaStar className="text-yellow-500 ml-2" />}
-                          </div>
-                          
-                          <div className="space-y-1 mb-3">
-                            <p className="text-sm text-[#8F907E]">
-                              <strong>Category:</strong> {product.category}
-                            </p>
-                            <p className="text-sm text-[#8F907E]">
-                              <strong>Status:</strong> 
-                              <span className={`ml-1 px-2 py-1 text-xs rounded ${
-                                product.status === 'published' ? 'bg-green-100 text-green-800' :
-                                product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {product.status}
-                              </span>
-                            </p>
-                            <p className="text-lg font-bold text-[#383B26]">
-                              ${product.price}
-                            </p>
-                          </div>
-                          
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                            {product.description || 'No description available'}
-                          </p>
-                          
-                          {/* Action Buttons */}
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => setSfEditing(product)}
-                              className="flex-1 px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center justify-center"
-                            >
-                              <FaEdit className="mr-1" />
-                              Edit
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                if (confirm('Are you sure you want to delete this product?')) {
-                                  try {
-                                    await storefrontService.delete(product.id);
-                                    const productsList = await storefrontService.getAll();
-                                    setSfProducts(productsList);
-                                    setSfItems(productsList);
-                                    const storefrontStats = await storefrontService.getStats();
-                                    setSfStats(storefrontStats);
-                                    toast.success('Product deleted successfully!');
-                                  } catch (error) {
-                                    console.error('Delete error:', error);
-                                    toast.error('Failed to delete product');
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.title}</h3>
+                                {product.showInFavorites && (
+                                  <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">⭐ Favorite</span>
+                                )}
+                                {product.isAlexisPick && (
+                                  <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis' Pick</span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-4 text-sm text-[#8F907E] mb-2">
+                                <span className="bg-[#E3D4C2] px-2 py-1 rounded-full capitalize">{product.category.replace('-', ' ')}</span>
+                                <span className={`px-2 py-1 rounded-full ${
+                                  product.status === 'published' ? 'bg-green-100 text-green-800' :
+                                  product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {product.status}
+                                </span>
+                                {product.price && (
+                                  <span className="font-semibold text-[#B89178]">
+                                    ${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                                {product.noteShort || product.description || 'No description'}
+                              </p>
+                              
+                              {product.tags && product.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {product.tags.slice(0, 3).map((tag, index) => (
+                                    <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {product.tags.length > 3 && (
+                                    <span className="text-xs text-gray-500">+{product.tags.length - 3} more</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setSfEditing(product)}
+                                className="bg-[#B89178] text-white px-3 py-1.5 rounded-md text-sm hover:bg-[#A67B62] flex items-center gap-1"
+                              >
+                                <FaEdit className="text-xs" /> Edit
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete "${product.title}"?`)) {
+                                    try {
+                                      await storefrontService.delete(product.id);
+                                      const products = await storefrontService.getAll();
+                                      setSfProducts(products);
+                                      setSfItems(products);
+                                      const stats = await storefrontService.getStats();
+                                      setSfStats(stats);
+                                      toast.success('Product deleted');
+                                    } catch (error) {
+                                      toast.error('Delete failed');
+                                    }
                                   }
-                                }
-                              }}
-                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
-                              <FaTrash />
-                            </button>
+                                }}
+                                className="bg-red-500 text-white px-3 py-1.5 rounded-md text-sm hover:bg-red-600"
+                              >
+                                <FaTrash className="text-xs" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    ))
-                  }
-                </div>
+                    </div>
+                  ))
               ) : (
-                <div className="text-center py-12">
-                  <FaStore className="mx-auto text-6xl text-gray-300 mb-4" />
-                  <h3 className="text-xl font-medium text-gray-500 mb-2">No products yet</h3>
-                  <p className="text-gray-400 mb-6">Start building your storefront by adding your first product</p>
+                <div className="bg-white rounded-lg p-8 text-center">
+                  <FaStore className="mx-auto text-4xl text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">No products found</h3>
+                  <p className="text-gray-500 mb-4">
+                    {sfSearch || sfCategory !== 'all' || sfStatus !== 'all' 
+                      ? 'Try adjusting your search or filters' 
+                      : 'Add your first product to get started'}
+                  </p>
                   <button
                     onClick={() => setSfIsAdding(true)}
-                    className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
+                    className="bg-[#B89178] text-white px-4 py-2 rounded-lg hover:bg-[#A67B62] flex items-center gap-2 mx-auto"
                   >
-                    <FaPlus className="mr-2" />
-                    Add Your First Product
+                    <FaPlus /> Add Product
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold text-[#383B26] mb-4">Product Categories</h3>
+            {/* Enhanced Analytics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Categories</h3>
                 <div className="space-y-2">
                   {Object.entries(sfStats.byCategory).map(([category, count]) => (
-                    <div key={category} className="flex justify-between">
-                      <span className="text-[#8F907E] capitalize">{category}:</span>
+                    <div key={category} className="flex justify-between text-sm">
+                      <span className="capitalize">{category.replace('-', ' ')}</span>
                       <span className="font-medium">{count as number}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold text-[#383B26] mb-4">Status Breakdown</h3>
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Status</h3>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Published:</span>
+                  <div className="flex justify-between text-sm">
+                    <span>Published</span>
                     <span className="font-medium text-green-600">{sfStats.byStatus.published}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Drafts:</span>
+                  <div className="flex justify-between text-sm">
+                    <span>Drafts</span>
                     <span className="font-medium text-yellow-600">{sfStats.byStatus.draft}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Archived:</span>
+                  <div className="flex justify-between text-sm">
+                    <span>Archived</span>
                     <span className="font-medium text-gray-600">{sfStats.byStatus.archived}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold text-[#383B26] mb-4">Performance</h3>
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Favorites</h3>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-[#B89178] mb-1">{sfStats.favorites}</div>
+                  <div className="text-xs text-gray-500">Featured products</div>
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Quick Actions</h3>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Avg. Price:</span>
-                    <span className="font-medium">$34.99</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Best Seller:</span>
-                    <span className="font-medium">Kitchen Tools</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Last Updated:</span>
-                    <span className="font-medium">Today</span>
-                  </div>
+                  <button 
+                    onClick={() => setSfCategory('food')}
+                    className="w-full text-left text-sm hover:bg-gray-50 p-1 rounded"
+                  >
+                    View Food ({(sfStats.byCategory as any).food || 0})
+                  </button>
+                  <button 
+                    onClick={() => setSfStatus('draft')}
+                    className="w-full text-left text-sm hover:bg-gray-50 p-1 rounded"
+                  >
+                    View Drafts ({sfStats.byStatus.draft})
+                  </button>
+                  <button 
+                    onClick={() => setSfIsAdding(true)}
+                    className="w-full text-left text-sm hover:bg-gray-50 p-1 rounded text-[#B89178]"
+                  >
+                    + Add Product
+                  </button>
                 </div>
               </div>
             </div>
@@ -2444,12 +2543,12 @@ const AdminContent: React.FC = () => {
 
       {/* Storefront Product Modal */}
       <StorefrontProductModal
-        isOpen={isAddingSfProduct || !!editingSfProduct}
+        isOpen={sfIsAdding || !!sfEditing}
         onClose={() => {
-          setIsAddingSfProduct(false);
-          setEditingSfProduct(null);
+          setSfIsAdding(false);
+          setSfEditing(null);
         }}
-        product={editingSfProduct}
+        product={sfEditing}
         onSave={handleSaveStorefrontProduct}
       />
 

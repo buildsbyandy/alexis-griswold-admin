@@ -56,7 +56,8 @@
       "Read(/C:\\Users\\hello\\Desktop\\alexis-griswold-admin\\screenshots\\old-live\\dashboard\\OldHealing/**)",
       "Read(/C:\\Users\\hello\\Desktop\\alexis-griswold-admin\\screenshots\\old-live\\dashboard\\OldHealing/**)",
       "Read(/C:\\Users\\hello\\Desktop\\alexis-griswold-admin\\screenshots\\old-live\\dashboard/**)",
-      "Read(/C:\\Users\\hello\\Desktop\\alexis-griswold-admin\\screenshots\\old-live\\dashboard\\OldStorefront/**)"
+      "Read(/C:\\Users\\hello\\Desktop\\alexis-griswold-admin\\screenshots\\old-live\\dashboard\\OldStorefront/**)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
