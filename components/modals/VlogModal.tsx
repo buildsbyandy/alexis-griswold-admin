@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { FaTimes, FaSave, FaVideo } from 'react-icons/fa';
 import type { VlogVideo, VlogCarouselType } from '../../lib/services/vlogService';
 import { vlogService } from '../../lib/services/vlogService';
@@ -200,7 +201,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {formData.thumbnailUrl ? (
                   <div className="relative">
-                    <img src={formData.thumbnailUrl} alt="Vlog thumbnail" className="w-full h-48 object-cover rounded" />
+                    <Image src={formData.thumbnailUrl} alt="Vlog thumbnail" width={800} height={192} className="w-full h-48 object-cover rounded" />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                       <FileUpload
                         accept="image/*"

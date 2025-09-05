@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { FaTimes, FaSave, FaImage, FaPlus, FaTrash, FaUpload } from 'react-icons/fa';
 import type { PhotoAlbum, Photo } from '../../lib/services/vlogService';
 import FileUpload from '../ui/FileUpload';
@@ -236,9 +237,11 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {formData.photos.map((photo) => (
                     <div key={photo.id} className="flex items-center p-3 border border-gray-200 rounded-md">
-                      <img
+                      <Image
                         src={photo.src}
                         alt={photo.alt}
+                        width={64}
+                        height={64}
                         className="w-16 h-16 object-cover rounded mr-3"
                       />
                       <div className="flex-1">

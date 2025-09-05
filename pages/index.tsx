@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic } from 'react-icons/fa';
@@ -1390,7 +1391,7 @@ const AdminContent: React.FC = () => {
                 <div className="text-center py-12 text-[#8F907E]">
                   <FaImage className="mx-auto text-4xl mb-4 opacity-50" />
                   <p>No photo albums created yet</p>
-                  <p className="text-sm mt-2">Click "Add Album" to create your first photo album</p>
+                  <p className="text-sm mt-2">Click &quot;Add Album&quot; to create your first photo album</p>
                 </div>
               )}
             </div>

@@ -212,7 +212,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 required
               />
               <p className="text-xs text-[#8F907E] mt-1">
-                Paste the Spotify playlist or album URL. You can get this by clicking "Share" on Spotify.
+                Paste the Spotify playlist or album URL. You can get this by clicking &quot;Share&quot; on Spotify.
               </p>
             </div>
 

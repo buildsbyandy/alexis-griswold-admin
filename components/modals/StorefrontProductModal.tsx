@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { FaTimes, FaSave, FaStore, FaPlus, FaTrash } from 'react-icons/fa';
 import type { StorefrontProduct } from '../../lib/services/storefrontService';
 import FileUpload from '../ui/FileUpload';
@@ -280,7 +281,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {(formData.imageUrl || formData.image) ? (
                   <div className="relative">
-                    <img src={formData.imageUrl || formData.image} alt="Product" className="w-full h-48 object-cover rounded" />
+                    <Image src={formData.imageUrl || formData.image} alt="Product" width={800} height={192} className="w-full h-48 object-cover rounded" />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                       <FileUpload
                         accept="image/*"
