@@ -19,6 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { path, contentType, bucket = 'media' } = req.body as { path: string; contentType?: string; bucket?: string }
   if (!path) return res.status(400).json({ error: 'Missing path' })
 
+  // Whitelist allowed buckets for security
+  const allowedBuckets = ['public', 'media', 'private']
+  if (!allowedBuckets.includes(bucket)) {
+    return res.status(400).json({ error: 'Invalid bucket' })
+  }
+
   const { data, error } = await supabaseAdmin.storage
     .from(bucket)
     .createSignedUploadUrl(path)
