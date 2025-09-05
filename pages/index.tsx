@@ -14,6 +14,7 @@ import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/C
 import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
 import HealingVideoModal from '../components/modals/HealingVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
+import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
 import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist } from '../lib/services/vlogService';
@@ -37,7 +38,10 @@ const AdminContent: React.FC = () => {
   const [vlogHeroData, setVlogHeroData] = useState({
     title: 'VLOGS',
     subtitle: 'Step into my life — one video at a time.',
-    bodyText: 'Every moment captured, every story shared, every adventure lived. My vlogs are windows into a life filled with purpose, passion, and the simple joys that make each day extraordinary.'
+    bodyText: 'Every moment captured, every story shared, every adventure lived. My vlogs are windows into a life filled with purpose, passion, and the simple joys that make each day extraordinary.',
+    featuredVideoId: '',
+    featuredVideoTitle: '',
+    featuredVideoDate: ''
   });
   const [healingProducts, setHealingProducts] = useState<HealingProduct[]>([]);
   const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProduct | null>(null);
@@ -112,6 +116,8 @@ const AdminContent: React.FC = () => {
   const [healingActiveTab, setHealingActiveTab] = useState<'hero' | 'carousels' | 'products'>('hero');
   const [editingHealingHero, setEditingHealingHero] = useState(false);
   const [editingCarouselHeaders, setEditingCarouselHeaders] = useState(false);
+  const [showHealingFeaturedVideoSelector, setShowHealingFeaturedVideoSelector] = useState(false);
+  const [showVlogFeaturedVideoSelector, setShowVlogFeaturedVideoSelector] = useState(false);
   const [healingHeroData, setHealingHeroData] = useState({
     title: 'HEALING',
     subtitle: 'Your journey to wellness starts here.',
@@ -396,6 +402,41 @@ const AdminContent: React.FC = () => {
     } catch (error) {
       console.error('Error saving storefront product:', error);
       throw error;
+    }
+  };
+
+  // Featured video selection handlers
+  const handleSelectHealingFeaturedVideo = async (video: HealingVideo) => {
+    try {
+      // Update the healing hero data with the selected video
+      setHealingHeroData(prev => ({
+        ...prev,
+        featuredVideoId: video.youtubeId || video.id,
+        featuredVideoTitle: video.title,
+        featuredVideoDate: new Date().toISOString().split('T')[0]
+      }));
+      
+      toast.success('Featured video updated successfully!');
+    } catch (error) {
+      console.error('Error updating featured video:', error);
+      toast.error('Failed to update featured video');
+    }
+  };
+
+  const handleSelectVlogFeaturedVideo = async (video: VlogVideo) => {
+    try {
+      // Update the vlog hero data with the selected video
+      setVlogHeroData(prev => ({
+        ...prev,
+        featuredVideoId: video.youtube_id || video.id,
+        featuredVideoTitle: video.video_title,
+        featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0]
+      }));
+      
+      toast.success('Featured video updated successfully!');
+    } catch (error) {
+      console.error('Error updating featured video:', error);
+      toast.error('Failed to update featured video');
     }
   };
 
@@ -1227,9 +1268,25 @@ const AdminContent: React.FC = () => {
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm"><strong>Current:</strong> Latest vlog from video management</p>
-                          <p className="text-sm text-[#8F907E]">Automatically shows the most recent active video</p>
+                          {vlogHeroData.featuredVideoTitle ? (
+                            <>
+                              <p className="text-sm"><strong>Current:</strong> {vlogHeroData.featuredVideoTitle}</p>
+                              <p className="text-sm text-[#8F907E]">Published: {vlogHeroData.featuredVideoDate}</p>
+                              <p className="text-sm text-[#8F907E]">ID: {vlogHeroData.featuredVideoId}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm"><strong>Current:</strong> No featured video selected</p>
+                              <p className="text-sm text-[#8F907E]">Click below to select a featured video from your carousel</p>
+                            </>
+                          )}
                         </div>
+                        <button 
+                          onClick={() => setShowVlogFeaturedVideoSelector(true)}
+                          className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm"
+                        >
+                          Change Featured Video
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1707,10 +1764,23 @@ const AdminContent: React.FC = () => {
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm"><strong>Current:</strong> {healingHeroData.featuredVideoTitle}</p>
-                          <p className="text-sm text-[#8F907E]"><strong>Published:</strong> {healingHeroData.featuredVideoDate}</p>
+                          {healingHeroData.featuredVideoTitle ? (
+                            <>
+                              <p className="text-sm"><strong>Current:</strong> {healingHeroData.featuredVideoTitle}</p>
+                              <p className="text-sm text-[#8F907E]">Published: {healingHeroData.featuredVideoDate}</p>
+                              <p className="text-sm text-[#8F907E]">ID: {healingHeroData.featuredVideoId}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm"><strong>Current:</strong> No featured video selected</p>
+                              <p className="text-sm text-[#8F907E]">Click below to select a featured video from your carousel</p>
+                            </>
+                          )}
                         </div>
-                        <button className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm">
+                        <button 
+                          onClick={() => setShowHealingFeaturedVideoSelector(true)}
+                          className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm"
+                        >
                           Change Featured Video
                         </button>
                       </div>
@@ -2381,6 +2451,25 @@ const AdminContent: React.FC = () => {
         }}
         product={editingSfProduct}
         onSave={handleSaveStorefrontProduct}
+      />
+
+      {/* Featured Video Selector Modals */}
+      <FeaturedVideoSelectorModal
+        isOpen={showHealingFeaturedVideoSelector}
+        onClose={() => setShowHealingFeaturedVideoSelector(false)}
+        videos={healingVideos}
+        currentFeaturedVideoId={healingHeroData.featuredVideoId}
+        onSelect={handleSelectHealingFeaturedVideo}
+        title="Select Featured Video for Healing Page"
+      />
+
+      <FeaturedVideoSelectorModal
+        isOpen={showVlogFeaturedVideoSelector}
+        onClose={() => setShowVlogFeaturedVideoSelector(false)}
+        videos={vlogs}
+        currentFeaturedVideoId={vlogHeroData.featuredVideoId}
+        onSelect={handleSelectVlogFeaturedVideo}
+        title="Select Featured Video for Vlogs Page"
       />
     </div>
   );
