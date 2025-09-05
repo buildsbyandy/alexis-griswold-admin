@@ -103,7 +103,8 @@ const AdminContent: React.FC = () => {
     videoBackground: '/alexisHome.mp4',
     fallbackImage: '/public/images/home-fallback.jpg',
     videoTitle: 'Welcome to Alexis Griswold',
-    videoDescription: 'Experience wellness, recipes, and lifestyle content'
+    videoDescription: 'Experience wellness, recipes, and lifestyle content',
+    videoOpacity: 0.7 // Default opacity overlay for text readability
   });
 
   // Healing tab state
@@ -126,13 +127,15 @@ const AdminContent: React.FC = () => {
   // Recipe save functionality
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const response = await fetch('/api/recipes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recipeData)
-      });
-
-      if (!response.ok) throw new Error('Failed to save recipe');
+      if (editingRecipe) {
+        // Update existing recipe
+        const result = await recipeService.updateRecipe(editingRecipe.id, recipeData);
+        if (!result) throw new Error('Failed to update recipe');
+      } else {
+        // Create new recipe
+        const result = await recipeService.addRecipe(recipeData);
+        if (!result) throw new Error('Failed to create recipe');
+      }
       
       // Reload recipes
       const recipesList = await recipeService.getAllRecipes();
@@ -149,6 +152,78 @@ const AdminContent: React.FC = () => {
       throw error;
     }
   };
+
+  // Recipe delete functionality
+  const handleDeleteRecipe = async (recipeId: string) => {
+    if (window.confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+      try {
+        const success = await recipeService.deleteRecipe(recipeId);
+        if (success) {
+          const recipesList = await recipeService.getAllRecipes();
+          setRecipes(recipesList);
+          
+          const recipeStats = await recipeService.getRecipeStats();
+          setStats(recipeStats);
+        }
+      } catch (error) {
+        console.error('Error deleting recipe:', error);
+      }
+    }
+  };
+
+  // Recipe export functionality
+  const handleExportRecipes = async () => {
+    try {
+      const recipesDataString = await recipeService.exportRecipes();
+      const blob = new Blob([recipesDataString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recipes-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting recipes:', error);
+    }
+  };
+
+  // Recipe import functionality - simplified for now
+  const handleImportRecipes = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        try {
+          const text = await file.text();
+          const importedRecipes = JSON.parse(text);
+          
+          // Add each imported recipe individually
+          for (const recipe of importedRecipes) {
+            const { id, createdAt, updatedAt, ...recipeData } = recipe;
+            await recipeService.addRecipe(recipeData);
+          }
+          
+          // Reload recipes
+          const recipesList = await recipeService.getAllRecipes();
+          setRecipes(recipesList);
+          
+          const recipeStats = await recipeService.getRecipeStats();
+          setStats(recipeStats);
+          
+          alert(`Successfully imported ${importedRecipes.length} recipes!`);
+        } catch (error) {
+          console.error('Error importing recipes:', error);
+          alert('Error importing recipes. Please check the file format.');
+        }
+      }
+    };
+    input.click();
+  };
+
 
   // Vlog save functionality
   const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -481,13 +556,27 @@ const AdminContent: React.FC = () => {
                   <div className="bg-gray-100 p-4 rounded-lg">
                     <div className="bg-gray-200 h-48 flex items-center justify-center rounded relative group">
                       {homePageContent.videoBackground ? (
-                        <video 
-                          src={homePageContent.videoBackground} 
-                          className="w-full h-full object-cover rounded"
-                          muted
-                          loop
-                          controls
-                        />
+                        <div className="relative w-full h-full">
+                          <video 
+                            src={homePageContent.videoBackground} 
+                            className="w-full h-full object-cover rounded"
+                            muted
+                            loop
+                            controls
+                          />
+                          {/* Opacity Overlay Preview */}
+                          <div 
+                            className="absolute inset-0 bg-black rounded" 
+                            style={{ opacity: 1 - homePageContent.videoOpacity }}
+                          />
+                          {/* Text Preview Overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-white text-center">
+                              <p className="text-lg font-bold">Preview Text</p>
+                              <p className="text-sm">Opacity: {Math.round(homePageContent.videoOpacity * 100)}%</p>
+                            </div>
+                          </div>
+                        </div>
                       ) : (
                         <div className="text-center text-gray-500">
                           <FaVideo className="mx-auto mb-2 text-2xl" />
@@ -602,6 +691,34 @@ const AdminContent: React.FC = () => {
                       className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#383B26] mb-1">
+                      Video Opacity - {Math.round(homePageContent.videoOpacity * 100)}%
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={homePageContent.videoOpacity}
+                        onChange={(e) => setHomePageContent(prev => ({ ...prev, videoOpacity: parseFloat(e.target.value) }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        style={{
+                          background: `linear-gradient(to right, #B8A692 0%, #B8A692 ${homePageContent.videoOpacity * 100}%, #e5e5e5 ${homePageContent.videoOpacity * 100}%, #e5e5e5 100%)`
+                        }}
+                      />
+                      <div className="flex justify-between text-xs text-[#8F907E]">
+                        <span>0% (Fully Dark)</span>
+                        <span>50% (Balanced)</span>
+                        <span>100% (Fully Bright)</span>
+                      </div>
+                      <p className="text-xs text-[#8F907E] mt-2">
+                        Controls the brightness of the video background. Lower values make text more readable by darkening the video.
+                      </p>
+                    </div>
+                  </div>
                   
                   <button
                     onClick={async () => {
@@ -632,9 +749,47 @@ const AdminContent: React.FC = () => {
               )}
             </div>
 
+            {/* Media Recommendations */}
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+              <h2 className="text-xl font-semibold text-[#383B26] mb-4">📝 Media Recommendations</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-[#383B26] mb-3 flex items-center">
+                    <FaVideo className="mr-2 text-blue-600" />
+                    Background Video Guidelines
+                  </h3>
+                  <ul className="text-sm text-[#8F907E] space-y-2">
+                    <li><strong>Duration:</strong> 10-30 seconds (loops seamlessly)</li>
+                    <li><strong>Format:</strong> MP4 (H.264 codec) for best compatibility</li>
+                    <li><strong>Resolution:</strong> 1920x1080 (Full HD) recommended</li>
+                    <li><strong>File Size:</strong> Under 10MB for optimal loading</li>
+                    <li><strong>Frame Rate:</strong> 24-30 FPS</li>
+                    <li><strong>Audio:</strong> Remove audio track (muted autoplay)</li>
+                    <li><strong>Content:</strong> Avoid rapid movements or flashing</li>
+                    <li><strong>Opacity:</strong> Use 60-80% for text readability</li>
+                  </ul>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-[#383B26] mb-3 flex items-center">
+                    <FaImage className="mr-2 text-green-600" />
+                    Fallback Image Guidelines
+                  </h3>
+                  <ul className="text-sm text-[#8F907E] space-y-2">
+                    <li><strong>Format:</strong> JPEG or WebP for photos</li>
+                    <li><strong>Resolution:</strong> 1920x1080 (matches video aspect)</li>
+                    <li><strong>File Size:</strong> Under 500KB optimized</li>
+                    <li><strong>Quality:</strong> High quality but web-optimized</li>
+                    <li><strong>Content:</strong> Representative frame from video</li>
+                    <li><strong>Usage:</strong> Mobile devices & video load failures</li>
+                    <li><strong>Alt Text:</strong> Include descriptive text overlay</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             {/* Media Settings */}
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold text-[#383B26] mb-4">Media Settings</h2>
+              <h2 className="text-xl font-semibold text-[#383B26] mb-4">Media Settings & Behavior</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <h3 className="font-medium text-[#383B26] mb-2">Video Behavior</h3>
@@ -643,6 +798,7 @@ const AdminContent: React.FC = () => {
                     <li>• Muted by default</li>
                     <li>• Loops continuously</li>
                     <li>• Responsive scaling</li>
+                    <li>• Preload optimization</li>
                   </ul>
                 </div>
                 <div>
@@ -652,6 +808,7 @@ const AdminContent: React.FC = () => {
                     <li>• Optimized loading</li>
                     <li>• Touch-friendly</li>
                     <li>• Bandwidth conscious</li>
+                    <li>• Battery friendly</li>
                   </ul>
                 </div>
                 <div>
@@ -661,8 +818,20 @@ const AdminContent: React.FC = () => {
                     <li>• Slow connection</li>
                     <li>• Mobile devices</li>
                     <li>• User preference</li>
+                    <li>• Browser restrictions</li>
                   </ul>
                 </div>
+              </div>
+
+              {/* Performance Tips */}
+              <div className="mt-6 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+                <h4 className="font-medium text-[#383B26] mb-2">💡 Performance Tips</h4>
+                <ul className="text-sm text-[#8F907E] space-y-1">
+                  <li>• Use video compression tools like HandBrake for optimal file size</li>
+                  <li>• Test your video on different devices and connection speeds</li>
+                  <li>• Consider using a CDN for better global loading performance</li>
+                  <li>• The fallback image should capture the essence of your video</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -706,17 +875,19 @@ const AdminContent: React.FC = () => {
                   <FaPlus className="mr-2" />
                   Add New Recipe
                 </button>
-                <button className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center">
+                <button 
+                  onClick={handleExportRecipes}
+                  className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
+                >
                   <FaDownload className="mr-2" />
                   Export
                 </button>
-                <button className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center">
+                <button 
+                  onClick={handleImportRecipes}
+                  className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
+                >
                   <FaUploadIcon className="mr-2" />
                   Import
-                </button>
-                <button className="px-4 py-2 bg-[#A0956C] text-white rounded-md hover:bg-[#8F907E] flex items-center">
-                  <FaStar className="mr-2" />
-                  Restore Sample
                 </button>
               </div>
             </div>
@@ -806,7 +977,10 @@ const AdminContent: React.FC = () => {
                               <FaEdit className="mr-1" />
                               Edit
                             </button>
-                            <button className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                            <button 
+                              onClick={() => handleDeleteRecipe(recipe.id)}
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                            >
                               <FaTrash />
                             </button>
                           </div>
