@@ -5,24 +5,24 @@ interface UploadResponse {
 }
 
 export class FileUploadService {
-  private static async getSignedUploadUrl(path: string, contentType?: string): Promise<{ signedUrl: string; path: string }> {
+  private static async getSignedUploadUrl(path: string, contentType?: string, bucket: string = 'media'): Promise<{ signedUrl: string; path: string }> {
     const response = await fetch('/api/storage/signed-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, contentType })
+      body: JSON.stringify({ path, contentType, bucket })
     });
 
     if (!response.ok) throw new Error('Failed to get signed upload URL');
     return response.json();
   }
 
-  static async uploadFile(file: File, folder: string = 'uploads'): Promise<UploadResponse> {
+  static async uploadFile(file: File, folder: string = 'uploads', bucket: string = 'media'): Promise<UploadResponse> {
     try {
       const fileExtension = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExtension}`;
       const filePath = `${folder}/${fileName}`;
       
-      const { signedUrl, path } = await this.getSignedUploadUrl(filePath, file.type);
+      const { signedUrl, path } = await this.getSignedUploadUrl(filePath, file.type, bucket);
       
       const uploadResponse = await fetch(signedUrl, {
         method: 'PUT',
@@ -34,7 +34,7 @@ export class FileUploadService {
 
       if (!uploadResponse.ok) throw new Error('Failed to upload file');
 
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/${path}`;
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
       
       return {
         success: true,
@@ -53,14 +53,14 @@ export class FileUploadService {
     if (!file.type.startsWith('video/')) {
       return { success: false, error: 'File must be a video' };
     }
-    return this.uploadFile(file, 'videos');
+    return this.uploadFile(file, 'videos', 'media');
   }
 
   static async uploadImage(file: File): Promise<UploadResponse> {
     if (!file.type.startsWith('image/')) {
       return { success: false, error: 'File must be an image' };
     }
-    return this.uploadFile(file, 'images');
+    return this.uploadFile(file, 'images', 'media');
   }
 }
 
