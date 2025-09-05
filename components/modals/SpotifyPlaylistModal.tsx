@@ -151,7 +151,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 placeholder="e.g., Chill Vibes, Energy Boost, Feel Good"
                 required
               />
-              <p className="text-xs text-gray-600 mt-1">Short description of the playlist's mood or theme</p>
+              <p className="text-xs text-gray-600 mt-1">Short description of the playlist&apos;s mood or theme</p>
             </div>
 
             {/* Theme Color */}

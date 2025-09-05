@@ -211,7 +211,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="https://example.com/custom-thumbnail.jpg (optional)"
               />
-              <p className="text-xs text-gray-600 mt-1">Override YouTube's auto-generated thumbnail (leave blank to use default)</p>
+              <p className="text-xs text-gray-600 mt-1">Override YouTube&apos;s auto-generated thumbnail (leave blank to use default)</p>
             </div>
           </div>
 

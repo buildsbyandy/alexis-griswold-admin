@@ -419,7 +419,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
             {/* Tags */}
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
-              <p className="text-xs text-gray-600 mb-3">Keywords to help users find this recipe (e.g., "gluten-free", "30-minute", "comfort food")</p>
+              <p className="text-xs text-gray-600 mb-3">Keywords to help users find this recipe (e.g., &quot;gluten-free&quot;, &quot;30-minute&quot;, &quot;comfort food&quot;)</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {formData.tags.map((tag, index) => (
                   <span
