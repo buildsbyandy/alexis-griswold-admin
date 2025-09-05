@@ -139,7 +139,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
             <SidebarNavigation currentPath={router.pathname} />
           </nav>
 
-          {/* User info and sign out */}
+          {/* User profile and sign out */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center space-x-3">
               <Image
