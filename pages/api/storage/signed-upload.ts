@@ -16,11 +16,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method Not Allowed' })
   }
 
-  const { path, contentType } = req.body as { path: string; contentType?: string }
+  const { path, contentType, bucket = 'media' } = req.body as { path: string; contentType?: string; bucket?: string }
   if (!path) return res.status(400).json({ error: 'Missing path' })
 
   const { data, error } = await supabaseAdmin.storage
-    .from('media')
+    .from(bucket)
     .createSignedUploadUrl(path)
 
   if (error) return res.status(500).json({ error: 'Failed to create signed URL' })
