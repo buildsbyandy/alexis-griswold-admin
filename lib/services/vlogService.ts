@@ -78,7 +78,7 @@ class VlogService {
         title: v.title,
         description: v.description || '',
         youtubeUrl: v.youtube_url || '',
-        youtubeId: v.youtube_id || this.extractYouTubeId(v.youtube_url || ''),
+        youtubeId: this.extractYouTubeId(v.youtube_url || ''),
         thumbnailUrl: v.thumbnail_url || '',
         publishedAt: v.published_at || '',
         views: v.views || '',

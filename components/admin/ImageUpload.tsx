@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react'
+import Image from 'next/image'
 import { PhotoIcon, XMarkIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
@@ -57,6 +58,54 @@ export default function ImageUpload({
 
   // Check if we can add more images
   const canAddMore = value.length + uploadingFiles.length < maxImages
+
+  async function uploadToSupabase(file: File, folder = 'recipes') {
+    const ext = file.name.slice(file.name.lastIndexOf('.')) || ''
+    const path = `${folder}/${crypto.randomUUID()}${ext}`
+
+    // 1) get a signed upload URL/token from our API
+    const res = await fetch('/api/storage/signed-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bucket: 'public', path })
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Failed to get upload URL: ${errorText}`)
+    }
+
+    const { uploadUrl, publicUrl } = await res.json()
+
+    // 2) upload directly to Supabase using the signed URL
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    })
+
+    if (!uploadRes.ok) {
+      throw new Error(`Failed to upload file: ${uploadRes.statusText}`)
+    }
+
+    return { path, publicUrl }
+  }
+
+  /**
+   * Upload file to Supabase Storage using signed upload URL
+   */
+  const uploadFile = useCallback(async (
+    file: File,
+    folder: string,
+    onProgress: (progress: number) => void
+  ): Promise<string> => {
+    const { path, publicUrl } = await uploadToSupabase(file, folder)
+    // We cannot stream progress here; set to 100% on completion
+    onProgress(100)
+    return publicUrl
+  }, [])
 
   /**
    * Handle file selection from input or drag & drop
@@ -146,48 +195,7 @@ export default function ImageUpload({
     setTimeout(() => {
       setUploadingFiles(prev => prev.filter(f => f.status === 'uploading'))
     }, 3000)
-  }, [disabled, value, uploadingFiles.length, maxImages, folder, onChange])
-
-  /**
-   * Upload file to Supabase Storage using signed upload URL
-   */
-  const uploadFile = async (
-    file: File,
-    folder: string,
-    onProgress: (progress: number) => void
-  ): Promise<string> => {
-    const { path, publicUrl } = await uploadToSupabase(file, folder)
-    // We cannot stream progress here; set to 100% on completion
-    onProgress(100)
-    return publicUrl
-  }
-
-  async function uploadToSupabase(file: File, folder = 'recipes') {
-    const ext = file.name.slice(file.name.lastIndexOf('.')) || ''
-    const path = `${folder}/${crypto.randomUUID()}${ext}`
-
-    // 1) get a signed upload URL/token from our API
-    const res = await fetch('/api/storage/signed-upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bucket: 'public', path })
-    })
-    if (!res.ok) throw new Error('Failed to create signed upload URL')
-    const { token } = await res.json()
-
-    // 2) upload directly to Supabase Storage using the token
-    const { createClient } = await import('@supabase/supabase-js')
-    const { SUPABASE_URL, SUPABASE_PUBLIC_KEY } = await import('../../lib/env')
-    const sb = createClient(
-      SUPABASE_URL,
-      SUPABASE_PUBLIC_KEY
-    )
-    const { error } = await sb.storage.from('public').uploadToSignedUrl(path, token, file)
-    if (error) throw error
-
-    // Return path and a public, transformed URL
-    return { path, publicUrl: imageUrl('public', path) }
-  }
+  }, [disabled, value, uploadingFiles.length, maxImages, folder, onChange, uploadFile])
 
   /**
    * Handle drag events
@@ -353,10 +361,12 @@ export default function ImageUpload({
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden"
               >
-                <img
+                <Image
                   src={url}
                   alt={`Upload ${index + 1}`}
                   className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
                   <button

@@ -428,9 +428,9 @@ const AdminContent: React.FC = () => {
       // Update the vlog hero data with the selected video
       setVlogHeroData(prev => ({
         ...prev,
-        featuredVideoId: video.youtube_id || video.id,
-        featuredVideoTitle: video.video_title,
-        featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0]
+        featuredVideoId: video.youtubeId || video.id,
+        featuredVideoTitle: video.title,
+        featuredVideoDate: video.publishedAt || new Date().toISOString().split('T')[0]
       }));
       
       toast.success('Featured video updated successfully!');
@@ -654,10 +654,12 @@ const AdminContent: React.FC = () => {
                   <div className="bg-gray-100 p-4 rounded-lg">
                     <div className="bg-gray-200 h-48 flex items-center justify-center rounded relative group">
                       {homePageContent.fallbackImage ? (
-                        <img 
+                        <Image 
                           src={homePageContent.fallbackImage} 
                           alt="Fallback Image"
                           className="w-full h-full object-cover rounded"
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
                       ) : (
                         <div className="text-center text-gray-500">
@@ -976,7 +978,7 @@ const AdminContent: React.FC = () => {
                         {/* Recipe Image */}
                         <div className="h-48 bg-gray-200 flex items-center justify-center">
                           {recipe.imageUrl ? (
-                            <img src={recipe.imageUrl} alt={recipe.title} className="w-full h-full object-cover" />
+                            <Image src={recipe.imageUrl} alt={recipe.title} className="w-full h-full object-cover" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                           ) : (
                             <div className="text-center text-gray-500">
                               <FaUtensils className="mx-auto mb-2 text-2xl" />
@@ -1315,7 +1317,7 @@ const AdminContent: React.FC = () => {
                 {vlogs.map((vlog) => (
                   <div key={vlog.id} className="border rounded-lg p-4 flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <img src={vlog.thumbnailUrl} alt={vlog.title} className="w-24 h-16 object-cover rounded" />
+                      <Image src={vlog.thumbnailUrl} alt={vlog.title} className="w-24 h-16 object-cover rounded" width={96} height={64} />
                       <div>
                         <h3 className="font-medium text-[#383B26]">{vlog.title}</h3>
                         <p className="text-sm text-[#8F907E]">{vlog.description}</p>
@@ -1379,10 +1381,12 @@ const AdminContent: React.FC = () => {
                     <div key={album.id} className="border border-gray-200 rounded-lg overflow-hidden">
                       {/* Album Cover */}
                       <div className="relative">
-                        <img
+                        <Image
                           src={album.coverImage}
                           alt={album.title}
                           className="w-full h-48 object-cover"
+                          width={400}
+                          height={192}
                         />
                         {album.isFeatured && (
                           <span className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center">
@@ -1874,10 +1878,12 @@ const AdminContent: React.FC = () => {
                         .map((video) => (
                           <div key={video.id} className="border border-gray-200 rounded-lg overflow-hidden">
                             <div className="relative">
-                              <img
+                              <Image
                                 src={video.thumbnailUrl}
                                 alt={video.title}
                                 className="w-full h-32 object-cover"
+                                width={400}
+                                height={128}
                               />
                               <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <FaVideo className="text-white text-2xl" />
@@ -1955,10 +1961,12 @@ const AdminContent: React.FC = () => {
                         .map((video) => (
                           <div key={video.id} className="border border-gray-200 rounded-lg overflow-hidden">
                             <div className="relative">
-                              <img
+                              <Image
                                 src={video.thumbnailUrl}
                                 alt={video.title}
                                 className="w-full h-32 object-cover"
+                                width={400}
+                                height={128}
                               />
                               <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <FaVideo className="text-white text-2xl" />
@@ -2053,10 +2061,12 @@ const AdminContent: React.FC = () => {
                           <div key={product.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                             <div className="relative mb-3">
                               {product.imageUrl ? (
-                                <img 
+                                <Image 
                                   src={product.imageUrl} 
                                   alt={product.name}
                                   className="w-full h-24 object-cover rounded"
+                                  width={400}
+                                  height={96}
                                 />
                               ) : (
                                 <div className="bg-gray-200 h-24 rounded flex items-center justify-center">
@@ -2278,10 +2288,12 @@ const AdminContent: React.FC = () => {
                         {/* Product Image */}
                         <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                           {(product.image || product.imageUrl) ? (
-                            <img 
-                              src={product.image || product.imageUrl} 
+                            <Image 
+                              src={(product.image || product.imageUrl) || '/placeholder.jpg'} 
                               alt={product.title} 
                               className="w-full h-full object-cover" 
+                              fill
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -2300,7 +2312,7 @@ const AdminContent: React.FC = () => {
                                   <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">⭐ Favorite</span>
                                 )}
                                 {product.isAlexisPick && (
-                                  <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis' Pick</span>
+                                  <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis&apos; Pick</span>
                                 )}
                               </div>
                               

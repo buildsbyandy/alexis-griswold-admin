@@ -36,7 +36,7 @@ class HealingService {
         purpose: p.product_purpose || '',
         howToUse: p.how_to_use || '',
         imageUrl: p.product_image_path || '',
-        amazonUrl: p.amazonUrl || '',
+        amazonUrl: p.product_link || '',
         isActive: p.is_active || false,
         order: p.product_order || 0,
         createdAt: new Date(p.created_at),
@@ -165,29 +165,40 @@ class HealingService {
     }
   }
 
-  // Video Carousels
+  // Video Carousels - Using existing carousel system
   async getAllVideos(): Promise<HealingVideo[]> {
     try {
-      const response = await fetch('/api/healing/videos');
-      if (!response.ok) throw new Error('Failed to fetch healing videos');
+      // Fetch healing carousels and their videos
+      const response = await fetch('/api/healing/carousels');
+      if (!response.ok) throw new Error('Failed to fetch healing carousels');
       const data = await response.json();
       
-      // Map database fields to service interface
-      return (data.videos || []).map((v: any) => ({
-        id: v.id,
-        title: v.title || '',
-        description: v.description || '',
-        youtubeUrl: v.youtube_url || '',
-        youtubeId: v.youtube_id || this.extractYouTubeId(v.youtube_url || ''),
-        thumbnailUrl: v.thumbnail_url || this.getYouTubeThumbnail(v.youtube_url),
-        duration: v.duration || '',
-        views: v.views || '',
-        carousel: (v.carousel || 'part1') as HealingCarouselType,
-        order: v.display_order || 0,
-        isActive: v.is_active !== false,
-        createdAt: new Date(v.created_at),
-        updatedAt: new Date(v.updated_at)
-      }));
+      // Map carousel videos to healing video interface
+      const allVideos: HealingVideo[] = [];
+      
+      for (const carousel of data.carousels || []) {
+        const carouselType = carousel.carousel_number === 1 ? 'part1' : 'part2';
+        
+        for (const video of carousel.videos || []) {
+          allVideos.push({
+            id: video.id,
+            title: video.video_title || '',
+            description: video.video_description || '',
+            youtubeUrl: video.youtube_url || '',
+            youtubeId: this.extractYouTubeId(video.youtube_url || ''),
+            thumbnailUrl: this.getYouTubeThumbnail(video.youtube_url),
+            duration: '', // Not stored in carousel_videos table
+            views: '', // Not stored in carousel_videos table
+            carousel: carouselType,
+            order: video.video_order || 0,
+            isActive: true, // All carousel videos are considered active
+            createdAt: new Date(video.created_at),
+            updatedAt: new Date(video.updated_at)
+          });
+        }
+      }
+      
+      return allVideos;
     } catch (error) {
       console.error('Error fetching healing videos:', error);
       // Fallback to localStorage for development
@@ -214,23 +225,19 @@ class HealingService {
         throw new Error('Could not extract YouTube ID from URL');
       }
 
-      // Auto-generate thumbnail if not provided
-      const thumbnailUrl = video.thumbnailUrl || this.getYouTubeThumbnail(video.youtubeUrl);
+      // Convert carousel type to carousel number
+      const carouselNumber = video.carousel === 'part1' ? 1 : 2;
 
-      const response = await fetch('/api/healing/videos', {
+      const response = await fetch('/api/healing/carousel-videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: video.title,
-          description: video.description,
+          page_type: 'healing',
+          carousel_number: carouselNumber,
           youtube_url: video.youtubeUrl,
-          youtube_id: youtubeId,
-          thumbnail_url: thumbnailUrl,
-          duration: video.duration,
-          views: video.views,
-          carousel: video.carousel,
-          display_order: video.order,
-          is_active: video.isActive
+          video_title: video.title,
+          video_description: video.description,
+          video_order: video.order
         })
       });
 
@@ -245,32 +252,25 @@ class HealingService {
     try {
       const updateData: any = {};
       
-      if (video.title !== undefined) updateData.title = video.title;
-      if (video.description !== undefined) updateData.description = video.description;
-      if (video.duration !== undefined) updateData.duration = video.duration;
-      if (video.views !== undefined) updateData.views = video.views;
-      if (video.carousel !== undefined) updateData.carousel = video.carousel;
-      if (video.order !== undefined) updateData.display_order = video.order;
-      if (video.isActive !== undefined) updateData.is_active = video.isActive;
+      if (video.title !== undefined) updateData.video_title = video.title;
+      if (video.description !== undefined) updateData.video_description = video.description;
+      if (video.order !== undefined) updateData.video_order = video.order;
 
       // Handle YouTube URL updates
       if (video.youtubeUrl !== undefined) {
         if (!this.validateYouTubeUrl(video.youtubeUrl)) {
           throw new Error('Invalid YouTube URL');
         }
-        const youtubeId = this.extractYouTubeId(video.youtubeUrl);
-        if (!youtubeId) {
-          throw new Error('Could not extract YouTube ID from URL');
-        }
         updateData.youtube_url = video.youtubeUrl;
-        updateData.youtube_id = youtubeId;
-        // Auto-update thumbnail if not explicitly provided
-        if (video.thumbnailUrl === undefined) {
-          updateData.thumbnail_url = this.getYouTubeThumbnail(video.youtubeUrl);
-        }
       }
 
-      const response = await fetch(`/api/healing/videos/${id}`, {
+      // Handle carousel changes (requires moving to different carousel)
+      if (video.carousel !== undefined) {
+        const carouselNumber = video.carousel === 'part1' ? 1 : 2;
+        updateData.carousel_number = carouselNumber;
+      }
+
+      const response = await fetch(`/api/healing/carousel-videos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -285,7 +285,7 @@ class HealingService {
 
   async deleteVideo(id: string): Promise<boolean> {
     try {
-      const response = await fetch(`/api/healing/videos/${id}`, {
+      const response = await fetch(`/api/healing/carousel-videos/${id}`, {
         method: 'DELETE'
       });
       return response.ok;

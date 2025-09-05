@@ -1,3 +1,5 @@
+export type RecipeStatus = 'draft' | 'published' | 'archived';
+
 export interface Recipe {
   id: string;
   title: string;
@@ -7,7 +9,7 @@ export interface Recipe {
   folder: string;
   isBeginner: boolean;
   isRecipeOfWeek: boolean;
-  isPublished: boolean;
+  status: RecipeStatus;
   isFavorite: boolean;
   imageUrl?: string;
   images: string[];
@@ -48,14 +50,17 @@ class RecipeService {
         folder: r.folder || '',
         isBeginner: r.isBeginner || false,
         isRecipeOfWeek: r.isRecipeOfWeek || false,
-        images: r.images || [],
-        ingredients: r.ingredients || [],
-        instructions: r.instructions || [],
+        status: (r.status as RecipeStatus) || 'draft',
+        isFavorite: r.is_favorite || false,
+        imageUrl: r.hero_image_path || '',
+        images: Array.isArray(r.images) ? r.images : (r.images ? JSON.parse(r.images) : []),
+        ingredients: Array.isArray(r.ingredients) ? r.ingredients : (r.ingredients ? JSON.parse(r.ingredients) : []),
+        instructions: Array.isArray(r.instructions) ? r.instructions : (r.instructions ? JSON.parse(r.instructions) : []),
         prepTime: r.prepTime || '',
         cookTime: r.cookTime || '',
         servings: r.servings || 1,
         difficulty: r.difficulty || 'Easy',
-        tags: r.tags || [],
+        tags: Array.isArray(r.tags) ? r.tags : (r.tags ? JSON.parse(r.tags) : []),
         createdAt: new Date(r.created_at),
         updatedAt: new Date(r.updated_at)
       }));

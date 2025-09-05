@@ -1,28 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { FaTimes, FaPlay } from 'react-icons/fa';
 import { HealingVideo } from '../../lib/services/healingService';
 import { VlogVideo } from '../../lib/services/vlogService';
 
-interface FeaturedVideoSelectorModalProps {
+interface FeaturedVideoSelectorModalProps<T extends HealingVideo | VlogVideo> {
   isOpen: boolean;
   onClose: () => void;
-  videos: (HealingVideo | VlogVideo)[];
+  videos: T[];
   currentFeaturedVideoId?: string;
-  onSelect: (video: HealingVideo | VlogVideo) => void;
+  onSelect: (video: T) => void;
   title: string;
 }
 
-const FeaturedVideoSelectorModal: React.FC<FeaturedVideoSelectorModalProps> = ({
+const FeaturedVideoSelectorModal = <T extends HealingVideo | VlogVideo>({
   isOpen,
   onClose,
   videos,
   currentFeaturedVideoId,
   onSelect,
   title
-}) => {
+}: FeaturedVideoSelectorModalProps<T>) => {
   if (!isOpen) return null;
 
-  const handleSelect = (video: HealingVideo | VlogVideo) => {
+  const handleSelect = (video: T) => {
     onSelect(video);
     onClose();
   };
@@ -51,7 +52,7 @@ const FeaturedVideoSelectorModal: React.FC<FeaturedVideoSelectorModalProps> = ({
                 const isSelected = currentFeaturedVideoId === video.id;
                 const thumbnailUrl = 'youtubeId' in video && video.youtubeId 
                   ? `https://img.youtube.com/vi/${video.youtubeId}/maxresdefault.jpg`
-                  : ('thumbnail_url' in video ? video.thumbnail_url : '');
+                  : ('thumbnail_url' in video && typeof video.thumbnail_url === 'string' ? video.thumbnail_url : '');
 
                 return (
                   <div
@@ -64,11 +65,13 @@ const FeaturedVideoSelectorModal: React.FC<FeaturedVideoSelectorModalProps> = ({
                     }`}
                   >
                     <div className="aspect-video bg-gray-100 relative">
-                      {thumbnailUrl ? (
-                        <img
+                      {thumbnailUrl && thumbnailUrl.length > 0 ? (
+                        <Image
                           src={thumbnailUrl}
                           alt={video.title}
                           className="w-full h-full object-cover"
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">

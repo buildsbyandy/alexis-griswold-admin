@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { FaTimes, FaSave, FaVideo, FaYoutube } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
@@ -176,10 +177,12 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
                       allowFullScreen
                     />
                   ) : (
-                    <img
+                    <Image
                       src={formData.thumbnailUrl}
                       alt="Video thumbnail"
                       className="w-full h-auto"
+                      width={480}
+                      height={360}
                       onError={(e) => {
                         e.currentTarget.src = '/placeholder-video-thumbnail.png';
                       }}

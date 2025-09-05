@@ -7,6 +7,7 @@
 import React, { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/router'
 import {
   Bars3Icon,
@@ -141,10 +142,12 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           {/* User info and sign out */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center space-x-3">
-              <img
+              <Image
                 className="h-10 w-10 rounded-full"
                 src={session.user?.image || '/default-avatar.png'}
                 alt={session.user?.name || 'User'}
+                width={40}
+                height={40}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
