@@ -185,8 +185,8 @@ class HealingService {
             title: video.video_title || '',
             description: video.video_description || '',
             youtubeUrl: video.youtube_url || '',
-            youtubeId: this.extractYouTubeId(video.youtube_url || ''),
-            thumbnailUrl: this.getYouTubeThumbnail(video.youtube_url),
+            youtubeId: this.extractYouTubeId(video.youtube_url || '') || undefined,
+            thumbnailUrl: this.getYouTubeThumbnail(video.youtube_url) || '',
             duration: '', // Not stored in carousel_videos table
             views: '', // Not stored in carousel_videos table
             carousel: carouselType,

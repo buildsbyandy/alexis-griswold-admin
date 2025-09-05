@@ -158,7 +158,7 @@ class RecipeService {
       folder: this.mapCategoryToFolder(legacy.category, legacy.label),
       isBeginner: this.isBeginnerRecipe(legacy.title),
       isRecipeOfWeek: false,
-      isPublished: true,
+      status: 'published' as RecipeStatus,
       isFavorite: false,
       imageUrl: legacy.images[0] || undefined,
       images: legacy.images,

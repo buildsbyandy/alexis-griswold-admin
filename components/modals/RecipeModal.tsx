@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FaTimes, FaSave, FaPlus, FaTrash } from 'react-icons/fa';
-import type { Recipe } from '../../lib/services/recipeService';
+import type { Recipe, RecipeStatus } from '../../lib/services/recipeService';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 
@@ -21,7 +21,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     folder: 'breakfast',
     isBeginner: false,
     isRecipeOfWeek: false,
-    isPublished: true,
+    status: 'published' as RecipeStatus,
     isFavorite: false,
     imageUrl: '',
     images: [] as string[],
@@ -46,7 +46,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         folder: recipe.folder,
         isBeginner: recipe.isBeginner,
         isRecipeOfWeek: recipe.isRecipeOfWeek,
-        isPublished: recipe.isPublished || true,
+        status: recipe.status || 'published',
         isFavorite: recipe.isFavorite || false,
         imageUrl: recipe.imageUrl || '',
         images: recipe.images,
@@ -68,7 +68,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         folder: 'breakfast',
         isBeginner: false,
         isRecipeOfWeek: false,
-        isPublished: true,
+        status: 'published' as RecipeStatus,
         isFavorite: false,
         imageUrl: '',
         images: [],
@@ -445,16 +445,19 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               </div>
             </div>
 
-            {/* Checkboxes */}
+            {/* Status and Checkboxes */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.isPublished}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isPublished: e.target.checked }))}
-                  className="mr-2"
-                />
-                <span className="text-sm text-[#383B26]">Published</span>
+              <label className="flex flex-col">
+                <span className="text-sm text-[#383B26] mb-1">Status</span>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as RecipeStatus }))}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#B8A692]"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
               </label>
               <label className="flex items-center">
                 <input

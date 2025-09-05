@@ -1068,11 +1068,11 @@ const AdminContent: React.FC = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Published:</span>
-                    <span className="font-medium">{recipes.filter(r => r.isPublished).length}</span>
+                    <span className="font-medium">{recipes.filter(r => r.status === 'published').length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Drafts:</span>
-                    <span className="font-medium">{recipes.filter(r => !r.isPublished).length}</span>
+                    <span className="font-medium">{recipes.filter(r => r.status === 'draft').length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Favorites:</span>
