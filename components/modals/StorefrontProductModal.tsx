@@ -154,6 +154,12 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
       return;
     }
 
+    // Validate URL format
+    if (!formData.amazonUrl.startsWith('https://')) {
+      toast.error('Amazon URL must start with https://');
+      return;
+    }
+
     if (!formData.noteShort.trim()) {
       toast.error('Short note is required');
       return;
@@ -260,8 +266,10 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   value={formData.amazonUrl}
                   onChange={(e) => setFormData(prev => ({ ...prev, amazonUrl: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  placeholder="https://www.amazon.com/product-name/dp/..."
                   required
                 />
+                <p className="text-xs text-gray-600 mt-1">Must start with https:// (e.g., https://www.amazon.com/...)</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Price ($)</label>
