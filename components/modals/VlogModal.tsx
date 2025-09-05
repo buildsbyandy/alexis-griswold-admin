@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaVideo } from 'react-icons/fa';
-import type { VlogVideo } from '../../lib/services/vlogService';
+import type { VlogVideo, VlogCarouselType } from '../../lib/services/vlogService';
+import { vlogService } from '../../lib/services/vlogService';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 
@@ -15,10 +16,12 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    youtubeUrl: '',
     thumbnailUrl: '',
     publishedAt: '',
     views: '',
     duration: '',
+    carousel: 'main-channel' as VlogCarouselType,
     isFeatured: false,
     order: 0,
   });
@@ -28,10 +31,12 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       setFormData({
         title: vlog.title,
         description: vlog.description,
+        youtubeUrl: vlog.youtubeUrl,
         thumbnailUrl: vlog.thumbnailUrl,
         publishedAt: vlog.publishedAt,
         views: vlog.views,
         duration: vlog.duration,
+        carousel: vlog.carousel,
         isFeatured: vlog.isFeatured,
         order: vlog.order,
       });
@@ -40,10 +45,12 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       setFormData({
         title: '',
         description: '',
+        youtubeUrl: '',
         thumbnailUrl: '',
         publishedAt: new Date().toISOString().split('T')[0], // Default to today
         views: '0',
         duration: '',
+        carousel: 'main-channel',
         isFeatured: false,
         order: 0,
       });
@@ -58,8 +65,8 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       return;
     }
 
-    if (!formData.thumbnailUrl.trim()) {
-      toast.error('Thumbnail image is required');
+    if (!formData.youtubeUrl.trim()) {
+      toast.error('YouTube URL is required');
       return;
     }
 
@@ -106,6 +113,31 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   placeholder="Enter vlog title..."
                   required
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
+                <input
+                  type="url"
+                  value={formData.youtubeUrl}
+                  onChange={(e) => setFormData(prev => ({ ...prev, youtubeUrl: e.target.value }))}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  required
+                />
+                <p className="text-xs text-[#8F907E] mt-1">Paste any YouTube video URL. Thumbnail will be auto-generated.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel *</label>
+                <select
+                  value={formData.carousel}
+                  onChange={(e) => setFormData(prev => ({ ...prev, carousel: e.target.value as VlogCarouselType }))}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  required
+                >
+                  <option value="main-channel">{vlogService.CAROUSELS['main-channel'].displayName}</option>
+                  <option value="ag-vlogs">{vlogService.CAROUSELS['ag-vlogs'].displayName}</option>
+                </select>
+                <p className="text-xs text-[#8F907E] mt-1">Choose which video carousel this will appear in.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Published Date</label>

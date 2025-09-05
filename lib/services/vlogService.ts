@@ -1,11 +1,16 @@
+export type VlogCarouselType = 'main-channel' | 'ag-vlogs';
+
 export interface VlogVideo {
   id: string;
   title: string;
   description: string;
+  youtubeUrl: string;
+  youtubeId?: string;
   thumbnailUrl: string;
   publishedAt: string;
   views: string;
   duration: string;
+  carousel: VlogCarouselType;
   isFeatured: boolean;
   order: number;
   createdAt: Date;
@@ -49,6 +54,20 @@ class VlogService {
   private readonly INSTAGRAM_URL = 'https://www.instagram.com/lexigriswold';
   private readonly SPOTIFY_PROFILE_URL = 'https://open.spotify.com/user/316v3frkjuxqbtjv5vsld3c2vz44';
 
+  // Carousel configuration
+  readonly CAROUSELS = {
+    'main-channel': { 
+      name: 'MAIN CHANNEL', 
+      description: 'Latest videos from YouTube channel',
+      displayName: 'Main Channel' 
+    },
+    'ag-vlogs': { 
+      name: 'AG VLOGS', 
+      description: 'Personal vlogs and behind-the-scenes content',
+      displayName: 'AG Vlogs' 
+    }
+  } as const;
+
   async getAllVlogs(): Promise<VlogVideo[]> {
     try {
       const response = await fetch('/api/vlogs');
@@ -59,10 +78,13 @@ class VlogService {
         id: v.id,
         title: v.title,
         description: v.description || '',
+        youtubeUrl: v.youtube_url || '',
+        youtubeId: v.youtube_id || this.extractYouTubeId(v.youtube_url || ''),
         thumbnailUrl: v.thumbnail_url || '',
         publishedAt: v.published_at || '',
         views: v.views || '',
         duration: v.duration || '',
+        carousel: (v.carousel || 'main-channel') as VlogCarouselType,
         isFeatured: v.is_featured || false,
         order: v.display_order || 0,
         createdAt: new Date(v.created_at),
@@ -71,20 +93,36 @@ class VlogService {
     } catch (error) {
       console.error('Error fetching vlogs:', error);
       // Fallback to localStorage for development
-      try { const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; return stored ? JSON.parse(stored) : this.getDefaultVlogs(); } catch { return this.getDefaultVlogs(); }
+      try { const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; return stored ? JSON.parse(stored) : []; } catch { return []; }
     }
   }
 
   async addVlog(input: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
     try {
+      // Validate and process YouTube URL
+      if (!this.validateYouTubeUrl(input.youtubeUrl)) {
+        throw new Error('Invalid YouTube URL');
+      }
+
+      const youtubeId = this.extractYouTubeId(input.youtubeUrl);
+      if (!youtubeId) {
+        throw new Error('Could not extract YouTube ID from URL');
+      }
+
+      // Auto-generate thumbnail if not provided
+      const thumbnailUrl = input.thumbnailUrl || this.generateThumbnailUrl(youtubeId);
+
       // Map interface to database fields
       const vlogData = {
         title: input.title,
         description: input.description,
-        thumbnail_url: input.thumbnailUrl,
+        youtube_url: input.youtubeUrl,
+        youtube_id: youtubeId,
+        thumbnail_url: thumbnailUrl,
         published_at: input.publishedAt,
         views: input.views,
         duration: input.duration,
+        carousel: input.carousel,
         is_featured: input.isFeatured,
         display_order: input.order
       };
@@ -113,8 +151,26 @@ class VlogService {
       if (input.publishedAt !== undefined) vlogData.published_at = input.publishedAt;
       if (input.views !== undefined) vlogData.views = input.views;
       if (input.duration !== undefined) vlogData.duration = input.duration;
+      if (input.carousel !== undefined) vlogData.carousel = input.carousel;
       if (input.isFeatured !== undefined) vlogData.is_featured = input.isFeatured;
       if (input.order !== undefined) vlogData.display_order = input.order;
+
+      // Handle YouTube URL updates
+      if (input.youtubeUrl !== undefined) {
+        if (!this.validateYouTubeUrl(input.youtubeUrl)) {
+          throw new Error('Invalid YouTube URL');
+        }
+        const youtubeId = this.extractYouTubeId(input.youtubeUrl);
+        if (!youtubeId) {
+          throw new Error('Could not extract YouTube ID from URL');
+        }
+        vlogData.youtube_url = input.youtubeUrl;
+        vlogData.youtube_id = youtubeId;
+        // Auto-update thumbnail if not explicitly provided
+        if (input.thumbnailUrl === undefined) {
+          vlogData.thumbnail_url = this.generateThumbnailUrl(youtubeId);
+        }
+      }
 
       const response = await fetch(`/api/vlogs/${id}`, {
         method: 'PUT',
@@ -144,45 +200,158 @@ class VlogService {
     }
   }
   async getFeaturedVlog(): Promise<VlogVideo | null> { const v = await this.getAllVlogs(); return v.find(x => x.isFeatured) || v[0] || null; }
-  async getDisplayVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
-  async getPersonalVlogs(): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => (v as any).type === 'PERSONAL'); }
+  async getMainChannelVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => v.carousel === 'main-channel' && !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
+  async getAGVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => v.carousel === 'ag-vlogs' && !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
+  async getVlogsByCarousel(carousel: VlogCarouselType, limit?: number): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); const filtered = v.filter(v => v.carousel === carousel && !v.isFeatured).sort((a,b)=>a.order-b.order); return limit ? filtered.slice(0, limit) : filtered; }
+  
+  // Legacy method for backward compatibility
+  async getDisplayVlogs(limit = 6): Promise<VlogVideo[]> { return this.getMainChannelVlogs(limit); }
+  async getPersonalVlogs(): Promise<VlogVideo[]> { return this.getAGVlogs(); }
   getYouTubeChannelUrl(): string { return this.YOUTUBE_CHANNEL_URL; }
   getInstagramUrl(): string { return this.INSTAGRAM_URL; }
   getSpotifyProfileUrl(): string { return this.SPOTIFY_PROFILE_URL; }
 
-  getAllPlaylists(): SpotifyPlaylist[] { try { const s = typeof localStorage !== 'undefined' ? localStorage.getItem(this.PLAYLISTS_KEY) : null; return s ? JSON.parse(s) : this.getDefaultPlaylists(); } catch { return this.getDefaultPlaylists(); } }
+  getAllPlaylists(): SpotifyPlaylist[] { 
+    try { 
+      const s = typeof localStorage !== 'undefined' ? localStorage.getItem(this.PLAYLISTS_KEY) : null; 
+      return s ? JSON.parse(s) : []; 
+    } catch { 
+      return []; 
+    } 
+  }
   getDisplayPlaylists(limit=3): SpotifyPlaylist[] { return this.getAllPlaylists().filter(p=>p.isActive).sort((a,b)=>a.order-b.order).slice(0,limit); }
   addPlaylist(p: Omit<SpotifyPlaylist,'id'|'createdAt'|'updatedAt'>): boolean { try { const list=this.getAllPlaylists(); list.push({ ...p, id: Date.now().toString(), createdAt:new Date(), updatedAt:new Date() }); this.savePlaylists(list); return true;} catch {return false;} }
   updatePlaylist(id: string, u: Partial<SpotifyPlaylist>): boolean { try { const list=this.getAllPlaylists(); const i=list.findIndex(x=>x.id===id); if(i===-1) return false; list[i]={...list[i],...u,updatedAt:new Date()}; this.savePlaylists(list); return true;} catch {return false;} }
   deletePlaylist(id: string): boolean { try { const list=this.getAllPlaylists().filter(p=>p.id!==id); this.savePlaylists(list); return true;} catch {return false;} }
 
-  getAllAlbums(): PhotoAlbum[] { try { const s= typeof localStorage !== 'undefined' ? localStorage.getItem(this.ALBUMS_KEY) : null; return s ? JSON.parse(s) : this.getDefaultAlbums(); } catch { return this.getDefaultAlbums(); } }
-  getDisplayAlbums(limit=6): PhotoAlbum[] { return this.getAllAlbums().sort((a,b)=>a.order-b.order).slice(0,limit); }
-  addAlbum(a: Omit<PhotoAlbum,'id'|'createdAt'|'updatedAt'>): boolean { try { const list=this.getAllAlbums(); list.push({ ...a, id: Date.now().toString(), createdAt:new Date(), updatedAt:new Date() }); this.saveAlbums(list); return true;} catch {return false;} }
-  updateAlbum(id: string, u: Partial<PhotoAlbum>): boolean { try { const list=this.getAllAlbums(); const i=list.findIndex(x=>x.id===id); if(i===-1) return false; list[i]={...list[i],...u,updatedAt:new Date()}; this.saveAlbums(list); return true;} catch {return false;} }
-  deleteAlbum(id: string): boolean { try { const list=this.getAllAlbums().filter(a=>a.id!==id); this.saveAlbums(list); return true;} catch {return false;} }
-  addPhotoToAlbum(albumId: string, photo: Omit<Photo,'id'>): boolean { try { const albums=this.getAllAlbums(); const i=albums.findIndex(a=>a.id===albumId); if(i===-1) return false; const newPhoto: Photo = { ...photo, id: Date.now().toString() }; albums[i].photos.push(newPhoto); albums[i].updatedAt=new Date(); this.saveAlbums(albums); return true;} catch {return false;} }
-  removePhotoFromAlbum(albumId: string, photoId: string): boolean { try { const albums=this.getAllAlbums(); const i=albums.findIndex(a=>a.id===albumId); if(i===-1) return false; albums[i].photos = albums[i].photos.filter(p=>p.id!==photoId); albums[i].updatedAt=new Date(); this.saveAlbums(albums); return true;} catch {return false;} }
-  exportData(): string { 
+  async getAllAlbums(): Promise<PhotoAlbum[]> { 
+    try {
+      const response = await fetch('/api/albums');
+      if (!response.ok) throw new Error('Failed to fetch albums');
+      const data = await response.json();
+      
+      // Map database fields to service interface
+      return (data.albums || []).map((album: any) => ({
+        id: album.id,
+        title: album.album_title || '',
+        description: album.album_description || '',
+        coverImage: album.cover_image_path || '',
+        category: album.category || 'Lifestyle',
+        photos: (album.photos || []).map((photo: any) => ({
+          id: photo.id,
+          src: photo.image_path,
+          alt: album.album_title, // Use album title as default alt
+          caption: photo.photo_caption || '',
+          order: photo.sort_order || 0
+        })),
+        date: album.album_date || '',
+        isFeatured: album.is_featured || false,
+        order: album.sort_order || 0,
+        createdAt: new Date(album.created_at),
+        updatedAt: new Date(album.updated_at)
+      }));
+    } catch (error) {
+      console.error('Error fetching albums:', error);
+      // Fallback to localStorage for development
+      try { 
+        const s = typeof localStorage !== 'undefined' ? localStorage.getItem(this.ALBUMS_KEY) : null; 
+        return s ? JSON.parse(s) : []; 
+      } catch { 
+        return []; 
+      }
+    }
+  }
+  async getDisplayAlbums(limit=6): Promise<PhotoAlbum[]> { const albums = await this.getAllAlbums(); return albums.sort((a,b)=>a.order-b.order).slice(0,limit); }
+  
+  async addAlbum(albumData: Omit<PhotoAlbum,'id'|'createdAt'|'updatedAt'>): Promise<boolean> { 
+    try {
+      const response = await fetch('/api/albums', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(albumData)
+      });
+      
+      if (!response.ok) throw new Error('Failed to create album');
+      return true;
+    } catch (error) {
+      console.error('Error adding album:', error);
+      return false;
+    }
+  }
+  
+  async updateAlbum(id: string, updates: Partial<PhotoAlbum>): Promise<boolean> { 
+    try {
+      const response = await fetch(`/api/albums/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      
+      if (!response.ok) throw new Error('Failed to update album');
+      return true;
+    } catch (error) {
+      console.error('Error updating album:', error);
+      return false;
+    }
+  }
+  
+  async deleteAlbum(id: string): Promise<boolean> { 
+    try {
+      const response = await fetch(`/api/albums/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete album');
+      return true;
+    } catch (error) {
+      console.error('Error deleting album:', error);
+      return false;
+    }
+  }
+  async addPhotoToAlbum(albumId: string, photo: Omit<Photo,'id'>): Promise<boolean> { 
+    try { 
+      const albums = await this.getAllAlbums(); 
+      const i = albums.findIndex(a => a.id === albumId); 
+      if(i === -1) return false; 
+      const newPhoto: Photo = { ...photo, id: Date.now().toString() }; 
+      albums[i].photos.push(newPhoto); 
+      albums[i].updatedAt = new Date(); 
+      this.saveAlbums(albums); 
+      return true;
+    } catch {
+      return false;
+    } 
+  }
+  async removePhotoFromAlbum(albumId: string, photoId: string): Promise<boolean> { 
+    try { 
+      const albums = await this.getAllAlbums(); 
+      const i = albums.findIndex(a => a.id === albumId); 
+      if(i === -1) return false; 
+      albums[i].photos = albums[i].photos.filter(p => p.id !== photoId); 
+      albums[i].updatedAt = new Date(); 
+      this.saveAlbums(albums); 
+      return true;
+    } catch {
+      return false;
+    } 
+  }
+  async exportData(): Promise<string> { 
     const storedVlogs = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
     const vlogs = storedVlogs ? JSON.parse(storedVlogs) : this.getDefaultVlogs();
-    return JSON.stringify({ vlogs, albums: this.getAllAlbums() }, null, 2); 
+    const albums = await this.getAllAlbums();
+    return JSON.stringify({ vlogs, albums }, null, 2); 
   }
   importData(json: string): boolean { try { const d=JSON.parse(json); if(d.vlogs) this.saveVlogs(d.vlogs); if(d.albums) this.saveAlbums(d.albums); return true;} catch {return false;} }
-  async getStats() { const v=await this.getAllVlogs(); const a=this.getAllAlbums(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.isFeatured).length, totalAlbums: a.length, totalPhotos: a.reduce((s,al)=>s+al.photos.length,0), categories: a.reduce((m,al)=>{(m as any)[al.category]=(m as any)[al.category] ? (m as any)[al.category]+1 : 1; return m; }, {} as Record<string, number>) } }
+  async getStats() { const v=await this.getAllVlogs(); const a=await this.getAllAlbums(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.isFeatured).length, totalAlbums: a.length, totalPhotos: a.reduce((s,al)=>s+al.photos.length,0), categories: a.reduce((m,al)=>{(m as any)[al.category]=(m as any)[al.category] ? (m as any)[al.category]+1 : 1; return m; }, {} as Record<string, number>) } }
 
   private saveVlogs(v: VlogVideo[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.VLOGS_KEY, JSON.stringify(v)); }
   private saveAlbums(a: PhotoAlbum[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(a)); }
   private savePlaylists(p: SpotifyPlaylist[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.PLAYLISTS_KEY, JSON.stringify(p)); }
 
-  private getDefaultVlogs(): VlogVideo[] { return [
-    { id: 'MYmmbSZ4YaQ', title: 'Morning Routine & Healthy Breakfast', description: 'Start your day with energy and intention', thumbnailUrl: 'https://img.youtube.com/vi/MYmmbSZ4YaQ/hqdefault.jpg', publishedAt: '2024-01-15', views: '12.5K', duration: '8:32', isFeatured: true, order: 1, createdAt: new Date(), updatedAt: new Date() },
-    { id: '6AvOegDnEb0', title: 'Raw Vegan Meal Prep', description: 'Simple and delicious plant-based meals', thumbnailUrl: 'https://img.youtube.com/vi/6AvOegDnEb0/hqdefault.jpg', publishedAt: '2024-01-12', views: '8.9K', duration: '12:45', isFeatured: false, order: 2, createdAt: new Date(), updatedAt: new Date() },
-    { id: 'qBXducGwqxY', title: 'Travel Vlog: Arizona Adventures', description: 'Exploring the beautiful desert landscapes', thumbnailUrl: 'https://img.youtube.com/vi/qBXducGwqxY/hqdefault.jpg', publishedAt: '2024-01-08', views: '15.2K', duration: '18:20', isFeatured: false, order: 3, createdAt: new Date(), updatedAt: new Date() },
-    { id: 'JFgukuIduPs', title: 'Smoothie Bowl Tutorial', description: 'How to make Instagram-worthy smoothie bowls', thumbnailUrl: 'https://img.youtube.com/vi/JFgukuIduPs/hqdefault.jpg', publishedAt: '2024-01-05', views: '10.7K', duration: '6:15', isFeatured: false, order: 4, createdAt: new Date(), updatedAt: new Date() },
-    { id: '1qilUaxl5Ss', title: 'Self-Care Sunday Routine', description: 'Nurturing mind, body, and soul', thumbnailUrl: 'https://img.youtube.com/vi/1qilUaxl5Ss/hqdefault.jpg', publishedAt: '2024-01-01', views: '9.3K', duration: '14:28', isFeatured: false, order: 5, createdAt: new Date(), updatedAt: new Date() },
-    { id: 'j43tVo2Y07E', title: 'Kitchen Organization Tips', description: 'Creating a functional and beautiful space', thumbnailUrl: 'https://img.youtube.com/vi/j43tVo2Y07E/hqdefault.jpg', publishedAt: '2023-12-28', views: '7.8K', duration: '11:42', isFeatured: false, order: 6, createdAt: new Date(), updatedAt: new Date() }
-  ]; }
+  private getDefaultVlogs(): VlogVideo[] { 
+    // No default videos - all videos should be user-inputted through the admin dashboard
+    return []; 
+  }
 
   private getDefaultAlbums(): PhotoAlbum[] { return [
     { id:'1', title:'Morning Rituals', description:'Start your day with intention', coverImage:'/img1.JPEG', category:'Lifestyle', photos:[{id:'1',src:'/img1.JPEG',alt:'Morning coffee ritual',caption:'Coffee time',order:1},{id:'2',src:'/img2.JPG',alt:'Kitchen workspace',caption:'Preparing breakfast',order:2}], date:'2024-01-15', isFeatured:true, order:1, createdAt:new Date(), updatedAt:new Date() },
@@ -198,6 +367,32 @@ class VlogService {
     { id:'2', name:'Playlist 2', description:'Another great playlist', url:'https://open.spotify.com/playlist/4Bp1HuaVuGrjJRz10hWfkf', order:2, isActive:true, previewColor:'#E91429', stylizedTitle:'🏵️ Soulmates 🏵️', createdAt:new Date(), updatedAt:new Date() },
     { id:'3', name:'Playlist 3', description:'More music to enjoy', url:'https://open.spotify.com/playlist/7uZas1QudcmrU21IUtwd5Q', order:3, isActive:true, previewColor:'#1E3A8A', stylizedTitle:'🏖️ Ready 4 Summer 💦', createdAt:new Date(), updatedAt:new Date() }
   ]; }
+
+  // YouTube utility methods
+  extractYouTubeId(url: string): string | null {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+      /youtube\.com\/watch\?.*v=([^&\n?#]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  generateThumbnailUrl(youtubeId: string): string {
+    return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+  }
+
+  validateYouTubeUrl(url: string): boolean {
+    return this.extractYouTubeId(url) !== null;
+  }
+
+  formatYouTubeUrl(youtubeId: string): string {
+    return `https://www.youtube.com/watch?v=${youtubeId}`;
+  }
 }
 
 export const vlogService = new VlogService();

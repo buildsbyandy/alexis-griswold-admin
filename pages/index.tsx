@@ -6,13 +6,14 @@ import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
 import RecipeModal from '../components/modals/RecipeModal';
 import VlogModal from '../components/modals/VlogModal';
+import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
 import HealingProductModal, { type HealingProduct } from '../components/modals/HealingProductModal';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
 import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
-import vlogService, { type VlogVideo } from '../lib/services/vlogService';
+import vlogService, { type VlogVideo, type PhotoAlbum } from '../lib/services/vlogService';
 import healingService from '../lib/services/healingService';
 import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
 
@@ -49,6 +50,8 @@ const AdminContent: React.FC = () => {
   const [sfStats, setSfStats] = useState({ total: 0, byStatus: { draft: 0, published: 0, archived: 0 }, byCategory: {}, favorites: 0 });
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
+  const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
+  const [photoAlbums, setPhotoAlbums] = useState<PhotoAlbum[]>([]);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
@@ -163,6 +166,30 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  const handleSaveAlbum = async (albumData: Omit<PhotoAlbum, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingAlbum) {
+        const success = await vlogService.updateAlbum(editingAlbum.id, albumData);
+        if (!success) throw new Error('Failed to update album');
+      } else {
+        const success = await vlogService.addAlbum(albumData);
+        if (!success) throw new Error('Failed to create album');
+      }
+      
+      // Reload albums and stats
+      const allAlbums = await vlogService.getAllAlbums();
+      setPhotoAlbums(allAlbums);
+      const vlogStatsData = await vlogService.getStats();
+      setVlogStats(vlogStatsData);
+
+      setEditingAlbum(null);
+      setShowAlbumModal(false);
+    } catch (error) {
+      console.error('Error saving album:', error);
+      throw error;
+    }
+  };
+
   // Healing save functionality
   const handleSaveHealingProduct = async (productData: Omit<HealingProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -213,18 +240,20 @@ const AdminContent: React.FC = () => {
   const handleSaveStorefrontProduct = async (productData: Omit<StorefrontProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       if (editingSfProduct) {
-        // Update existing product - need to implement this in storefrontService
-        // const success = await storefrontService.updateProduct(editingSfProduct.id, productData);
-        // if (!success) throw new Error('Failed to update storefront product');
+        // Update existing product
+        await storefrontService.update(editingSfProduct.id, productData);
       } else {
-        // Create new product - need to implement this in storefrontService  
-        // const success = await storefrontService.addProduct(productData);
-        // if (!success) throw new Error('Failed to create storefront product');
+        // Create new product
+        await storefrontService.add(productData);
       }
       
-      // Reload products
+      // Reload products and stats
       const productsList = await storefrontService.getAll();
       setSfProducts(productsList);
+      setSfItems(productsList);
+
+      const storefrontStats = await storefrontService.getStats();
+      setSfStats(storefrontStats);
 
       setIsAddingSfProduct(false);
       setEditingSfProduct(null);
@@ -255,6 +284,9 @@ const AdminContent: React.FC = () => {
 
         const vlogsList = await vlogService.getAllVlogs();
         setVlogs(vlogsList);
+
+        const albumsList = await vlogService.getAllAlbums();
+        setPhotoAlbums(albumsList);
 
         const healingProductsList = await healingService.getAllProducts();
         setHealingProducts(healingProductsList);
@@ -994,16 +1026,96 @@ const AdminContent: React.FC = () => {
                   <h2 className="text-xl font-semibold text-[#383B26]">Photo Gallery Management</h2>
                   <p className="text-[#8F907E] text-sm">Organize your photo albums and collections</p>
                 </div>
-                <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
+                <button 
+                  onClick={() => {
+                    setEditingAlbum(null);
+                    setShowAlbumModal(true);
+                  }}
+                  className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                >
                   <FaPlus className="mr-2" />
                   Add Album
                 </button>
               </div>
               
-              <div className="text-center py-12 text-[#8F907E]">
-                <FaImage className="mx-auto text-4xl mb-4 opacity-50" />
-                <p>Photo Gallery management coming soon...</p>
-              </div>
+              {photoAlbums.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {photoAlbums.map((album) => (
+                    <div key={album.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Album Cover */}
+                      <div className="relative">
+                        <img
+                          src={album.coverImage}
+                          alt={album.title}
+                          className="w-full h-48 object-cover"
+                        />
+                        {album.isFeatured && (
+                          <span className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center">
+                            <FaStar className="mr-1" />
+                            Featured
+                          </span>
+                        )}
+                        <span className="absolute top-2 right-2 bg-[#B8A692] text-white px-2 py-1 rounded text-xs">
+                          {album.category}
+                        </span>
+                      </div>
+                      
+                      {/* Album Info */}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-[#383B26] mb-2">{album.title}</h3>
+                        <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{album.description}</p>
+                        <p className="text-xs text-[#8F907E] mb-3">
+                          {album.photos.length} photos • {album.date}
+                        </p>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => {
+                              setEditingAlbum(album);
+                              setShowAlbumModal(true);
+                            }}
+                            className="flex-1 px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center justify-center"
+                          >
+                            <FaEdit className="mr-1" />
+                            Edit
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Are you sure you want to delete this album?')) {
+                                try {
+                                  const success = await vlogService.deleteAlbum(album.id);
+                                  if (success) {
+                                    const albumsList = await vlogService.getAllAlbums();
+                                    setPhotoAlbums(albumsList);
+                                    const vlogStatsData = await vlogService.getStats();
+                                    setVlogStats(vlogStatsData);
+                                    toast.success('Album deleted successfully!');
+                                  } else {
+                                    throw new Error('Failed to delete album');
+                                  }
+                                } catch (error) {
+                                  console.error('Delete error:', error);
+                                  toast.error('Failed to delete album');
+                                }
+                              }
+                            }}
+                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-[#8F907E]">
+                  <FaImage className="mx-auto text-4xl mb-4 opacity-50" />
+                  <p>No photo albums created yet</p>
+                  <p className="text-sm mt-2">Click "Add Album" to create your first photo album</p>
+                </div>
+              )}
             </div>
             )}
 
@@ -1401,11 +1513,10 @@ const AdminContent: React.FC = () => {
                   className="p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
                   <option value="all">All Categories</option>
-                  <option value="kitchen">Kitchen</option>
-                  <option value="wellness">Wellness</option>
-                  <option value="beauty">Beauty</option>
-                  <option value="fitness">Fitness</option>
-                  <option value="lifestyle">Lifestyle</option>
+                  <option value="food">Food</option>
+                  <option value="healing">Healing</option>
+                  <option value="home">Home</option>
+                  <option value="personal-care">Personal Care</option>
                 </select>
                 <select
                   value={sfStatus}
@@ -1486,7 +1597,24 @@ const AdminContent: React.FC = () => {
                               <FaEdit className="mr-1" />
                               Edit
                             </button>
-                            <button className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+                            <button 
+                              onClick={async () => {
+                                if (confirm('Are you sure you want to delete this product?')) {
+                                  try {
+                                    await storefrontService.delete(product.id);
+                                    const productsList = await storefrontService.getAll();
+                                    setSfProducts(productsList);
+                                    setSfItems(productsList);
+                                    const storefrontStats = await storefrontService.getStats();
+                                    setSfStats(storefrontStats);
+                                    toast.success('Product deleted successfully!');
+                                  } catch (error) {
+                                    console.error('Delete error:', error);
+                                    toast.error('Failed to delete product');
+                                  }
+                                }
+                              }}
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
                               <FaTrash />
                             </button>
                           </div>
@@ -1585,6 +1713,17 @@ const AdminContent: React.FC = () => {
         }}
         vlog={editingVlog}
         onSave={handleSaveVlog}
+      />
+
+      {/* Photo Album Modal */}
+      <PhotoAlbumModal
+        isOpen={showAlbumModal}
+        onClose={() => {
+          setShowAlbumModal(false);
+          setEditingAlbum(null);
+        }}
+        album={editingAlbum}
+        onSave={handleSaveAlbum}
       />
 
       {/* Healing Product Modal */}

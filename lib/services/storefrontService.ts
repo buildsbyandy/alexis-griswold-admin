@@ -80,13 +80,46 @@ class StorefrontService {
   async getByCategory(category: StorefrontProduct['category'], opts?: { includeDraft?: boolean }): Promise<StorefrontProduct[]> { const all = await this.getAll(); const list=all.filter(p=>p.category===category && (opts?.includeDraft ? p.status!=='archived' : p.status==='published')).sort((a,b)=>(a.sortWeight??0)-(b.sortWeight??0)); return list; }
   async findBySlug(slug: string): Promise<StorefrontProduct | undefined> { const all = await this.getAll(); return all.find(p=>p.slug===slug); }
   validateRequired(p: Partial<StorefrontProduct>) { const e: Record<string,string>={}; if(!p.title||!(p.title+'').trim()) e.title='Title is required'; if(!p.category) e.category='Category is required'; if(!p.amazonUrl||!(p.amazonUrl+'').trim()) e.amazonUrl='Amazon URL is required'; if(!p.image||!(p.image+'').trim()) e.image='Image is required'; if(!p.imageAlt||!(p.imageAlt+'').trim()) e.imageAlt='Image alt text is required'; if(!p.noteShort||!(p.noteShort+'').trim()) e.noteShort='Short note is required'; if(p.title&&(p.title+'').length>120) e.title='Title is too long (max 120)'; if(p.slug&&(p.slug+'').length>140) e.slug='Slug is too long (max 140)'; if(p.noteShort&&(p.noteShort+'').length>280) e.noteShort='Short note is too long (max 280)'; return e; }
-  add(input: Omit<StorefrontProduct,'id'|'createdAt'|'updatedAt'|'slug'> & { slug?: string }): StorefrontProduct { 
-    const now=new Date().toISOString(); 
-    const partial: Partial<StorefrontProduct>={...input, slug: input.slug || this.slugify(input.title)}; 
-    const errors=this.validateRequired(partial); 
+  async add(input: Omit<StorefrontProduct,'id'|'createdAt'|'updatedAt'|'slug'> & { slug?: string }): Promise<StorefrontProduct> { 
+    const now = new Date().toISOString(); 
+    const partial: Partial<StorefrontProduct> = {...input, slug: input.slug || this.slugify(input.title)}; 
+    const errors = this.validateRequired(partial); 
     if(Object.keys(errors).length) throw Object.assign(new Error('Validation failed'),{errors}); 
     
-    // Use localStorage for adding products for now
+    try {
+      // Try API first
+      const response = await fetch('/api/storefront', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_title: partial.title,
+          slug: partial.slug,
+          category_name: this.mapCategoryToDB(partial.category as any),
+          amazon_url: partial.amazonUrl,
+          product_image_path: partial.image,
+          imageAlt: partial.imageAlt,
+          product_description: partial.noteShort,
+          noteLong: partial.noteLong,
+          price: partial.price,
+          tags: partial.tags || [],
+          isAlexisPick: !!partial.isAlexisPick,
+          showInFavorites: !!partial.showInFavorites,
+          status: partial.status || 'draft',
+          sortWeight: typeof partial.sortWeight==='number' ? partial.sortWeight : this.nextSortWeightForCategory(partial.category as any),
+          usedIn: partial.usedIn || [],
+          pairsWith: partial.pairsWith || []
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        return this.mapFromDB(result.product);
+      }
+    } catch (error) {
+      console.error('API create failed, using localStorage fallback:', error);
+    }
+    
+    // Fallback to localStorage
     const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
     const products = raw ? JSON.parse(raw) : [];
     
@@ -109,7 +142,41 @@ class StorefrontService {
     this.save(products); 
     return product; 
   }
-  update(id: string, updates: Partial<StorefrontProduct>): StorefrontProduct { 
+  async update(id: string, updates: Partial<StorefrontProduct>): Promise<StorefrontProduct> { 
+    try {
+      // Try API first
+      const response = await fetch(`/api/storefront/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_title: updates.title,
+          slug: updates.slug,
+          category_name: updates.category ? this.mapCategoryToDB(updates.category) : undefined,
+          amazon_url: updates.amazonUrl,
+          product_image_path: updates.image,
+          imageAlt: updates.imageAlt,
+          product_description: updates.noteShort,
+          noteLong: updates.noteLong,
+          price: updates.price,
+          tags: updates.tags,
+          isAlexisPick: updates.isAlexisPick,
+          showInFavorites: updates.showInFavorites,
+          status: updates.status,
+          sortWeight: updates.sortWeight,
+          usedIn: updates.usedIn,
+          pairsWith: updates.pairsWith
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        return this.mapFromDB(result.product);
+      }
+    } catch (error) {
+      console.error('API update failed, using localStorage fallback:', error);
+    }
+    
+    // Fallback to localStorage
     const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
     const products = raw ? JSON.parse(raw) : [];
     const idx=products.findIndex((p: any)=>p.id===id); 
@@ -125,11 +192,26 @@ class StorefrontService {
     this.save(products); 
     return merged; 
   }
-  archive(id: string): void { this.update(id,{ status:'archived' }); }
-  delete(id: string): void { 
+  async archive(id: string): Promise<StorefrontProduct> { return this.update(id,{ status:'archived' }); }
+  async delete(id: string): Promise<boolean> { 
+    try {
+      // Try API first
+      const response = await fetch(`/api/storefront/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        return true;
+      }
+    } catch (error) {
+      console.error('API delete failed, using localStorage fallback:', error);
+    }
+    
+    // Fallback to localStorage
     const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
     const next = raw ? JSON.parse(raw).filter((p: any)=>p.id!==id) : [];
     this.save(next); 
+    return true;
   }
   reorderWithinCategory(category: StorefrontProduct['category'], orderedIds: string[]): void { 
     const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
@@ -165,6 +247,43 @@ class StorefrontService {
       'Personal Care': 'personal-care'
     };
     return mapping[dbCategory] || 'home';
+  }
+  private mapCategoryToDB(category: string): string {
+    // Map service category names to database category names
+    const mapping: Record<string, string> = {
+      'food': 'Food',
+      'healing': 'Healing',
+      'home': 'Home',
+      'personal-care': 'Personal Care'
+    };
+    return mapping[category] || 'Home';
+  }
+  private mapFromDB(dbProduct: any): StorefrontProduct {
+    return {
+      id: dbProduct.id,
+      title: dbProduct.product_title || '',
+      slug: dbProduct.slug || '',
+      category: this.mapCategoryFromDB(dbProduct.category_name) as any,
+      amazonUrl: dbProduct.amazon_url || '',
+      image: dbProduct.product_image_path || '',
+      imageUrl: dbProduct.product_image_path,
+      imageAlt: dbProduct.imageAlt || dbProduct.product_title || '',
+      noteShort: dbProduct.noteShort || dbProduct.product_description || '',
+      noteLong: dbProduct.noteLong || '',
+      description: dbProduct.product_description,
+      price: dbProduct.price,
+      tags: Array.isArray(dbProduct.tags) ? dbProduct.tags : [],
+      isAlexisPick: dbProduct.isAlexisPick || false,
+      isFavorite: dbProduct.showInFavorites || false,
+      showInFavorites: dbProduct.showInFavorites || false,
+      status: dbProduct.status as any || 'draft',
+      sortWeight: dbProduct.sortWeight || 0,
+      usedIn: dbProduct.usedIn || [],
+      pairsWith: Array.isArray(dbProduct.pairsWith) ? dbProduct.pairsWith : [],
+      createdAt: dbProduct.created_at,
+      updatedAt: dbProduct.updated_at,
+      clicks30d: dbProduct.clicks30d || 0
+    };
   }
   private ensureUniqueSlug(base: string): string { 
     // Use localStorage for slug generation for now
