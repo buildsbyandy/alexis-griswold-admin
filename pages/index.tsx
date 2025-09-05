@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
 import RecipeModal from '../components/modals/RecipeModal';
 import VlogModal from '../components/modals/VlogModal';
 import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
+import SpotifyPlaylistModal from '../components/modals/SpotifyPlaylistModal';
 import HealingProductModal, { type HealingProduct } from '../components/modals/HealingProductModal';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
 import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
+import HealingVideoModal from '../components/modals/HealingVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
-import vlogService, { type VlogVideo, type PhotoAlbum } from '../lib/services/vlogService';
-import healingService from '../lib/services/healingService';
+import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist } from '../lib/services/vlogService';
+import healingService, { type HealingVideo } from '../lib/services/healingService';
 import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
@@ -30,11 +32,20 @@ const AdminContent: React.FC = () => {
   const [editingVlog, setEditingVlog] = useState<VlogVideo | null>(null);
   const [isAddingVlog, setIsAddingVlog] = useState(false);
   const [vlogActiveTab, setVlogActiveTab] = useState<'hero' | 'videos' | 'gallery' | 'spotify'>('hero');
+  const [editingVlogHero, setEditingVlogHero] = useState(false);
+  const [vlogHeroData, setVlogHeroData] = useState({
+    title: 'VLOGS',
+    subtitle: 'Step into my life — one video at a time.',
+    bodyText: 'Every moment captured, every story shared, every adventure lived. My vlogs are windows into a life filled with purpose, passion, and the simple joys that make each day extraordinary.'
+  });
   const [healingProducts, setHealingProducts] = useState<HealingProduct[]>([]);
   const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProduct | null>(null);
   const [isAddingHealingProduct, setIsAddingHealingProduct] = useState(false);
   const [editingCarouselHeader, setEditingCarouselHeader] = useState<CarouselHeader | null>(null);
   const [editingHealingFeaturedVideo, setEditingHealingFeaturedVideo] = useState<HealingFeaturedVideo | null>(null);
+  const [healingVideos, setHealingVideos] = useState<HealingVideo[]>([]);
+  const [editingHealingVideo, setEditingHealingVideo] = useState<HealingVideo | null>(null);
+  const [showHealingVideoModal, setShowHealingVideoModal] = useState(false);
   const [sfProducts, setSfProducts] = useState<StorefrontProduct[]>([]);
   const [editingSfProduct, setEditingSfProduct] = useState<StorefrontProduct | null>(null);
   const [isAddingSfProduct, setIsAddingSfProduct] = useState(false);
@@ -55,7 +66,8 @@ const AdminContent: React.FC = () => {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
-  const [editingPlaylist, setEditingPlaylist] = useState<any>(null);
+  const [editingPlaylist, setEditingPlaylist] = useState<SpotifyPlaylist | null>(null);
+  const [spotifyPlaylists, setSpotifyPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [currentCarouselType, setCurrentCarouselType] = useState<'main' | 'ag' | 'healing-part1' | 'healing-part2'>('main');
   
   const [vlogData, setVlogData] = useState({
@@ -190,6 +202,32 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  const handleSavePlaylist = async (playlistData: Omit<SpotifyPlaylist, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingPlaylist) {
+        const success = await vlogService.updatePlaylist(editingPlaylist.id, playlistData);
+        if (!success) throw new Error('Failed to update playlist');
+      } else {
+        const success = await vlogService.addPlaylist(playlistData);
+        if (!success) throw new Error('Failed to create playlist');
+      }
+      
+      // Reload playlists and stats
+      const allPlaylists = await vlogService.getAllPlaylists();
+      setSpotifyPlaylists(allPlaylists);
+      setSpotifyStats({
+        totalPlaylists: allPlaylists.length,
+        activePlaylists: allPlaylists.filter(p => p.isActive).length
+      });
+
+      setEditingPlaylist(null);
+      setShowPlaylistModal(false);
+    } catch (error) {
+      console.error('Error saving playlist:', error);
+      throw error;
+    }
+  };
+
   // Healing save functionality
   const handleSaveHealingProduct = async (productData: Omit<HealingProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -209,6 +247,28 @@ const AdminContent: React.FC = () => {
       setEditingHealingProduct(null);
     } catch (error) {
       console.error('Error saving healing product:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveHealingVideo = async (videoData: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingHealingVideo) {
+        const success = await healingService.updateVideo(editingHealingVideo.id, videoData);
+        if (!success) throw new Error('Failed to update healing video');
+      } else {
+        const success = await healingService.addVideo(videoData);
+        if (!success) throw new Error('Failed to create healing video');
+      }
+      
+      // Reload videos
+      const videosList = await healingService.getAllVideos();
+      setHealingVideos(videosList);
+
+      setShowHealingVideoModal(false);
+      setEditingHealingVideo(null);
+    } catch (error) {
+      console.error('Error saving healing video:', error);
       throw error;
     }
   };
@@ -291,7 +351,11 @@ const AdminContent: React.FC = () => {
         const healingProductsList = await healingService.getAllProducts();
         setHealingProducts(healingProductsList);
 
+        const healingVideosList = await healingService.getAllVideos();
+        setHealingVideos(healingVideosList);
+
         const playlists = await vlogService.getAllPlaylists();
+        setSpotifyPlaylists(playlists);
         setSpotifyStats({
           totalPlaylists: playlists.length,
           activePlaylists: playlists.filter(p => p.isActive).length
@@ -886,77 +950,116 @@ const AdminContent: React.FC = () => {
 
             {/* Hero Section Content */}
             {vlogActiveTab === 'hero' && (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#383B26]">Hero Section Content</h2>
-                  <p className="text-[#8F907E] text-sm">Configure the main hero area of your vlogs page</p>
-                </div>
-                <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
-                  <FaEdit className="mr-2" />
-                  Edit
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Hero Text Content */}
-                <div>
-                  <h3 className="font-medium text-[#383B26] mb-3">Hero Title</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h2 className="text-2xl font-bold text-[#383B26] mb-2">VLOGS</h2>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm text-[#8F907E]"><strong>Hero Subtitle:</strong></p>
-                        <p className="text-sm">Step into my life — one video at a time.</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-[#8F907E]"><strong>Hero Body Text:</strong></p>
-                        <p className="text-sm">Every moment captured, every story shared, every adventure lived. My vlogs are windows into a life filled with passion, purpose, and the simple joys that make each day extraordinary.</p>
-                      </div>
+              <div className="space-y-6">
+                {/* Hero Content */}
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-[#383B26]">Hero Section Content</h2>
+                      <p className="text-[#8F907E] text-sm">Configure the main hero area of your vlogs page</p>
                     </div>
-                  </div>
-                </div>
-
-                {/* Featured Video */}
-                <div>
-                  <h3 className="font-medium text-[#383B26] mb-3">Featured Video</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="bg-gray-200 h-32 flex items-center justify-center rounded mb-3">
-                      <div className="text-center text-gray-500">
-                        <FaVideo className="mx-auto mb-2 text-xl" />
-                        <p className="text-sm">Video Preview</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm"><strong>Current:</strong> Morning Routine & Healthy Breakfast</p>
-                      <p className="text-sm text-[#8F907E]"><strong>Duration:</strong> 8:32</p>
-                      <p className="text-sm text-[#8F907E]"><strong>Published:</strong> Jan 15, 2024</p>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        // Load current featured video data
-                        healingService.getFeaturedVideo().then(video => {
-                          setEditingHealingFeaturedVideo(video || {
-                            id: '',
-                            title: '',
-                            description: '',
-                            videoUrl: '',
-                            thumbnailUrl: '',
-                            duration: '',
-                            publishedAt: '',
-                            isActive: true,
-                            updatedAt: new Date()
-                          } as HealingFeaturedVideo);
-                        });
-                      }}
-                      className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm"
+                    <button
+                      onClick={() => setEditingVlogHero(!editingVlogHero)}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                     >
-                      Change Featured Video
+                      <FaEdit className="mr-2" />
+                      {editingVlogHero ? 'Cancel' : 'Edit'}
                     </button>
                   </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Text Content */}
+                    <div>
+                      {editingVlogHero ? (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-[#383B26] mb-1">Title</label>
+                            <input
+                              type="text"
+                              value={vlogHeroData.title}
+                              onChange={(e) => setVlogHeroData(prev => ({ ...prev, title: e.target.value }))}
+                              className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[#383B26] mb-1">Subtitle</label>
+                            <input
+                              type="text"
+                              value={vlogHeroData.subtitle}
+                              onChange={(e) => setVlogHeroData(prev => ({ ...prev, subtitle: e.target.value }))}
+                              className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[#383B26] mb-1">Body Text</label>
+                            <textarea
+                              value={vlogHeroData.bodyText}
+                              onChange={(e) => setVlogHeroData(prev => ({ ...prev, bodyText: e.target.value }))}
+                              className="w-full p-2 border border-gray-300 rounded-md h-32 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                            />
+                          </div>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('/api/vlogs/hero', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(vlogHeroData)
+                                });
+                                
+                                if (response.ok) {
+                                  setEditingVlogHero(false);
+                                  toast.success('Vlogs hero content saved successfully!');
+                                } else {
+                                  throw new Error('Failed to save');
+                                }
+                              } catch (error) {
+                                toast.error('Failed to save vlogs hero content');
+                                console.error('Save error:', error);
+                              }
+                            }}
+                            className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+                          >
+                            <FaSave className="mr-2" />
+                            Save Changes
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h2 className="text-2xl font-bold text-[#383B26] mb-2">{vlogHeroData.title}</h2>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm text-[#8F907E]"><strong>Hero Subtitle:</strong></p>
+                              <p className="text-sm">{vlogHeroData.subtitle}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-[#8F907E]"><strong>Hero Body Text:</strong></p>
+                              <p className="text-sm">{vlogHeroData.bodyText}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Featured Video Preview */}
+                    <div>
+                      <h3 className="font-medium text-[#383B26] mb-3">Featured Video Preview</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="bg-gray-200 h-32 flex items-center justify-center rounded mb-3">
+                          <div className="text-center text-gray-500">
+                            <FaVideo className="mx-auto mb-2 text-xl" />
+                            <p className="text-sm">Video Preview</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm"><strong>Current:</strong> Latest vlog from video management</p>
+                          <p className="text-sm text-[#8F907E]">Automatically shows the most recent active video</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
             )}
 
             {/* Videos Tab */}
@@ -1121,23 +1224,138 @@ const AdminContent: React.FC = () => {
 
             {/* Spotify Tab */}
             {vlogActiveTab === 'spotify' && (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#383B26]">Spotify Playlist Management</h2>
-                  <p className="text-[#8F907E] text-sm">Manage your featured Spotify playlists</p>
+              <>
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-[#383B26]">Spotify Playlists Section</h2>
+                      <p className="text-[#8F907E] text-sm">Configure section content and manage playlists</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowPlaylistModal(true)}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add Playlist
+                    </button>
+                  </div>
+
+                  {/* Section Content Configuration */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-[#383B26] mb-1">Section Title</label>
+                      <input
+                        type="text"
+                        defaultValue="Listen to My Playlists"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#383B26] mb-1">Section Subtitle</label>
+                      <input
+                        type="text"
+                        defaultValue="Curated music for every mood and moment"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Playlists Grid */}
+                  {spotifyPlaylists.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {spotifyPlaylists.map((playlist) => (
+                        <div key={playlist.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          {/* Playlist Card */}
+                          <div className="relative">
+                            <div 
+                              className="h-32 flex flex-col items-center justify-center text-white relative"
+                              style={{ backgroundColor: playlist.color }}
+                            >
+                              <FaMusic className="text-3xl mb-2 opacity-70" />
+                              <div className="text-center px-2">
+                                <p className="font-medium text-sm">{playlist.name}</p>
+                                <p className="text-xs opacity-80">Mood: {playlist.mood}</p>
+                              </div>
+                              {!playlist.isActive && (
+                                <div className="absolute top-2 right-2">
+                                  <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded">
+                                    Hidden
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Card Actions */}
+                          <div className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-gray-600">Order: {playlist.order}</p>
+                                <a 
+                                  href={playlist.spotifyUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-[#B8A692] hover:text-[#A0956C] truncate block max-w-32"
+                                  title={playlist.spotifyUrl}
+                                >
+                                  View on Spotify
+                                </a>
+                              </div>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingPlaylist(playlist);
+                                    setShowPlaylistModal(true);
+                                  }}
+                                  className="text-[#B8A692] hover:text-[#A0956C]"
+                                  title="Edit Playlist"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Are you sure you want to delete this playlist?')) {
+                                      const success = await vlogService.deletePlaylist(playlist.id);
+                                      if (success) {
+                                        const allPlaylists = await vlogService.getAllPlaylists();
+                                        setSpotifyPlaylists(allPlaylists);
+                                        setSpotifyStats({
+                                          totalPlaylists: allPlaylists.length,
+                                          activePlaylists: allPlaylists.filter(p => p.isActive).length
+                                        });
+                                        toast.success('Playlist deleted successfully!');
+                                      } else {
+                                        toast.error('Failed to delete playlist');
+                                      }
+                                    }
+                                  }}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="Delete Playlist"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-[#8F907E]">
+                      <FaMusic className="mx-auto text-4xl mb-4 opacity-50" />
+                      <p className="text-lg font-medium mb-2">No Playlists Yet</p>
+                      <p className="text-sm">Add your first Spotify playlist to get started</p>
+                      <button 
+                        onClick={() => setShowPlaylistModal(true)}
+                        className="mt-4 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
+                      >
+                        <FaPlus className="mr-2" />
+                        Add Playlist
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
-                  <FaPlus className="mr-2" />
-                  Add Playlist
-                </button>
-              </div>
-              
-              <div className="text-center py-12 text-[#8F907E]">
-                <FaVideo className="mx-auto text-4xl mb-4 opacity-50" />
-                <p>Spotify playlist management coming soon...</p>
-              </div>
-            </div>
+              </>
             )}
 
             {/* Content Analytics */}
@@ -1383,13 +1601,168 @@ const AdminContent: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Video Management */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h2 className="text-xl font-semibold text-[#383B26] mb-4">Video Content</h2>
-                  <div className="text-center py-8 text-gray-500">
-                    <FaVideo className="mx-auto mb-3 text-3xl" />
-                    <p>Video management functionality ready</p>
-                    <p className="text-sm">Connect to your video service to manage healing content</p>
+                {/* Video Carousels */}
+                <div className="space-y-6">
+                  {/* Part 1 Carousel */}
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 1: Candida Cleanse</h3>
+                        <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setEditingHealingVideo(null);
+                          setShowHealingVideoModal(true);
+                        }}
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                      >
+                        <FaPlus className="mr-2" />
+                        Add Video
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {healingVideos
+                        .filter(video => video.carousel === 'part1' && video.isActive)
+                        .sort((a, b) => a.order - b.order)
+                        .map((video) => (
+                          <div key={video.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="relative">
+                              <img
+                                src={video.thumbnailUrl}
+                                alt={video.title}
+                                className="w-full h-32 object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <FaVideo className="text-white text-2xl" />
+                              </div>
+                              {video.duration && (
+                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                                  {video.duration}
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.title}</h4>
+                              {video.views && (
+                                <p className="text-xs text-[#8F907E] mb-2">{video.views} views</p>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingHealingVideo(video);
+                                    setShowHealingVideoModal(true);
+                                  }}
+                                  className="px-2 py-1 bg-[#B8A692] text-white rounded text-xs hover:bg-[#A0956C] flex items-center"
+                                >
+                                  <FaEdit className="mr-1" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Are you sure you want to delete this video?')) {
+                                      const success = await healingService.deleteVideo(video.id);
+                                      if (success) {
+                                        const videosList = await healingService.getAllVideos();
+                                        setHealingVideos(videosList);
+                                        toast.success('Video deleted successfully!');
+                                      } else {
+                                        toast.error('Failed to delete video');
+                                      }
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 flex items-center"
+                                >
+                                  <FaTrash className="mr-1" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Part 2 Carousel */}
+                  <div className="bg-white p-6 rounded-lg shadow-md">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 2: Rebuild & Repair</h3>
+                        <p className="text-sm text-[#8F907E]">Videos focused on rebuilding gut health after cleansing</p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setEditingHealingVideo(null);
+                          setShowHealingVideoModal(true);
+                        }}
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                      >
+                        <FaPlus className="mr-2" />
+                        Add Video
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {healingVideos
+                        .filter(video => video.carousel === 'part2' && video.isActive)
+                        .sort((a, b) => a.order - b.order)
+                        .map((video) => (
+                          <div key={video.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="relative">
+                              <img
+                                src={video.thumbnailUrl}
+                                alt={video.title}
+                                className="w-full h-32 object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <FaVideo className="text-white text-2xl" />
+                              </div>
+                              {video.duration && (
+                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                                  {video.duration}
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.title}</h4>
+                              {video.views && (
+                                <p className="text-xs text-[#8F907E] mb-2">{video.views} views</p>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingHealingVideo(video);
+                                    setShowHealingVideoModal(true);
+                                  }}
+                                  className="px-2 py-1 bg-[#B8A692] text-white rounded text-xs hover:bg-[#A0956C] flex items-center"
+                                >
+                                  <FaEdit className="mr-1" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Are you sure you want to delete this video?')) {
+                                      const success = await healingService.deleteVideo(video.id);
+                                      if (success) {
+                                        const videosList = await healingService.getAllVideos();
+                                        setHealingVideos(videosList);
+                                        toast.success('Video deleted successfully!');
+                                      } else {
+                                        toast.error('Failed to delete video');
+                                      }
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 flex items-center"
+                                >
+                                  <FaTrash className="mr-1" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1413,30 +1786,79 @@ const AdminContent: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Sample Products */}
+                  {/* Healing Products */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      { name: 'Premium Probiotic Complex', price: '$45.99', category: 'Gut Health' },
-                      { name: 'Candida Cleanse Formula', price: '$32.99', category: 'Detox' },
-                      { name: 'Digestive Enzyme Blend', price: '$28.99', category: 'Digestion' }
-                    ].map((product, index) => (
-                      <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="bg-gray-200 h-24 rounded mb-3 flex items-center justify-center">
-                          <FaHeartbeat className="text-gray-400 text-xl" />
-                        </div>
-                        <h3 className="font-medium text-[#383B26] mb-1">{product.name}</h3>
-                        <p className="text-sm text-[#8F907E] mb-2">{product.category}</p>
-                        <p className="font-bold text-[#383B26]">{product.price}</p>
-                        <div className="flex gap-2 mt-3">
-                          <button className="flex-1 px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]">
-                            Edit
-                          </button>
-                          <button className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
-                            <FaTrash />
-                          </button>
-                        </div>
+                    {healingProducts.length === 0 ? (
+                      <div className="col-span-full text-center py-8">
+                        <FaHeartbeat className="mx-auto text-4xl text-gray-300 mb-4" />
+                        <p className="text-gray-500 mb-4">No products added yet</p>
+                        <button 
+                          onClick={() => setIsAddingHealingProduct(true)}
+                          className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
+                        >
+                          <FaPlus className="mr-2" />
+                          Add Your First Product
+                        </button>
                       </div>
-                    ))}
+                    ) : (
+                      healingProducts
+                        .filter(product => product.isActive)
+                        .sort((a, b) => a.order - b.order)
+                        .map((product) => (
+                          <div key={product.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="relative mb-3">
+                              {product.imageUrl ? (
+                                <img 
+                                  src={product.imageUrl} 
+                                  alt={product.name}
+                                  className="w-full h-24 object-cover rounded"
+                                />
+                              ) : (
+                                <div className="bg-gray-200 h-24 rounded flex items-center justify-center">
+                                  <FaHeartbeat className="text-gray-400 text-xl" />
+                                </div>
+                              )}
+                            </div>
+                            <h3 className="font-medium text-[#383B26] mb-1">{product.name}</h3>
+                            <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{product.purpose}</p>
+                            {product.howToUse && (
+                              <p className="text-xs text-gray-600 mb-2 line-clamp-1">How to use: {product.howToUse}</p>
+                            )}
+                            {product.amazonUrl && (
+                              <a 
+                                href={product.amazonUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block text-xs text-[#B8A692] hover:text-[#A0956C] mb-2"
+                              >
+                                View on Amazon →
+                              </a>
+                            )}
+                            <div className="flex gap-2 mt-3">
+                              <button 
+                                onClick={() => setEditingHealingProduct(product)}
+                                className="flex-1 px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={async () => {
+                                  if (window.confirm('Are you sure you want to delete this product?')) {
+                                    const success = await healingService.deleteProduct(product.id);
+                                    if (success) {
+                                      const productsList = await healingService.getAllProducts();
+                                      setHealingProducts(productsList);
+                                    }
+                                  }
+                                }}
+                                className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                              >
+                                <FaTrash />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -1726,6 +2148,17 @@ const AdminContent: React.FC = () => {
         onSave={handleSaveAlbum}
       />
 
+      {/* Spotify Playlist Modal */}
+      <SpotifyPlaylistModal
+        isOpen={showPlaylistModal}
+        onClose={() => {
+          setShowPlaylistModal(false);
+          setEditingPlaylist(null);
+        }}
+        playlist={editingPlaylist}
+        onSave={handleSavePlaylist}
+      />
+
       {/* Healing Product Modal */}
       <HealingProductModal
         isOpen={isAddingHealingProduct || !!editingHealingProduct}
@@ -1751,6 +2184,17 @@ const AdminContent: React.FC = () => {
         onClose={() => setEditingHealingFeaturedVideo(null)}
         currentVideo={editingHealingFeaturedVideo}
         onSave={handleSaveHealingFeaturedVideo}
+      />
+
+      {/* Healing Video Modal */}
+      <HealingVideoModal
+        isOpen={showHealingVideoModal}
+        onClose={() => {
+          setShowHealingVideoModal(false);
+          setEditingHealingVideo(null);
+        }}
+        video={editingHealingVideo}
+        onSave={handleSaveHealingVideo}
       />
 
       {/* Storefront Product Modal */}

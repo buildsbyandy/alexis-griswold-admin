@@ -36,12 +36,11 @@ export interface Photo { id: string; src: string; alt: string; caption?: string;
 export interface SpotifyPlaylist {
   id: string;
   name: string;
-  description: string;
-  url: string;
+  mood: string;
+  color: string;
+  spotifyUrl: string;
   order: number;
   isActive: boolean;
-  previewColor?: string;
-  stylizedTitle?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -363,9 +362,9 @@ class VlogService {
   ]; }
 
   private getDefaultPlaylists(): SpotifyPlaylist[] { return [
-    { id:'1', name:'Playlist 1', description:'A great playlist', url:'https://open.spotify.com/playlist/4i1BwxDwkjbJNGvhnhEH5P', order:1, isActive:true, previewColor:'#2D2D2D', stylizedTitle:'🌅 Switching Timezones 🌇', createdAt:new Date(), updatedAt:new Date() },
-    { id:'2', name:'Playlist 2', description:'Another great playlist', url:'https://open.spotify.com/playlist/4Bp1HuaVuGrjJRz10hWfkf', order:2, isActive:true, previewColor:'#E91429', stylizedTitle:'🏵️ Soulmates 🏵️', createdAt:new Date(), updatedAt:new Date() },
-    { id:'3', name:'Playlist 3', description:'More music to enjoy', url:'https://open.spotify.com/playlist/7uZas1QudcmrU21IUtwd5Q', order:3, isActive:true, previewColor:'#1E3A8A', stylizedTitle:'🏖️ Ready 4 Summer 💦', createdAt:new Date(), updatedAt:new Date() }
+    { id:'1', name:'Switching Timezones', mood:'Chill Vibes', color:'#2D2D2D', spotifyUrl:'https://open.spotify.com/playlist/4i1BwxDwkjbJNGvhnhEH5P', order:1, isActive:true, createdAt:new Date(), updatedAt:new Date() },
+    { id:'2', name:'Soulmates', mood:'Energy Boost', color:'#E91429', spotifyUrl:'https://open.spotify.com/playlist/4Bp1HuaVuGrjJRz10hWfkf', order:2, isActive:true, createdAt:new Date(), updatedAt:new Date() },
+    { id:'3', name:'Ready 4 Summer', mood:'Feel Good', color:'#1E3A8A', spotifyUrl:'https://open.spotify.com/playlist/7uZas1QudcmrU21IUtwd5Q', order:3, isActive:true, createdAt:new Date(), updatedAt:new Date() }
   ]; }
 
   // YouTube utility methods
