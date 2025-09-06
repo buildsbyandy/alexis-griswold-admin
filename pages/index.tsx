@@ -649,7 +649,24 @@ const AdminContent: React.FC = () => {
                       <FileUpload
                         accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
                         uploadType="video"
-                        onUpload={(url) => setHomePageContent(prev => ({ ...prev, videoBackground: url }))}
+                        onUpload={async (url) => {
+                          setHomePageContent(prev => ({ ...prev, videoBackground: url }));
+                          // Auto-save to database when video uploads
+                          try {
+                            const response = await fetch('/api/home', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...homePageContent, videoBackground: url })
+                            });
+                            if (response.ok) {
+                              toast.success('Video uploaded and saved successfully!');
+                              loadDashboardData(); // Refresh to load video history
+                            }
+                          } catch (error) {
+                            console.error('Auto-save error:', error);
+                            toast.error('Video uploaded but failed to save. Please click Save Changes.');
+                          }
+                        }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
                         <FaUploadIcon className="mr-2" />
