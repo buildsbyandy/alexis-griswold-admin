@@ -11,6 +11,7 @@ interface HomeContent {
   fallbackImage: string;
   videoTitle: string;
   videoDescription: string;
+  videoOpacity?: number;
 }
 
 interface VideoHistoryItem {
@@ -84,6 +85,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: '00000000-0000-0000-0000-000000000001',
         background_video_path: content.videoBackground,
         fallback_image_path: content.fallbackImage,
+        hero_main_title: content.videoTitle,
+        hero_subtitle: content.videoDescription,
         video_title: content.videoTitle,
         video_description: content.videoDescription,
         video_history: videoHistory,

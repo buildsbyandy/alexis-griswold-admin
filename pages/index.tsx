@@ -642,17 +642,21 @@ const AdminContent: React.FC = () => {
                           <p className="text-sm">Upload a background video</p>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <FileUpload
-                          accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
-                          uploadType="video"
-                          onUpload={(url) => setHomePageContent(prev => ({ ...prev, videoBackground: url }))}
-                          className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                        >
-                          Upload Video
-                        </FileUpload>
-                      </div>
                     </div>
+                    
+                    {/* Upload Button - Now below video preview */}
+                    <div className="mt-3 flex justify-center">
+                      <FileUpload
+                        accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
+                        uploadType="video"
+                        onUpload={(url) => setHomePageContent(prev => ({ ...prev, videoBackground: url }))}
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                      >
+                        <FaUploadIcon className="mr-2" />
+                        Upload New Video
+                      </FileUpload>
+                    </div>
+                    
                     <div className="mt-3">
                       <p className="text-sm text-[#8F907E]"><strong>Title:</strong> {homePageContent.videoTitle}</p>
                       <p className="text-sm text-[#8F907E] mt-1"><strong>Description:</strong> {homePageContent.videoDescription}</p>
