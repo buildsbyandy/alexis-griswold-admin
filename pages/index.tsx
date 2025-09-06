@@ -660,7 +660,7 @@ const AdminContent: React.FC = () => {
                             });
                             if (response.ok) {
                               toast.success('Video uploaded and saved successfully!');
-                              loadDashboardData(); // Refresh to load video history
+                              loadData(); // Refresh to load video history
                             }
                           } catch (error) {
                             console.error('Auto-save error:', error);
@@ -814,7 +814,7 @@ const AdminContent: React.FC = () => {
                           setEditingHomeContent(false);
                           toast.success('Homepage content saved successfully!');
                           // Reload data to get updated video history
-                          loadDashboardData();
+                          loadData();
                         } else {
                           throw new Error('Failed to save');
                         }
@@ -847,7 +847,7 @@ const AdminContent: React.FC = () => {
                 onVideoDelete={(videoPath) => {
                   setVideoHistory(prev => prev.filter(v => v.path !== videoPath));
                 }}
-                onRefresh={loadDashboardData}
+                onRefresh={loadData}
               />
             </div>
 
