@@ -99,42 +99,152 @@ class RecipeService {
   }
 
   async addRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Promise<Recipe> {
-    // For now, use localStorage for adding (API endpoint would need POST implementation)
-    const newRecipe: Recipe = {
-      ...recipe,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    // Fallback to localStorage for adding recipes
-    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
-    const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
-    recipes.push(newRecipe);
-    this.saveRecipes(recipes);
-    return newRecipe;
+    try {
+      const response = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // Map frontend fields to database fields
+          title: recipe.title,
+          slug: recipe.slug,
+          description: recipe.description,
+          hero_image_path: recipe.imageUrl,
+          category: recipe.category,
+          folder: recipe.folder,
+          isBeginner: recipe.isBeginner,
+          isRecipeOfWeek: recipe.isRecipeOfWeek,
+          prepTime: recipe.prepTime,
+          cookTime: recipe.cookTime,
+          servings: recipe.servings,
+          difficulty: recipe.difficulty,
+          images: recipe.images,
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          tags: recipe.tags,
+          status: recipe.status,
+          is_favorite: recipe.isFavorite
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      // Map database fields back to service interface
+      return {
+        id: data.recipe.id,
+        title: data.recipe.title,
+        slug: data.recipe.slug,
+        description: data.recipe.description || '',
+        category: data.recipe.category || '',
+        folder: data.recipe.folder || '',
+        isBeginner: data.recipe.isBeginner || false,
+        isRecipeOfWeek: data.recipe.isRecipeOfWeek || false,
+        status: (data.recipe.status as RecipeStatus) || 'draft',
+        isFavorite: data.recipe.is_favorite || false,
+        imageUrl: data.recipe.hero_image_path || '',
+        images: Array.isArray(data.recipe.images) ? data.recipe.images : [],
+        ingredients: Array.isArray(data.recipe.ingredients) ? data.recipe.ingredients : [],
+        instructions: Array.isArray(data.recipe.instructions) ? data.recipe.instructions : [],
+        prepTime: data.recipe.prepTime || '',
+        cookTime: data.recipe.cookTime || '',
+        servings: data.recipe.servings || 1,
+        difficulty: data.recipe.difficulty || 'Easy',
+        tags: Array.isArray(data.recipe.tags) ? data.recipe.tags : [],
+        createdAt: new Date(data.recipe.created_at),
+        updatedAt: new Date(data.recipe.updated_at)
+      };
+    } catch (error) {
+      console.error('Error adding recipe:', error);
+      throw error;
+    }
   }
 
   async updateRecipe(id: string, updates: Partial<Recipe>): Promise<Recipe | null> {
-    // Fallback to localStorage for updating recipes
-    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
-    const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
-    const index = recipes.findIndex((recipe: Recipe) => recipe.id === id);
-    if (index === -1) return null;
-    const updated: Recipe = { ...recipes[index], ...updates, updatedAt: new Date() };
-    recipes[index] = updated;
-    this.saveRecipes(recipes);
-    return updated;
+    try {
+      // Map frontend fields to database fields for the update
+      const updateData: any = {};
+      if (updates.title !== undefined) updateData.title = updates.title;
+      if (updates.slug !== undefined) updateData.slug = updates.slug;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.imageUrl !== undefined) updateData.hero_image_path = updates.imageUrl;
+      if (updates.category !== undefined) updateData.category = updates.category;
+      if (updates.folder !== undefined) updateData.folder = updates.folder;
+      if (updates.isBeginner !== undefined) updateData.isBeginner = updates.isBeginner;
+      if (updates.isRecipeOfWeek !== undefined) updateData.isRecipeOfWeek = updates.isRecipeOfWeek;
+      if (updates.prepTime !== undefined) updateData.prepTime = updates.prepTime;
+      if (updates.cookTime !== undefined) updateData.cookTime = updates.cookTime;
+      if (updates.servings !== undefined) updateData.servings = updates.servings;
+      if (updates.difficulty !== undefined) updateData.difficulty = updates.difficulty;
+      if (updates.images !== undefined) updateData.images = updates.images;
+      if (updates.ingredients !== undefined) updateData.ingredients = updates.ingredients;
+      if (updates.instructions !== undefined) updateData.instructions = updates.instructions;
+      if (updates.tags !== undefined) updateData.tags = updates.tags;
+      if (updates.status !== undefined) updateData.status = updates.status;
+      if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
+
+      const response = await fetch(`/api/recipes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      // Map database fields back to service interface
+      return {
+        id: data.recipe.id,
+        title: data.recipe.title,
+        slug: data.recipe.slug,
+        description: data.recipe.description || '',
+        category: data.recipe.category || '',
+        folder: data.recipe.folder || '',
+        isBeginner: data.recipe.isBeginner || false,
+        isRecipeOfWeek: data.recipe.isRecipeOfWeek || false,
+        status: (data.recipe.status as RecipeStatus) || 'draft',
+        isFavorite: data.recipe.is_favorite || false,
+        imageUrl: data.recipe.hero_image_path || '',
+        images: Array.isArray(data.recipe.images) ? data.recipe.images : [],
+        ingredients: Array.isArray(data.recipe.ingredients) ? data.recipe.ingredients : [],
+        instructions: Array.isArray(data.recipe.instructions) ? data.recipe.instructions : [],
+        prepTime: data.recipe.prepTime || '',
+        cookTime: data.recipe.cookTime || '',
+        servings: data.recipe.servings || 1,
+        difficulty: data.recipe.difficulty || 'Easy',
+        tags: Array.isArray(data.recipe.tags) ? data.recipe.tags : [],
+        createdAt: new Date(data.recipe.created_at),
+        updatedAt: new Date(data.recipe.updated_at)
+      };
+    } catch (error) {
+      console.error('Error updating recipe:', error);
+      throw error;
+    }
   }
 
   async deleteRecipe(id: string): Promise<boolean> {
-    // Fallback to localStorage for deleting recipes
-    const savedRecipes = typeof localStorage !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
-    const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
-    const filtered = recipes.filter((recipe: Recipe) => recipe.id !== id);
-    if (filtered.length === recipes.length) return false;
-    this.saveRecipes(filtered);
-    return true;
+    try {
+      const response = await fetch(`/api/recipes/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.status === 404) return false;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+      throw error;
+    }
   }
 
   async searchRecipes(query: string, folder?: string): Promise<Recipe[]> {
