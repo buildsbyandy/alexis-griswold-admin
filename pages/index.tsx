@@ -20,6 +20,7 @@ import type { Recipe } from '../lib/services/recipeService';
 import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist } from '../lib/services/vlogService';
 import healingService, { type HealingVideo } from '../lib/services/healingService';
 import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
+import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
 
@@ -111,6 +112,7 @@ const AdminContent: React.FC = () => {
     videoDescription: 'Experience wellness, recipes, and lifestyle content',
     videoOpacity: 0.7 // Default opacity overlay for text readability
   });
+  const [videoHistory, setVideoHistory] = useState([]);
 
   // Healing tab state
   const [healingActiveTab, setHealingActiveTab] = useState<'hero' | 'carousels' | 'products'>('hero');
@@ -483,6 +485,13 @@ const AdminContent: React.FC = () => {
         if (homeResponse.ok) {
           const homeData = await homeResponse.json();
           setHomePageContent(homeData.content);
+          // Load video history if it exists
+          if (homeData.content?.video_history) {
+            setVideoHistory(Array.isArray(homeData.content.video_history) 
+              ? homeData.content.video_history 
+              : JSON.parse(homeData.content.video_history)
+            );
+          }
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -783,6 +792,8 @@ const AdminContent: React.FC = () => {
                         if (response.ok) {
                           setEditingHomeContent(false);
                           toast.success('Homepage content saved successfully!');
+                          // Reload data to get updated video history
+                          loadDashboardData();
                         } else {
                           throw new Error('Failed to save');
                         }
@@ -798,6 +809,25 @@ const AdminContent: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Video History Management */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <VideoHistoryCarousel
+                currentVideo={homePageContent.videoBackground}
+                videoHistory={videoHistory}
+                onVideoSelect={(videoPath) => {
+                  setHomePageContent(prev => ({
+                    ...prev,
+                    videoBackground: videoPath
+                  }));
+                  toast.success('Video selected as current background');
+                }}
+                onVideoDelete={(videoPath) => {
+                  setVideoHistory(prev => prev.filter(v => v.path !== videoPath));
+                }}
+                onRefresh={loadDashboardData}
+              />
             </div>
 
             {/* Media Recommendations */}
