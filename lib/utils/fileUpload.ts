@@ -73,8 +73,33 @@ export class FileUploadService {
   }
 
   static async uploadImage(file: File): Promise<UploadResponse> {
-    if (!file.type.startsWith('image/')) {
-      return { success: false, error: 'File must be an image' };
+    // Get file extension for additional validation
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp'];
+    const problematicExtensions = ['tiff', 'tif', 'raw', 'cr2', 'nef', 'arw', 'dng', 'psd'];
+    
+    // Check file size (10MB limit for images)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      return { 
+        success: false, 
+        error: `Image too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum size: 10MB. Please compress or resize your image.` 
+      };
+    }
+    
+    // Warn about problematic file types
+    if (problematicExtensions.includes(fileExtension || '')) {
+      return { 
+        success: false, 
+        error: `${fileExtension?.toUpperCase()} files are not web-optimized. Please convert to JPG, PNG, or WebP format first.` 
+      };
+    }
+    
+    // Check MIME type OR file extension for image validation
+    const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension || '');
+    
+    if (!isImage) {
+      return { success: false, error: `File must be an image. Supported formats: ${imageExtensions.join(', ').toUpperCase()}` };
     }
     return this.uploadFile(file, 'images', 'media');
   }

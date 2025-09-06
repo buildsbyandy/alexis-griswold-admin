@@ -1475,6 +1475,39 @@ const AdminContent: React.FC = () => {
                   <p className="text-sm mt-2">Click &quot;Add Album&quot; to create your first photo album</p>
                 </div>
               )}
+
+              {/* Image Upload Guidelines */}
+              <div className="bg-blue-50 p-6 rounded-lg border-l-4 border-blue-400 mt-6">
+                <h3 className="font-medium text-[#383B26] mb-4 flex items-center">
+                  <FaImage className="mr-2 text-blue-600" />
+                  📷 Image Upload Guidelines
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium text-[#383B26] mb-3">Recommended Formats</h4>
+                    <ul className="text-sm text-[#8F907E] space-y-1">
+                      <li>• <strong>JPG/JPEG:</strong> Best for photos with many colors</li>
+                      <li>• <strong>PNG:</strong> Best for images with transparency</li>
+                      <li>• <strong>WebP:</strong> Modern format with great compression</li>
+                      <li>• <strong>File Size:</strong> Under 10MB maximum (1-3MB ideal)</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-[#383B26] mb-3">Avoid These Formats</h4>
+                    <ul className="text-sm text-red-600 space-y-1">
+                      <li>• <strong>RAW files:</strong> CR2, NEF, ARW, DNG (too large)</li>
+                      <li>• <strong>TIFF/TIF:</strong> Uncompressed, very large files</li>
+                      <li>• <strong>PSD:</strong> Photoshop files (not web-compatible)</li>
+                      <li>• <strong>Large images:</strong> 50MP+ photos need resizing</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-yellow-50 rounded border-l-2 border-yellow-400">
+                  <p className="text-sm text-[#8F907E]">
+                    <strong>💡 Tip:</strong> If uploading from iPhone/Android, use &quot;Medium&quot; or &quot;Large&quot; size options instead of &quot;Actual Size&quot; to avoid huge file sizes.
+                  </p>
+                </div>
+              </div>
             </div>
             )}
 
