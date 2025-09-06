@@ -1,0 +1,38 @@
+Based on my analysis of the older codebase structure, here are the imperative files and folders you should backup locally before
+  returning to the current version:
+
+  Critical Admin Dashboard Files:
+
+  1. src/pages/Admin.tsx - The main admin page (already identified)
+  2. src/components/ProtectedAdmin.tsx - Admin protection wrapper
+  3. src/components/AdminDashboardLink.tsx - Admin navigation component
+  4. src/components/admin/ - Entire admin components directory (contains CharacterCounter.tsx)
+  5. src/hooks/useAdminAuth.ts - Admin authentication hook
+  6. src/lib/auth/ - Auth utilities (isAdminEmail.ts, withAdminSSP.ts)
+
+  Core Service Logic:
+
+  7. src/services/ - Entire services directory containing:
+    - authService.ts
+    - recipeService.ts
+    - storefrontService.ts
+    - vlogService.ts
+    - youtube.ts & youtubeShorts.ts
+
+  Database & Configuration:
+
+  8. src/lib/database/ - Database utilities
+  9. src/lib/supabase/ - Supabase configuration
+  10. src/lib/storage/ - Storage utilities
+  11. src/lib/forms/ - Form utilities
+  12. src/lib/validation/ - Validation logic
+
+  Key Components for Web Logic:
+
+  13. src/components/common/ - Shared components
+  14. src/components/storefront/ - Storefront-specific components
+  15. src/types/ - TypeScript type definitions
+  16. src/data/ - Static data files
+
+  These files contain the core logic for admin functionality, authentication, database operations, and web page management that would be       
+  essential references for rebuilding or maintaining the admin dashboard.

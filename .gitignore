@@ -7,3 +7,11 @@ node_modules
 dist
 .vercel
 
+# Reference materials (not part of the codebase)
+ old-site-reference/
+screenshots/
+ REBUILD_NOTES.md
+ ADMIN_DASHBOARD_ANALYSIS.md
+ PROGRESS_STATUS.md
+ README_SEEDING.md
+ VITE_INTEGRATION_GUIDE.md

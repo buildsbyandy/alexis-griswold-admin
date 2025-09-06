@@ -658,17 +658,32 @@ const AdminContent: React.FC = () => {
                         accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
                         uploadType="video"
                         onUpload={async (url) => {
-                          setHomePageContent(prev => ({ ...prev, videoBackground: url }));
+                          console.log('Video uploaded to:', url);
+                          const updatedContent = { ...homePageContent, videoBackground: url };
+                          console.log('Updating homePageContent to:', updatedContent);
+                          setHomePageContent(updatedContent);
+                          
                           // Auto-save to database when video uploads
                           try {
+                            console.log('Sending PUT request to /api/home...');
                             const response = await fetch('/api/home', {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ ...homePageContent, videoBackground: url })
+                              body: JSON.stringify(updatedContent)
                             });
+                            
                             if (response.ok) {
+                              const responseData = await response.json();
+                              console.log('API response success:', responseData);
                               toast.success('Video uploaded and saved successfully!');
-                              loadData(); // Refresh to load video history
+                              // Don't call loadData immediately - let the UI state persist
+                              setTimeout(() => {
+                                loadData(); // Refresh to load video history after a delay
+                              }, 1000);
+                            } else {
+                              const errorData = await response.json();
+                              console.error('API Error:', errorData);
+                              toast.error(`Failed to save: ${errorData.error || 'Unknown error'}`);
                             }
                           } catch (error) {
                             console.error('Auto-save error:', error);
@@ -677,7 +692,6 @@ const AdminContent: React.FC = () => {
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
-                        <FaUploadIcon className="mr-2" />
                         Upload New Video
                       </FileUpload>
                     </div>

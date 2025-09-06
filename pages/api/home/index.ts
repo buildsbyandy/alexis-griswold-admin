@@ -40,7 +40,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       videoDescription: 'Experience wellness, recipes, and lifestyle content'
     }
     
-    return res.status(200).json({ content: data || defaultContent })
+    // Map database fields to admin dashboard expected format
+    if (data) {
+      const mappedContent = {
+        videoBackground: data.background_video_path || '/alexisHome.mp4',
+        fallbackImage: data.fallback_image_path || '/public/images/home-fallback.jpg',
+        videoTitle: data.video_title || 'Welcome to Alexis Griswold',
+        videoDescription: data.video_description || 'Experience wellness, recipes, and lifestyle content',
+        video_history: data.video_history
+      };
+      return res.status(200).json({ content: mappedContent });
+    }
+    
+    return res.status(200).json({ content: defaultContent })
   }
 
   if (req.method === 'PUT') {
@@ -49,6 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!email || !isAdminEmail(email)) return res.status(401).json({ error: 'Unauthorized' })
     
     const content = req.body as HomeContent
+    console.log('PUT /api/home received content:', content)
     
     // Get current data to manage video history
     const { data: currentData } = await supabaseAdmin
@@ -79,22 +92,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     // Upsert the home content with updated history
+    const upsertData = {
+      id: '00000000-0000-0000-0000-000000000001',
+      background_video_path: content.videoBackground,
+      fallback_image_path: content.fallbackImage,
+      video_title: content.videoTitle,
+      video_description: content.videoDescription,
+      video_history: videoHistory,
+      is_published: true,
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('Upserting data to home_content:', upsertData);
+    
     const { data, error } = await supabaseAdmin
       .from('home_content')
-      .upsert({
-        id: '00000000-0000-0000-0000-000000000001',
-        background_video_path: content.videoBackground,
-        fallback_image_path: content.fallbackImage,
-        video_title: content.videoTitle,
-        video_description: content.videoDescription,
-        video_history: videoHistory,
-        is_published: true,
-        updated_at: new Date().toISOString()
-      })
+      .upsert(upsertData)
       .select()
       .single()
     
-    if (error) return res.status(500).json({ error: 'Failed to update home content' })
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      return res.status(500).json({ error: 'Failed to update home content', details: error });
+    }
     return res.status(200).json({ content: data })
   }
 
