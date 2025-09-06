@@ -878,7 +878,7 @@ const AdminContent: React.FC = () => {
               <div className="mt-6 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
                 <h4 className="font-medium text-[#383B26] mb-2">💡 Performance Tips</h4>
                 <ul className="text-sm text-[#8F907E] space-y-1">
-                  <li>• <strong>File size matters:</strong> 172MB files will fail to upload - aim for 5-10MB</li>
+                  <li>• <strong>File size matters:</strong> Large files (50MB+) will fail to upload - aim for 5-10MB</li>
                   <li>• Use video compression tools like HandBrake, Compressor, or online converters</li>
                   <li>• iPhone/Mac users: Export at &quot;High Efficiency&quot; or &quot;Most Compatible&quot; settings</li>
                   <li>• Test upload with smaller files first to verify functionality</li>
