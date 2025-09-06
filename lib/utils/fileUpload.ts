@@ -54,6 +54,15 @@ export class FileUploadService {
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     const videoExtensions = ['mp4', 'mov', 'avi', 'wmv', 'flv', 'webm', 'm4v', '3gp', 'mkv'];
     
+    // Check file size (25MB limit)
+    const maxSize = 25 * 1024 * 1024; // 25MB in bytes
+    if (file.size > maxSize) {
+      return { 
+        success: false, 
+        error: `File too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum size: 25MB. Please compress your video first.` 
+      };
+    }
+    
     // Check MIME type OR file extension for video validation
     const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension || '');
     

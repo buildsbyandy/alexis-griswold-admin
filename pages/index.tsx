@@ -811,13 +811,13 @@ const AdminContent: React.FC = () => {
                   </h3>
                   <ul className="text-sm text-[#8F907E] space-y-2">
                     <li><strong>Duration:</strong> 10-30 seconds (loops seamlessly)</li>
-                    <li><strong>Format:</strong> MP4 (H.264 codec) for best compatibility</li>
+                    <li><strong>Formats:</strong> MP4, MOV, WebM, AVI, WMV (MP4/H.264 preferred)</li>
                     <li><strong>Resolution:</strong> 1920x1080 (Full HD) recommended</li>
-                    <li><strong>File Size:</strong> Under 10MB for optimal loading</li>
+                    <li><strong>File Size:</strong> Under 25MB maximum (5-10MB ideal)</li>
                     <li><strong>Frame Rate:</strong> 24-30 FPS</li>
                     <li><strong>Audio:</strong> Remove audio track (muted autoplay)</li>
                     <li><strong>Content:</strong> Avoid rapid movements or flashing</li>
-                    <li><strong>Opacity:</strong> Use 60-80% for text readability</li>
+                    <li><strong>Compression:</strong> High compression for web delivery</li>
                   </ul>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg">
@@ -878,10 +878,23 @@ const AdminContent: React.FC = () => {
               <div className="mt-6 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
                 <h4 className="font-medium text-[#383B26] mb-2">💡 Performance Tips</h4>
                 <ul className="text-sm text-[#8F907E] space-y-1">
-                  <li>• Use video compression tools like HandBrake for optimal file size</li>
-                  <li>• Test your video on different devices and connection speeds</li>
+                  <li>• <strong>File size matters:</strong> 172MB files will fail to upload - aim for 5-10MB</li>
+                  <li>• Use video compression tools like HandBrake, Compressor, or online converters</li>
+                  <li>• iPhone/Mac users: Export at &quot;High Efficiency&quot; or &quot;Most Compatible&quot; settings</li>
+                  <li>• Test upload with smaller files first to verify functionality</li>
                   <li>• Consider using a CDN for better global loading performance</li>
                   <li>• The fallback image should capture the essence of your video</li>
+                </ul>
+              </div>
+
+              {/* File Size Warning */}
+              <div className="mt-4 p-4 bg-red-50 rounded-lg border-l-4 border-red-400">
+                <h4 className="font-medium text-[#383B26] mb-2">⚠️ Common Upload Issues</h4>
+                <ul className="text-sm text-[#8F907E] space-y-1">
+                  <li>• <strong>Large files (50MB+):</strong> Upload will timeout or fail</li>
+                  <li>• <strong>Unsupported formats:</strong> System supports MP4, MOV, WebM, AVI, WMV</li>
+                  <li>• <strong>Network timeouts:</strong> Compress videos before uploading</li>
+                  <li>• <strong>Browser limits:</strong> Some browsers limit upload size to 25-50MB</li>
                 </ul>
               </div>
             </div>
