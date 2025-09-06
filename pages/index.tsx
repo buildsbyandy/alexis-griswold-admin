@@ -24,6 +24,13 @@ import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
 
+interface VideoHistoryItem {
+  path: string;
+  uploaded_at: string;
+  title: string;
+  size?: number;
+}
+
 // Component for authenticated admin content
 const AdminContent: React.FC = () => {
   // All useState hooks at the top level
@@ -112,7 +119,7 @@ const AdminContent: React.FC = () => {
     videoDescription: 'Experience wellness, recipes, and lifestyle content',
     videoOpacity: 0.7 // Default opacity overlay for text readability
   });
-  const [videoHistory, setVideoHistory] = useState([]);
+  const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
 
   // Healing tab state
   const [healingActiveTab, setHealingActiveTab] = useState<'hero' | 'carousels' | 'products'>('hero');
@@ -442,63 +449,64 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  // Load data function - moved outside useEffect so it can be called from other places
+  const loadData = async () => {
+    try {
+      const recipeStats = await recipeService.getRecipeStats();
+      setStats(recipeStats);
+      
+      const recipesList = await recipeService.getAllRecipes();
+      setRecipes(recipesList);
+
+      const storefrontStats = await storefrontService.getStats();
+      setSfStats(storefrontStats);
+
+      const storefrontItems = await storefrontService.getAll();
+      setSfItems(storefrontItems);
+
+      const vlogStatsData = await vlogService.getStats();
+      setVlogStats(vlogStatsData);
+
+      const vlogsList = await vlogService.getAllVlogs();
+      setVlogs(vlogsList);
+
+      const albumsList = await vlogService.getAllAlbums();
+      setPhotoAlbums(albumsList);
+
+      const healingProductsList = await healingService.getAllProducts();
+      setHealingProducts(healingProductsList);
+
+      const healingVideosList = await healingService.getAllVideos();
+      setHealingVideos(healingVideosList);
+
+      const playlists = await vlogService.getAllPlaylists();
+      setSpotifyPlaylists(playlists);
+      setSpotifyStats({
+        totalPlaylists: playlists.length,
+        activePlaylists: playlists.filter(p => p.isActive).length
+      });
+
+      // Load home content
+      const homeResponse = await fetch('/api/home');
+      if (homeResponse.ok) {
+        const homeData = await homeResponse.json();
+        setHomePageContent(homeData.content);
+        // Load video history if it exists
+        if (homeData.content?.video_history) {
+          setVideoHistory(Array.isArray(homeData.content.video_history) 
+            ? homeData.content.video_history 
+            : JSON.parse(homeData.content.video_history)
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const recipeStats = await recipeService.getRecipeStats();
-        setStats(recipeStats);
-        
-        const recipesList = await recipeService.getAllRecipes();
-        setRecipes(recipesList);
-
-        const storefrontStats = await storefrontService.getStats();
-        setSfStats(storefrontStats);
-
-        const storefrontItems = await storefrontService.getAll();
-        setSfItems(storefrontItems);
-
-        const vlogStatsData = await vlogService.getStats();
-        setVlogStats(vlogStatsData);
-
-        const vlogsList = await vlogService.getAllVlogs();
-        setVlogs(vlogsList);
-
-        const albumsList = await vlogService.getAllAlbums();
-        setPhotoAlbums(albumsList);
-
-        const healingProductsList = await healingService.getAllProducts();
-        setHealingProducts(healingProductsList);
-
-        const healingVideosList = await healingService.getAllVideos();
-        setHealingVideos(healingVideosList);
-
-        const playlists = await vlogService.getAllPlaylists();
-        setSpotifyPlaylists(playlists);
-        setSpotifyStats({
-          totalPlaylists: playlists.length,
-          activePlaylists: playlists.filter(p => p.isActive).length
-        });
-
-        // Load home content
-        const homeResponse = await fetch('/api/home');
-        if (homeResponse.ok) {
-          const homeData = await homeResponse.json();
-          setHomePageContent(homeData.content);
-          // Load video history if it exists
-          if (homeData.content?.video_history) {
-            setVideoHistory(Array.isArray(homeData.content.video_history) 
-              ? homeData.content.video_history 
-              : JSON.parse(homeData.content.video_history)
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
-        toast.error('Failed to load dashboard data');
-      }
-    };
-
     loadData();
   }, []);
 
