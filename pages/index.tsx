@@ -635,7 +635,7 @@ const AdminContent: React.FC = () => {
                       )}
                       <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <FileUpload
-                          accept="video/*"
+                          accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
                           uploadType="video"
                           onUpload={(url) => setHomePageContent(prev => ({ ...prev, videoBackground: url }))}
                           className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"

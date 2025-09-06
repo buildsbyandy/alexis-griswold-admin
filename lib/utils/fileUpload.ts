@@ -50,8 +50,15 @@ export class FileUploadService {
   }
 
   static async uploadVideo(file: File): Promise<UploadResponse> {
-    if (!file.type.startsWith('video/')) {
-      return { success: false, error: 'File must be a video' };
+    // Get file extension for additional validation
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const videoExtensions = ['mp4', 'mov', 'avi', 'wmv', 'flv', 'webm', 'm4v', '3gp', 'mkv'];
+    
+    // Check MIME type OR file extension for video validation
+    const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension || '');
+    
+    if (!isVideo) {
+      return { success: false, error: `File must be a video. Supported formats: ${videoExtensions.join(', ').toUpperCase()}` };
     }
     return this.uploadFile(file, 'videos', 'media');
   }
