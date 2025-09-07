@@ -35,7 +35,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
         youtubeUrl: vlog.youtubeUrl,
         thumbnailUrl: vlog.thumbnailUrl,
         publishedAt: vlog.publishedAt,
-        views: vlog.views,
+        views: '',
         duration: vlog.duration,
         carousel: vlog.carousel,
         isFeatured: vlog.isFeatured,

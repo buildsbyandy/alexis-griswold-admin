@@ -252,21 +252,27 @@ const AdminContent: React.FC = () => {
 
 
   // Vlog save functionality
-  const handleSaveVlog = async (vlogData: {
-    youtube_url: string;
-    carousel: VlogCarouselType;
-    title?: string;
-    description?: string;
-    is_featured: boolean;
-    display_order: number;
-  }) => {
+  const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      // Map from VlogVideo interface to API format
+      const apiData = {
+        youtube_url: vlogData.youtubeUrl,
+        carousel: vlogData.carousel,
+        title: vlogData.title,
+        description: vlogData.description,
+        is_featured: vlogData.isFeatured,
+        display_order: vlogData.order,
+        thumbnail_url: vlogData.thumbnailUrl,
+        published_at: vlogData.publishedAt,
+        duration: vlogData.duration
+      };
+
       if (editingVlog) {
         // Update existing vlog via PUT API
         const response = await fetch(`/api/vlogs/${editingVlog.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(vlogData)
+          body: JSON.stringify(apiData)
         });
 
         if (!response.ok) {
@@ -278,7 +284,7 @@ const AdminContent: React.FC = () => {
         const response = await fetch('/api/vlogs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(vlogData)
+          body: JSON.stringify(apiData)
         });
 
         if (!response.ok) {
