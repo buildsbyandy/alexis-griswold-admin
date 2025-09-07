@@ -8,6 +8,7 @@ import FileUpload from '../components/ui/FileUpload';
 import RecipeModal from '../components/modals/RecipeModal';
 import VlogModal from '../components/modals/VlogModal';
 import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
+import HomeContentModal from '../components/modals/HomeContentModal';
 import SpotifyPlaylistModal from '../components/modals/SpotifyPlaylistModal';
 import HealingProductModal, { type HealingProduct } from '../components/modals/HealingProductModal';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
@@ -111,7 +112,7 @@ const AdminContent: React.FC = () => {
   });
 
   // Home tab state
-  const [editingHomeContent, setEditingHomeContent] = useState(false);
+  const [homeContentModalOpen, setHomeContentModalOpen] = useState(false);
   const [homePageContent, setHomePageContent] = useState({
     background_video_path: '',
     fallback_image_path: '',
@@ -458,6 +459,46 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  // Home content save functionality
+  const handleSaveHomeContent = async (contentData: any) => {
+    try {
+      const response = await fetch('/api/home', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          background_video_path: homePageContent.background_video_path || homePageContent.videoBackground,
+          fallback_image_path: homePageContent.fallback_image_path || homePageContent.fallbackImage,
+          hero_main_title: contentData.hero_main_title || contentData.heroMainTitle,
+          hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
+          video_title: contentData.video_title || contentData.videoTitle,
+          video_description: contentData.video_description || contentData.videoDescription
+        })
+      });
+      
+      if (response.ok) {
+        // Update local state with the new content
+        setHomePageContent(prev => ({
+          ...prev,
+          hero_main_title: contentData.hero_main_title || contentData.heroMainTitle,
+          hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
+          video_title: contentData.video_title || contentData.videoTitle,
+          video_description: contentData.video_description || contentData.videoDescription,
+          heroMainTitle: contentData.hero_main_title || contentData.heroMainTitle,
+          heroSubtitle: contentData.hero_subtitle || contentData.heroSubtitle,
+          videoTitle: contentData.video_title || contentData.videoTitle,
+          videoDescription: contentData.video_description || contentData.videoDescription
+        }));
+        // Reload data to get any server-side updates
+        loadData();
+      } else {
+        throw new Error('Failed to save home content');
+      }
+    } catch (error) {
+      console.error('Home content save error:', error);
+      throw error; // Re-throw so modal can handle it
+    }
+  };
+
   // Load data function - moved outside useEffect so it can be called from other places
   const loadData = async () => {
     try {
@@ -635,11 +676,11 @@ const AdminContent: React.FC = () => {
                   <p className="text-[#8F907E]">Configure the video background and fallback image</p>
                 </div>
                 <button
-                  onClick={() => setEditingHomeContent(!editingHomeContent)}
+                  onClick={() => setHomeContentModalOpen(true)}
                   className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                 >
                   <FaEdit className="mr-2" />
-                  {editingHomeContent ? 'Cancel' : 'Edit'}
+                  Edit Content
                 </button>
               </div>
 
@@ -806,7 +847,6 @@ const AdminContent: React.FC = () => {
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
-                        <FaUploadIcon className="mr-2" />
                         Upload Fallback Image
                       </FileUpload>
                     </div>
@@ -828,57 +868,6 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              {editingHomeContent && (
-                <div className="pt-6 mt-6 space-y-4 border-t">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-[#383B26] mb-1">
-                        Video Background URL
-                      </label>
-                      <input
-                        type="text"
-                        value={homePageContent.videoBackground}
-                        onChange={(e) => setHomePageContent(prev => ({ ...prev, videoBackground: e.target.value }))}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#383B26] mb-1">
-                        Fallback Image URL
-                      </label>
-                      <input
-                        type="text"
-                        value={homePageContent.fallbackImage}
-                        onChange={(e) => setHomePageContent(prev => ({ ...prev, fallbackImage: e.target.value }))}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-[#383B26] mb-1">
-                      Hero Main Title
-                    </label>
-                    <input
-                      type="text"
-                      value={homePageContent.heroMainTitle}
-                      onChange={(e) => setHomePageContent(prev => ({ ...prev, heroMainTitle: e.target.value }))}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      placeholder="Main title displayed on the home page"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-[#383B26] mb-1">
-                      Hero Subtitle
-                    </label>
-                    <textarea
-                      value={homePageContent.heroSubtitle}
-                      onChange={(e) => setHomePageContent(prev => ({ ...prev, heroSubtitle: e.target.value }))}
-                      className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      placeholder="Subtitle displayed on the home page"
-                    />
-                  </div>
 
                   {/* SEO Fields Section */}
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -960,7 +949,6 @@ const AdminContent: React.FC = () => {
                         });
                         
                         if (response.ok) {
-                          setEditingHomeContent(false);
                           toast.success('Homepage content published successfully!');
                           // Reload data to get updated video history
                           loadData();
@@ -977,8 +965,6 @@ const AdminContent: React.FC = () => {
                     <FaSave className="mr-2" />
                     Publish Changes
                   </button>
-                </div>
-              )}
             </div>
 
             {/* Video History Management */}
@@ -1317,6 +1303,13 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             </div>
+            {/* Home Content Modal */}
+            <HomeContentModal
+              isOpen={homeContentModalOpen}
+              onClose={() => setHomeContentModalOpen(false)}
+              initialData={homePageContent}
+              onSave={handleSaveHomeContent}
+            />
           </div>
         )}
 
