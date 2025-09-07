@@ -768,11 +768,12 @@ const AdminContent: React.FC = () => {
                     <span className="ml-2 px-2 py-1 text-xs bg-[#E3D4C2] text-[#383B26] rounded">Mobile & Fallback</span>
                   </h3>
                   <div className="p-4 bg-gray-100 rounded-lg">
-                    <div className="relative flex items-center justify-center h-48 bg-gray-200 rounded group">
+                    {/* Image Preview */}
+                    <div className="relative flex items-center justify-center h-48 bg-gray-200 rounded">
                       {homePageContent.fallbackImage ? (
                         <Image 
                           src={homePageContent.fallbackImage} 
-                          alt="Fallback Image"
+                          alt="Fallback Image Preview"
                           className="object-cover w-full h-full rounded"
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -780,23 +781,48 @@ const AdminContent: React.FC = () => {
                       ) : (
                         <div className="text-center text-gray-500">
                           <FaImage className="mx-auto mb-2 text-2xl" />
-                          <p>No Image</p>
-                          <p className="text-sm">Upload a fallback image</p>
+                          <p className="font-medium">No Fallback Image</p>
+                          <p className="text-sm">Upload an image below</p>
                         </div>
                       )}
-                      <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 group-hover:opacity-100">
-                        <FileUpload
-                          accept="image/*"
-                          uploadType="image"
-                          onUpload={(url) => setHomePageContent(prev => ({ ...prev, fallbackImage: url }))}
-                          className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                        >
-                          Upload Image
-                        </FileUpload>
-                      </div>
                     </div>
+                    
+                    {/* Upload Button - Now below image preview */}
+                    <div className="flex flex-col items-center mt-3 space-y-2">
+                      <div className="text-xs text-gray-500 text-center">
+                        Upload a high-quality image that represents your video content
+                      </div>
+                      <FileUpload
+                        accept="image/*,.jpg,.jpeg,.png,.webp,.gif"
+                        uploadType="image"
+                        onUpload={(url) => {
+                          console.log('Fallback image uploaded:', url);
+                          setHomePageContent(prev => ({ 
+                            ...prev, 
+                            fallbackImage: url,
+                            fallback_image_path: url 
+                          }));
+                          toast.success('Fallback image uploaded successfully!');
+                        }}
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                      >
+                        <FaUpload className="mr-2" />
+                        Upload Fallback Image
+                      </FileUpload>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800 mb-2">📱 When is this image used?</h4>
+                      <ul className="text-xs text-blue-700 space-y-1">
+                        <li>• <strong>Mobile devices</strong> where video autoplay is restricted</li>
+                        <li>• <strong>Slow connections</strong> when the video fails to load</li>
+                        <li>• <strong>Accessibility</strong> as the poster frame before video plays</li>
+                        <li>• <strong>SEO</strong> as the main image for search engines and social media</li>
+                      </ul>
+                    </div>
+                    
                     <div className="mt-3">
-                      <p className="text-sm text-[#8F907E]"><strong>Usage:</strong> Displayed on mobile devices and as a fallback when video loading fails.</p>
+                      <p className="text-sm text-[#8F907E]"><strong>Current Image:</strong> {homePageContent.fallbackImage ? 'Set ✓' : 'Not uploaded'}</p>
                     </div>
                   </div>
                 </div>
