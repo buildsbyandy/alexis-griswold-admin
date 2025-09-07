@@ -806,7 +806,7 @@ const AdminContent: React.FC = () => {
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
-                        <FaUpload className="mr-2" />
+                        <FaUploadIcon className="mr-2" />
                         Upload Fallback Image
                       </FileUpload>
                     </div>
