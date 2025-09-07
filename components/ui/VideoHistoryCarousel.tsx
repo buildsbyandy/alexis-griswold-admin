@@ -40,14 +40,16 @@ const VideoHistoryCarousel: React.FC<VideoHistoryCarouselProps> = ({
       })
 
       if (response.ok) {
-        toast.success('Video deleted successfully')
+        const responseData = await response.json()
+        toast.success(responseData.message || 'Video deleted successfully from history and storage')
         onVideoDelete(videoPath)
         onRefresh()
       } else {
-        throw new Error('Failed to delete video')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete video')
       }
     } catch (error) {
-      toast.error('Failed to delete video')
+      toast.error(`Failed to delete video: ${error instanceof Error ? error.message : 'Unknown error'}`)
       console.error('Delete error:', error)
     }
   }

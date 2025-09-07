@@ -115,14 +115,18 @@ const AdminContent: React.FC = () => {
   const [homePageContent, setHomePageContent] = useState({
     background_video_path: '',
     fallback_image_path: '',
-    video_title: 'Welcome to Alexis Griswold',
-    video_description: 'Experience wellness, recipes, and lifestyle content',
+    hero_main_title: 'Welcome to Alexis Griswold',
+    hero_subtitle: 'Experience wellness, recipes, and lifestyle content',
+    video_title: 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+    video_description: 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
     videoOpacity: 0.7, // Default opacity overlay for text readability
     // Frontend-specific field names for compatibility
     videoBackground: '',
     fallbackImage: '',
-    videoTitle: 'Welcome to Alexis Griswold',
-    videoDescription: 'Experience wellness, recipes, and lifestyle content'
+    heroMainTitle: 'Welcome to Alexis Griswold',
+    heroSubtitle: 'Experience wellness, recipes, and lifestyle content',
+    videoTitle: 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+    videoDescription: 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
   });
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
 
@@ -504,14 +508,18 @@ const AdminContent: React.FC = () => {
         setHomePageContent({
           background_video_path: normalizedVideo,
           fallback_image_path: normalizedFallback,
-          video_title: content?.video_title || 'Welcome to Alexis Griswold',
-          video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content',
+          hero_main_title: content?.hero_main_title || 'Welcome to Alexis Griswold',
+          hero_subtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
+          video_title: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+          video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
           videoOpacity: content?.videoOpacity || 0.7,
           // Frontend-specific field names for compatibility
           videoBackground: normalizedVideo,
           fallbackImage: normalizedFallback,
-          videoTitle: content?.video_title || 'Welcome to Alexis Griswold',
-          videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content'
+          heroMainTitle: content?.hero_main_title || 'Welcome to Alexis Griswold',
+          heroSubtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
+          videoTitle: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+          videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
         });
         
         // Load video history if it exists
@@ -746,8 +754,8 @@ const AdminContent: React.FC = () => {
                     </div>
                     
                     <div className="mt-3">
-                      <p className="text-sm text-[#8F907E]"><strong>Title:</strong> {homePageContent.videoTitle}</p>
-                      <p className="text-sm text-[#8F907E] mt-1"><strong>Description:</strong> {homePageContent.videoDescription}</p>
+                      <p className="text-sm text-[#8F907E]"><strong>Hero Title:</strong> {homePageContent.heroMainTitle}</p>
+                      <p className="text-sm text-[#8F907E] mt-1"><strong>Hero Subtitle:</strong> {homePageContent.heroSubtitle}</p>
                     </div>
                   </div>
                 </div>
@@ -823,25 +831,62 @@ const AdminContent: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-[#383B26] mb-1">
-                      Video Title
+                      Hero Main Title
                     </label>
                     <input
                       type="text"
-                      value={homePageContent.videoTitle}
-                      onChange={(e) => setHomePageContent(prev => ({ ...prev, videoTitle: e.target.value }))}
+                      value={homePageContent.heroMainTitle}
+                      onChange={(e) => setHomePageContent(prev => ({ ...prev, heroMainTitle: e.target.value }))}
                       className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                      placeholder="Main title displayed on the home page"
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-[#383B26] mb-1">
-                      Video Description
+                      Hero Subtitle
                     </label>
                     <textarea
-                      value={homePageContent.videoDescription}
-                      onChange={(e) => setHomePageContent(prev => ({ ...prev, videoDescription: e.target.value }))}
+                      value={homePageContent.heroSubtitle}
+                      onChange={(e) => setHomePageContent(prev => ({ ...prev, heroSubtitle: e.target.value }))}
                       className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                      placeholder="Subtitle displayed on the home page"
                     />
+                  </div>
+
+                  {/* SEO Fields Section */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h4 className="text-sm font-medium text-[#383B26] mb-3 flex items-center">
+                      🔍 SEO & Accessibility Fields
+                      <span className="ml-2 text-xs text-gray-500">(Hidden from users, used for search engines and screen readers)</span>
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[#383B26] mb-1">
+                          Video Title (SEO)
+                        </label>
+                        <input
+                          type="text"
+                          value={homePageContent.videoTitle}
+                          onChange={(e) => setHomePageContent(prev => ({ ...prev, videoTitle: e.target.value }))}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                          placeholder="SEO-optimized title for search engines"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-[#383B26] mb-1">
+                          Video Description (SEO)
+                        </label>
+                        <textarea
+                          value={homePageContent.videoDescription}
+                          onChange={(e) => setHomePageContent(prev => ({ ...prev, videoDescription: e.target.value }))}
+                          className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                          placeholder="SEO-optimized description for search engines and screen readers"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -881,6 +926,8 @@ const AdminContent: React.FC = () => {
                           body: JSON.stringify({
                             background_video_path: homePageContent.background_video_path || homePageContent.videoBackground,
                             fallback_image_path: homePageContent.fallback_image_path || homePageContent.fallbackImage,
+                            hero_main_title: homePageContent.hero_main_title || homePageContent.heroMainTitle,
+                            hero_subtitle: homePageContent.hero_subtitle || homePageContent.heroSubtitle,
                             video_title: homePageContent.video_title || homePageContent.videoTitle,
                             video_description: homePageContent.video_description || homePageContent.videoDescription
                           })
