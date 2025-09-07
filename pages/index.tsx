@@ -471,7 +471,8 @@ const AdminContent: React.FC = () => {
           hero_main_title: contentData.hero_main_title || contentData.heroMainTitle,
           hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
           video_title: contentData.video_title || contentData.videoTitle,
-          video_description: contentData.video_description || contentData.videoDescription
+          video_description: contentData.video_description || contentData.videoDescription,
+          videoOpacity: contentData.videoOpacity || homePageContent.videoOpacity || 0.7
         })
       });
       
@@ -483,6 +484,7 @@ const AdminContent: React.FC = () => {
           hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
           video_title: contentData.video_title || contentData.videoTitle,
           video_description: contentData.video_description || contentData.videoDescription,
+          videoOpacity: contentData.videoOpacity || prev.videoOpacity || 0.7,
           heroMainTitle: contentData.hero_main_title || contentData.heroMainTitle,
           heroSubtitle: contentData.hero_subtitle || contentData.heroSubtitle,
           videoTitle: contentData.video_title || contentData.videoTitle,
@@ -794,9 +796,37 @@ const AdminContent: React.FC = () => {
                       </FileUpload>
                     </div>
                     
-                    <div className="mt-3">
-                      <p className="text-sm text-[#8F907E]"><strong>Hero Title:</strong> {homePageContent.heroMainTitle}</p>
-                      <p className="text-sm text-[#8F907E] mt-1"><strong>Hero Subtitle:</strong> {homePageContent.heroSubtitle}</p>
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800 mb-2">📝 Current Content</h4>
+                      <div className="space-y-1">
+                        <p className="text-sm text-[#8F907E]"><strong>Hero Title:</strong> {homePageContent.heroMainTitle || 'Not set'}</p>
+                        <p className="text-sm text-[#8F907E]"><strong>Hero Subtitle:</strong> {homePageContent.heroSubtitle || 'Not set'}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Video Opacity Control */}
+                    <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-[#383B26] mb-2">Video Opacity Control</h4>
+                      <p className="text-xs text-[#8F907E] mb-2">Current: {Math.round((homePageContent.videoOpacity || 0.7) * 100)}%</p>
+                      <div className="space-y-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={homePageContent.videoOpacity || 0.7}
+                          onChange={(e) => setHomePageContent(prev => ({ ...prev, videoOpacity: parseFloat(e.target.value) }))}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                          style={{
+                            background: `linear-gradient(to right, #B8A692 0%, #B8A692 ${(homePageContent.videoOpacity || 0.7) * 100}%, #e5e5e5 ${(homePageContent.videoOpacity || 0.7) * 100}%, #e5e5e5 100%)`
+                          }}
+                        />
+                        <div className="flex justify-between text-xs text-[#8F907E]">
+                          <span>0% (Dark)</span>
+                          <span>50% (Balanced)</span>
+                          <span>100% (Bright)</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -869,102 +899,6 @@ const AdminContent: React.FC = () => {
               </div>
 
 
-                  {/* SEO Fields Section */}
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <h4 className="text-sm font-medium text-[#383B26] mb-3 flex items-center">
-                      🔍 SEO & Accessibility Fields
-                      <span className="ml-2 text-xs text-gray-500">(Hidden from users, used for search engines and screen readers)</span>
-                    </h4>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-[#383B26] mb-1">
-                          Video Title (SEO)
-                        </label>
-                        <input
-                          type="text"
-                          value={homePageContent.videoTitle}
-                          onChange={(e) => setHomePageContent(prev => ({ ...prev, videoTitle: e.target.value }))}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                          placeholder="SEO-optimized title for search engines"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-[#383B26] mb-1">
-                          Video Description (SEO)
-                        </label>
-                        <textarea
-                          value={homePageContent.videoDescription}
-                          onChange={(e) => setHomePageContent(prev => ({ ...prev, videoDescription: e.target.value }))}
-                          className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                          placeholder="SEO-optimized description for search engines and screen readers"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[#383B26] mb-1">
-                      Video Opacity - {Math.round(homePageContent.videoOpacity * 100)}%
-                    </label>
-                    <div className="space-y-2">
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={homePageContent.videoOpacity}
-                        onChange={(e) => setHomePageContent(prev => ({ ...prev, videoOpacity: parseFloat(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                        style={{
-                          background: `linear-gradient(to right, #B8A692 0%, #B8A692 ${homePageContent.videoOpacity * 100}%, #e5e5e5 ${homePageContent.videoOpacity * 100}%, #e5e5e5 100%)`
-                        }}
-                      />
-                      <div className="flex justify-between text-xs text-[#8F907E]">
-                        <span>0% (Fully Dark)</span>
-                        <span>50% (Balanced)</span>
-                        <span>100% (Fully Bright)</span>
-                      </div>
-                      <p className="text-xs text-[#8F907E] mt-2">
-                        Controls the brightness of the video background. Lower values make text more readable by darkening the video.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/home', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            background_video_path: homePageContent.background_video_path || homePageContent.videoBackground,
-                            fallback_image_path: homePageContent.fallback_image_path || homePageContent.fallbackImage,
-                            hero_main_title: homePageContent.hero_main_title || homePageContent.heroMainTitle,
-                            hero_subtitle: homePageContent.hero_subtitle || homePageContent.heroSubtitle,
-                            video_title: homePageContent.video_title || homePageContent.videoTitle,
-                            video_description: homePageContent.video_description || homePageContent.videoDescription
-                          })
-                        });
-                        
-                        if (response.ok) {
-                          toast.success('Homepage content published successfully!');
-                          // Reload data to get updated video history
-                          loadData();
-                        } else {
-                          throw new Error('Failed to publish');
-                        }
-                      } catch (error) {
-                        toast.error('Failed to save homepage content');
-                        console.error('Save error:', error);
-                      }
-                    }}
-                    className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
-                  >
-                    <FaSave className="mr-2" />
-                    Publish Changes
-                  </button>
             </div>
 
             {/* Video History Management */}

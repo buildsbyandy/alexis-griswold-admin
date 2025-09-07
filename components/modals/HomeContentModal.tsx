@@ -7,6 +7,7 @@ interface HomeContentData {
   hero_subtitle: string;
   video_title: string;
   video_description: string;
+  videoOpacity?: number;
   heroMainTitle?: string;
   heroSubtitle?: string;
   videoTitle?: string;
@@ -26,6 +27,7 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
     hero_subtitle: '',
     video_title: '',
     video_description: '',
+    videoOpacity: 0.7,
     heroMainTitle: '',
     heroSubtitle: '',
     videoTitle: '',
@@ -41,6 +43,7 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
         hero_subtitle: initialData.hero_subtitle || initialData.heroSubtitle || '',
         video_title: initialData.video_title || initialData.videoTitle || '',
         video_description: initialData.video_description || initialData.videoDescription || '',
+        videoOpacity: initialData.videoOpacity || 0.7,
         heroMainTitle: initialData.hero_main_title || initialData.heroMainTitle || '',
         heroSubtitle: initialData.hero_subtitle || initialData.heroSubtitle || '',
         videoTitle: initialData.video_title || initialData.videoTitle || '',
@@ -135,6 +138,39 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
                 className="w-full p-3 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Subtitle displayed on the home page"
               />
+            </div>
+          </div>
+
+          {/* Video Opacity Control */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-[#383B26] border-b border-gray-200 pb-2">Video Settings</h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">
+                Video Opacity - {Math.round((formData.videoOpacity || 0.7) * 100)}%
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={formData.videoOpacity || 0.7}
+                  onChange={(e) => setFormData(prev => ({ ...prev, videoOpacity: parseFloat(e.target.value) }))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #B8A692 0%, #B8A692 ${(formData.videoOpacity || 0.7) * 100}%, #e5e5e5 ${(formData.videoOpacity || 0.7) * 100}%, #e5e5e5 100%)`
+                  }}
+                />
+                <div className="flex justify-between text-xs text-[#8F907E]">
+                  <span>0% (Dark)</span>
+                  <span>50% (Balanced)</span>
+                  <span>100% (Bright)</span>
+                </div>
+                <p className="text-xs text-[#8F907E]">
+                  Controls the brightness of the video background. Lower values make text more readable by darkening the video.
+                </p>
+              </div>
             </div>
           </div>
 
