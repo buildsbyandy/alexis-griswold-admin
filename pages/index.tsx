@@ -381,14 +381,17 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveHealingVideo = async (videoData: {
-    youtube_url: string;
-    carousel_number: number;
-    video_title?: string;
-    video_description?: string;
-    video_order: number;
-  }) => {
+  const handleSaveHealingVideo = async (videoData: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      // Map from HealingVideo interface to API format
+      const apiData = {
+        youtube_url: videoData.youtubeUrl,
+        carousel_number: videoData.carousel === 'part1' ? 1 : 2,
+        video_title: videoData.title,
+        video_description: videoData.description,
+        video_order: videoData.order,
+      };
+
       if (editingHealingVideo) {
         // Update functionality - TODO: implement update API
         throw new Error('Update functionality not yet implemented');
@@ -397,7 +400,7 @@ const AdminContent: React.FC = () => {
         const response = await fetch('/api/healing/carousel-videos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(videoData)
+          body: JSON.stringify(apiData)
         });
 
         if (!response.ok) {

@@ -31,7 +31,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
         youtubeUrl: video.youtubeUrl,
         thumbnailUrl: video.thumbnailUrl,
         duration: video.duration,
-        views: video.views,
+        views: '',
         carousel: video.carousel,
         order: video.order,
         isActive: video.isActive
