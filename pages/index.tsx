@@ -18,7 +18,7 @@ import StorefrontProductModal from '../components/modals/StorefrontProductModal'
 import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
-import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist } from '../lib/services/vlogService';
+import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist, type VlogCarouselType } from '../lib/services/vlogService';
 import healingService, { type HealingVideo } from '../lib/services/healingService';
 import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
 import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
@@ -39,6 +39,7 @@ const AdminContent: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
+  const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
   const [vlogs, setVlogs] = useState<VlogVideo[]>([]);
   const [editingVlog, setEditingVlog] = useState<VlogVideo | null>(null);
   const [isAddingVlog, setIsAddingVlog] = useState(false);
@@ -102,7 +103,6 @@ const AdminContent: React.FC = () => {
     video_title: '',
     video_description: '',
     duration: '',
-    views: ''
   });
   const [playlistData, setPlaylistData] = useState({
     name: '',
@@ -252,16 +252,39 @@ const AdminContent: React.FC = () => {
 
 
   // Vlog save functionality
-  const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveVlog = async (vlogData: {
+    youtube_url: string;
+    carousel: VlogCarouselType;
+    title?: string;
+    description?: string;
+    is_featured: boolean;
+    display_order: number;
+  }) => {
     try {
       if (editingVlog) {
-        // Update existing vlog
-        const success = await vlogService.updateVlog(editingVlog.id, vlogData);
-        if (!success) throw new Error('Failed to update vlog');
+        // Update existing vlog via PUT API
+        const response = await fetch(`/api/vlogs/${editingVlog.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(vlogData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update vlog');
+        }
       } else {
-        // Create new vlog
-        const success = await vlogService.addVlog(vlogData);
-        if (!success) throw new Error('Failed to create vlog');
+        // Create new vlog via API
+        const response = await fetch('/api/vlogs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(vlogData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create vlog');
+        }
       }
       
       // Reload vlogs and stats
@@ -352,14 +375,29 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveHealingVideo = async (videoData: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveHealingVideo = async (videoData: {
+    youtube_url: string;
+    carousel_number: number;
+    video_title?: string;
+    video_description?: string;
+    video_order: number;
+  }) => {
     try {
       if (editingHealingVideo) {
-        const success = await healingService.updateVideo(editingHealingVideo.id, videoData);
-        if (!success) throw new Error('Failed to update healing video');
+        // Update functionality - TODO: implement update API
+        throw new Error('Update functionality not yet implemented');
       } else {
-        const success = await healingService.addVideo(videoData);
-        if (!success) throw new Error('Failed to create healing video');
+        // Create new healing video via API
+        const response = await fetch('/api/healing/carousel-videos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(videoData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create healing video');
+        }
       }
       
       // Reload videos
@@ -583,6 +621,20 @@ const AdminContent: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Handle escape key for image modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && imageModalUrl) {
+        setImageModalUrl(null);
+      }
+    };
+
+    if (imageModalUrl) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [imageModalUrl]);
 
   // Main dashboard render
   return (
@@ -1128,9 +1180,25 @@ const AdminContent: React.FC = () => {
                     .map(recipe => (
                       <div key={recipe.id} className="overflow-hidden transition-shadow border border-gray-200 rounded-lg hover:shadow-lg">
                         {/* Recipe Image */}
-                        <div className="flex items-center justify-center h-48 bg-gray-200">
+                        <div className="flex items-center justify-center h-48 bg-gray-200 relative">
                           {recipe.imageUrl ? (
-                            <Image src={recipe.imageUrl} alt={recipe.title} className="object-cover w-full h-full" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
+                            <div 
+                              className="relative w-full h-full cursor-pointer group"
+                              onClick={() => setImageModalUrl(recipe.imageUrl || null)}
+                            >
+                              <Image 
+                                src={recipe.imageUrl} 
+                                alt={recipe.title} 
+                                className="object-cover w-full h-full transition-transform group-hover:scale-105" 
+                                fill 
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium">
+                                  Click to view
+                                </div>
+                              </div>
+                            </div>
                           ) : (
                             <div className="text-center text-gray-500">
                               <FaUtensils className="mx-auto mb-2 text-2xl" />
@@ -1475,7 +1543,6 @@ const AdminContent: React.FC = () => {
                         <p className="text-sm text-[#8F907E]">{vlog.description}</p>
                         <div className="flex items-center space-x-4 text-xs text-[#8F907E] mt-1">
                           <span>{vlog.duration}</span>
-                          <span>{vlog.views} views</span>
                           <span>{vlog.publishedAt}</span>
                           {vlog.isFeatured && <span className="px-2 py-1 text-yellow-800 bg-yellow-100 rounded">Featured</span>}
                         </div>
@@ -1489,11 +1556,26 @@ const AdminContent: React.FC = () => {
                         <FaEdit />
                       </button>
                       <button 
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm('Are you sure you want to delete this vlog?')) {
-                            vlogService.deleteVlog(vlog.id).then(() => {
-                              setVlogs(vlogs.filter(v => v.id !== vlog.id));
-                            });
+                            try {
+                              const success = await vlogService.deleteVlog(vlog.id);
+                              if (success) {
+                                // Reload vlogs and stats after deletion
+                                const vlogsList = await vlogService.getAllVlogs();
+                                setVlogs(vlogsList);
+                                
+                                const vlogStatsData = await vlogService.getStats();
+                                setVlogStats(vlogStatsData);
+                                
+                                toast.success('Vlog deleted successfully');
+                              } else {
+                                toast.error('Failed to delete vlog');
+                              }
+                            } catch (error) {
+                              console.error('Error deleting vlog:', error);
+                              toast.error('Failed to delete vlog');
+                            }
                           }
                         }}
                         className="p-2 text-red-600 rounded hover:bg-red-50"
@@ -2081,9 +2163,6 @@ const AdminContent: React.FC = () => {
                             </div>
                             <div className="p-3">
                               <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.title}</h4>
-                              {video.views && (
-                                <p className="text-xs text-[#8F907E] mb-2">{video.views} views</p>
-                              )}
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => {
@@ -2164,9 +2243,6 @@ const AdminContent: React.FC = () => {
                             </div>
                             <div className="p-3">
                               <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.title}</h4>
-                              {video.views && (
-                                <p className="text-xs text-[#8F907E] mb-2">{video.views} views</p>
-                              )}
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => {
@@ -2666,6 +2742,30 @@ const AdminContent: React.FC = () => {
         recipe={editingRecipe}
         onSave={handleSaveRecipe}
       />
+
+      {/* Image Modal */}
+      {imageModalUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
+          <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
+            <button
+              onClick={() => setImageModalUrl(null)}
+              className="absolute top-4 right-4 z-10 p-2 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white transition-all"
+              aria-label="Close image"
+            >
+              <FaTimes className="w-6 h-6" />
+            </button>
+            <div className="relative w-full h-full flex items-center justify-center">
+              <Image
+                src={imageModalUrl}
+                alt="Recipe image"
+                className="max-w-full max-h-full object-contain"
+                fill
+                sizes="90vw"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Vlog Modal */}
       <VlogModal

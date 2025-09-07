@@ -36,6 +36,20 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
   const [newTag, setNewTag] = useState('');
 
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   useEffect(() => {
     if (recipe) {
       setFormData({
@@ -81,7 +95,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         tags: [],
       });
     }
-  }, [recipe]);
+    // Always reset the tag input when modal opens/closes
+    setNewTag('');
+  }, [recipe, isOpen]);
 
   const generateSlug = (title: string) => {
     return title
@@ -181,8 +197,17 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      onClick={handleBackdropClick}
+    >
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           {/* Header */}
