@@ -1,4 +1,4 @@
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+export const NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 export const SUPABASE_PUBLIC_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-export const SUPABASE_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+export const SUPABASE_SERVER_KEY = process.env.SUPABASE_SECRET_KEY!;
 export const ALLOWED_ADMIN_EMAILS = process.env.ALLOWED_ADMIN_EMAILS ?? "";

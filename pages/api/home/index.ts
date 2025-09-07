@@ -7,11 +7,16 @@ import supabaseAdmin from '../../../lib/supabase/admin'
 export const config = { runtime: 'nodejs' }
 
 interface HomeContent {
-  videoBackground: string;
-  fallbackImage: string;
-  videoTitle: string;
-  videoDescription: string;
+  background_video_path: string;
+  fallback_image_path: string;
+  video_title: string;
+  video_description: string;
   videoOpacity?: number;
+  // Frontend compatibility fields
+  videoBackground?: string;
+  fallbackImage?: string;
+  videoTitle?: string;
+  videoDescription?: string;
 }
 
 interface VideoHistoryItem {
@@ -32,27 +37,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch home content' })
     }
     
-    // Return default content if no data exists
+    // Return safe defaults if no data exists
     const defaultContent = {
-      videoBackground: '/alexisHome.mp4',
-      fallbackImage: '/public/images/home-fallback.jpg',
-      videoTitle: 'Welcome to Alexis Griswold',
-      videoDescription: 'Experience wellness, recipes, and lifestyle content'
+      background_video_path: '',
+      fallback_image_path: '',
+      video_title: 'Welcome to Alexis Griswold',
+      video_description: 'Experience wellness, recipes, and lifestyle content'
     }
     
-    // Map database fields to admin dashboard expected format
-    if (data) {
-      const mappedContent = {
-        videoBackground: data.background_video_path || '/alexisHome.mp4',
-        fallbackImage: data.fallback_image_path || '/public/images/home-fallback.jpg',
-        videoTitle: data.video_title || 'Welcome to Alexis Griswold',
-        videoDescription: data.video_description || 'Experience wellness, recipes, and lifestyle content',
-        video_history: data.video_history
-      };
-      return res.status(200).json({ content: mappedContent });
-    }
-    
-    return res.status(200).json({ content: defaultContent })
+    return res.status(200).json({ content: data || defaultContent })
   }
 
   if (req.method === 'PUT') {
@@ -79,7 +72,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     // Add current video to history if it's different from new video
-    if (currentData?.background_video_path && currentData.background_video_path !== content.videoBackground) {
+    const newVideoPath = content.background_video_path || content.videoBackground;
+    if (currentData?.background_video_path && currentData.background_video_path !== newVideoPath) {
       const historyItem: VideoHistoryItem = {
         path: currentData.background_video_path,
         uploaded_at: new Date().toISOString(),
@@ -94,10 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Upsert the home content with updated history
     const upsertData = {
       id: '00000000-0000-0000-0000-000000000001',
-      background_video_path: content.videoBackground,
-      fallback_image_path: content.fallbackImage,
-      video_title: content.videoTitle,
-      video_description: content.videoDescription,
+      background_video_path: content.background_video_path || content.videoBackground,
+      fallback_image_path: content.fallback_image_path || content.fallbackImage,
+      video_title: content.video_title || content.videoTitle,
+      video_description: content.video_description || content.videoDescription,
       video_history: videoHistory,
       is_published: true,
       updated_at: new Date().toISOString()

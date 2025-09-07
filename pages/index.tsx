@@ -113,11 +113,16 @@ const AdminContent: React.FC = () => {
   // Home tab state
   const [editingHomeContent, setEditingHomeContent] = useState(false);
   const [homePageContent, setHomePageContent] = useState({
-    videoBackground: '/alexisHome.mp4',
-    fallbackImage: '/public/images/home-fallback.jpg',
+    background_video_path: '',
+    fallback_image_path: '',
+    video_title: 'Welcome to Alexis Griswold',
+    video_description: 'Experience wellness, recipes, and lifestyle content',
+    videoOpacity: 0.7, // Default opacity overlay for text readability
+    // Frontend-specific field names for compatibility
+    videoBackground: '',
+    fallbackImage: '',
     videoTitle: 'Welcome to Alexis Griswold',
-    videoDescription: 'Experience wellness, recipes, and lifestyle content',
-    videoOpacity: 0.7 // Default opacity overlay for text readability
+    videoDescription: 'Experience wellness, recipes, and lifestyle content'
   });
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
 
@@ -490,12 +495,30 @@ const AdminContent: React.FC = () => {
       const homeResponse = await fetch('/api/home');
       if (homeResponse.ok) {
         const homeData = await homeResponse.json();
-        setHomePageContent(homeData.content);
+        const content = homeData.content;
+        // Normalize paths: strip accidental '/public' prefix and ensure video is full URL
+        const normalizedFallback = (content?.fallback_image_path || '').replace(/^\/public\//, '/');
+        const normalizedVideo = content?.background_video_path || '';
+        
+        // Map API response to frontend state structure (safe defaults)
+        setHomePageContent({
+          background_video_path: normalizedVideo,
+          fallback_image_path: normalizedFallback,
+          video_title: content?.video_title || 'Welcome to Alexis Griswold',
+          video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content',
+          videoOpacity: content?.videoOpacity || 0.7,
+          // Frontend-specific field names for compatibility
+          videoBackground: normalizedVideo,
+          fallbackImage: normalizedFallback,
+          videoTitle: content?.video_title || 'Welcome to Alexis Griswold',
+          videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content'
+        });
+        
         // Load video history if it exists
-        if (homeData.content?.video_history) {
-          setVideoHistory(Array.isArray(homeData.content.video_history) 
-            ? homeData.content.video_history 
-            : JSON.parse(homeData.content.video_history)
+        if (content?.video_history) {
+          setVideoHistory(Array.isArray(content.video_history) 
+            ? content.video_history 
+            : JSON.parse(content.video_history)
           );
         }
       }
@@ -514,12 +537,12 @@ const AdminContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="px-6 py-4 flex justify-between items-center">
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between px-6 py-4">
           <h1 className="text-2xl font-bold text-gray-900">Alexis Griswold Admin Dashboard</h1>
           <button
             onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
           >
             <FaSignOutAlt className="w-4 h-4" />
             Logout
@@ -588,7 +611,7 @@ const AdminContent: React.FC = () => {
               </div>
               
               {/* Action Buttons */}
-              <div className="flex space-x-3 mt-4">
+              <div className="flex mt-4 space-x-3">
                 <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
                   <FaDownload className="mr-2" />
                   Export Settings
@@ -597,7 +620,7 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Media Management */}
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-[#383B26]">Home Page Media</h2>
@@ -612,20 +635,20 @@ const AdminContent: React.FC = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Video Background */}
                 <div>
                   <h3 className="text-lg font-medium text-[#383B26] mb-3 flex items-center">
                     <FaVideo className="mr-2" />
                     Video Background
                   </h3>
-                  <div className="bg-gray-100 p-4 rounded-lg">
-                    <div className="bg-gray-200 h-48 flex items-center justify-center rounded relative group">
+                  <div className="p-4 bg-gray-100 rounded-lg">
+                    <div className="relative flex items-center justify-center h-48 bg-gray-200 rounded group">
                       {homePageContent.videoBackground ? (
                         <div className="relative w-full h-full">
                           <video 
                             src={homePageContent.videoBackground} 
-                            className="w-full h-full object-cover rounded"
+                            className="object-cover w-full h-full rounded"
                             muted
                             loop
                             controls
@@ -637,7 +660,7 @@ const AdminContent: React.FC = () => {
                           />
                           {/* Text Preview Overlay */}
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-white text-center">
+                            <div className="text-center text-white">
                               <p className="text-lg font-bold">Preview Text</p>
                               <p className="text-sm">Opacity: {Math.round(homePageContent.videoOpacity * 100)}%</p>
                             </div>
@@ -653,13 +676,32 @@ const AdminContent: React.FC = () => {
                     </div>
                     
                     {/* Upload Button - Now below video preview */}
-                    <div className="mt-3 flex justify-center">
+                    <div className="flex justify-center mt-3">
                       <FileUpload
                         accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
                         uploadType="video"
                         onUpload={async (url) => {
                           console.log('Video uploaded to:', url);
-                          const updatedContent = { ...homePageContent, videoBackground: url };
+                          
+                          // Check if we're at max history (3 videos) and prompt to delete
+                          if (videoHistory.length >= 3) {
+                            const shouldProceed = confirm(
+                              'You have reached the maximum of 3 videos in history. ' +
+                              'To upload this new video, you need to delete an existing video first. ' +
+                              'Would you like to proceed? (You can delete videos from the history section below)'
+                            );
+                            
+                            if (!shouldProceed) {
+                              toast('Upload cancelled. Please delete a video from history first.');
+                              return;
+                            }
+                          }
+                          
+                          const updatedContent = { 
+                            ...homePageContent, 
+                            background_video_path: url,
+                            videoBackground: url // Keep both for compatibility
+                          };
                           console.log('Updating homePageContent to:', updatedContent);
                           setHomePageContent(updatedContent);
                           
@@ -676,10 +718,14 @@ const AdminContent: React.FC = () => {
                               const responseData = await response.json();
                               console.log('API response success:', responseData);
                               toast.success('Video uploaded and saved successfully!');
-                              // Don't call loadData immediately - let the UI state persist
-                              setTimeout(() => {
-                                loadData(); // Refresh to load video history after a delay
-                              }, 1000);
+                              
+                              // Update video history from API response
+                              if (responseData.content?.video_history) {
+                                setVideoHistory(Array.isArray(responseData.content.video_history) 
+                                  ? responseData.content.video_history 
+                                  : JSON.parse(responseData.content.video_history)
+                                );
+                              }
                             } else {
                               const errorData = await response.json();
                               console.error('API Error:', errorData);
@@ -710,13 +756,13 @@ const AdminContent: React.FC = () => {
                     Fallback Image
                     <span className="ml-2 px-2 py-1 text-xs bg-[#E3D4C2] text-[#383B26] rounded">Mobile & Fallback</span>
                   </h3>
-                  <div className="bg-gray-100 p-4 rounded-lg">
-                    <div className="bg-gray-200 h-48 flex items-center justify-center rounded relative group">
+                  <div className="p-4 bg-gray-100 rounded-lg">
+                    <div className="relative flex items-center justify-center h-48 bg-gray-200 rounded group">
                       {homePageContent.fallbackImage ? (
                         <Image 
                           src={homePageContent.fallbackImage} 
                           alt="Fallback Image"
-                          className="w-full h-full object-cover rounded"
+                          className="object-cover w-full h-full rounded"
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
@@ -727,7 +773,7 @@ const AdminContent: React.FC = () => {
                           <p className="text-sm">Upload a fallback image</p>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 group-hover:opacity-100">
                         <FileUpload
                           accept="image/*"
                           uploadType="image"
@@ -746,8 +792,8 @@ const AdminContent: React.FC = () => {
               </div>
 
               {editingHomeContent && (
-                <div className="mt-6 space-y-4 border-t pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="pt-6 mt-6 space-y-4 border-t">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-[#383B26] mb-1">
                         Video Background URL
@@ -829,7 +875,12 @@ const AdminContent: React.FC = () => {
                         const response = await fetch('/api/home', {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(homePageContent)
+                          body: JSON.stringify({
+                            background_video_path: homePageContent.background_video_path || homePageContent.videoBackground,
+                            fallback_image_path: homePageContent.fallback_image_path || homePageContent.fallbackImage,
+                            video_title: homePageContent.video_title || homePageContent.videoTitle,
+                            video_description: homePageContent.video_description || homePageContent.videoDescription
+                          })
                         });
                         
                         if (response.ok) {
@@ -845,7 +896,7 @@ const AdminContent: React.FC = () => {
                         console.error('Save error:', error);
                       }
                     }}
-                    className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+                    className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
                   >
                     <FaSave className="mr-2" />
                     Save Changes
@@ -855,7 +906,7 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Video History Management */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="p-6 mb-6 bg-white border border-gray-200 rounded-lg shadow-sm">
               <VideoHistoryCarousel
                 currentVideo={homePageContent.videoBackground}
                 videoHistory={videoHistory}
@@ -874,10 +925,10 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Media Recommendations */}
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h2 className="text-xl font-semibold text-[#383B26] mb-4">📝 Media Recommendations</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="p-4 rounded-lg bg-blue-50">
                   <h3 className="font-medium text-[#383B26] mb-3 flex items-center">
                     <FaVideo className="mr-2 text-blue-600" />
                     Background Video Guidelines
@@ -893,7 +944,7 @@ const AdminContent: React.FC = () => {
                     <li><strong>Compression:</strong> High compression for web delivery</li>
                   </ul>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
+                <div className="p-4 rounded-lg bg-green-50">
                   <h3 className="font-medium text-[#383B26] mb-3 flex items-center">
                     <FaImage className="mr-2 text-green-600" />
                     Fallback Image Guidelines
@@ -912,9 +963,9 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Media Settings */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="p-6 bg-white rounded-lg shadow-md">
               <h2 className="text-xl font-semibold text-[#383B26] mb-4">Media Settings & Behavior</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <div>
                   <h3 className="font-medium text-[#383B26] mb-2">Video Behavior</h3>
                   <ul className="text-sm text-[#8F907E] space-y-1">
@@ -948,7 +999,7 @@ const AdminContent: React.FC = () => {
               </div>
 
               {/* Performance Tips */}
-              <div className="mt-6 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+              <div className="p-4 mt-6 border-l-4 border-yellow-400 rounded-lg bg-yellow-50">
                 <h4 className="font-medium text-[#383B26] mb-2">💡 Performance Tips</h4>
                 <ul className="text-sm text-[#8F907E] space-y-1">
                   <li>• <strong>File size matters:</strong> Large files (50MB+) will fail to upload - aim for 5-10MB</li>
@@ -961,7 +1012,7 @@ const AdminContent: React.FC = () => {
               </div>
 
               {/* File Size Warning */}
-              <div className="mt-4 p-4 bg-red-50 rounded-lg border-l-4 border-red-400">
+              <div className="p-4 mt-4 border-l-4 border-red-400 rounded-lg bg-red-50">
                 <h4 className="font-medium text-[#383B26] mb-2">⚠️ Common Upload Issues</h4>
                 <ul className="text-sm text-[#8F907E] space-y-1">
                   <li>• <strong>Large files (50MB+):</strong> Upload will timeout or fail</li>
@@ -1003,7 +1054,7 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Action Buttons Row */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+            <div className="p-4 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => setIsAddingRecipe(true)}
@@ -1030,7 +1081,7 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Search and Filter */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+            <div className="p-4 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex gap-4">
                 <input
                   type="text"
@@ -1056,22 +1107,22 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Recipe Cards Grid */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="p-6 bg-white rounded-lg shadow-md">
               <h2 className="text-xl font-semibold text-[#383B26] mb-4">Recipe Collection</h2>
               
               {recipes.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {recipes
                     .filter(recipe => 
                       (selectedFolder === 'all' || recipe.folder === selectedFolder) &&
                       (searchTerm === '' || recipe.title.toLowerCase().includes(searchTerm.toLowerCase()))
                     )
                     .map(recipe => (
-                      <div key={recipe.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                      <div key={recipe.id} className="overflow-hidden transition-shadow border border-gray-200 rounded-lg hover:shadow-lg">
                         {/* Recipe Image */}
-                        <div className="h-48 bg-gray-200 flex items-center justify-center">
+                        <div className="flex items-center justify-center h-48 bg-gray-200">
                           {recipe.imageUrl ? (
-                            <Image src={recipe.imageUrl} alt={recipe.title} className="w-full h-full object-cover" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
+                            <Image src={recipe.imageUrl} alt={recipe.title} className="object-cover w-full h-full" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                           ) : (
                             <div className="text-center text-gray-500">
                               <FaUtensils className="mx-auto mb-2 text-2xl" />
@@ -1082,12 +1133,12 @@ const AdminContent: React.FC = () => {
                         
                         {/* Recipe Info */}
                         <div className="p-4">
-                          <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-start justify-between mb-2">
                             <h3 className="font-semibold text-[#383B26] truncate">{recipe.title}</h3>
-                            {recipe.isFavorite && <FaStar className="text-yellow-500 ml-2" />}
+                            {recipe.isFavorite && <FaStar className="ml-2 text-yellow-500" />}
                           </div>
                           
-                          <div className="space-y-1 mb-3">
+                          <div className="mb-3 space-y-1">
                             <p className="text-sm text-[#8F907E]">
                               <strong>Category:</strong> {recipe.folder || 'Uncategorized'}
                             </p>
@@ -1101,7 +1152,7 @@ const AdminContent: React.FC = () => {
                             )}
                           </div>
                           
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                          <p className="mb-3 text-sm text-gray-600 line-clamp-2">
                             {recipe.description || 'No description available'}
                           </p>
                           
@@ -1116,7 +1167,7 @@ const AdminContent: React.FC = () => {
                             </button>
                             <button 
                               onClick={() => handleDeleteRecipe(recipe.id)}
-                              className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                              className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600"
                             >
                               <FaTrash />
                             </button>
@@ -1127,10 +1178,10 @@ const AdminContent: React.FC = () => {
                   }
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <FaUtensils className="mx-auto text-6xl text-gray-300 mb-4" />
-                  <h3 className="text-xl font-medium text-gray-500 mb-2">No recipes yet</h3>
-                  <p className="text-gray-400 mb-6">Get started by adding your first recipe</p>
+                <div className="py-12 text-center">
+                  <FaUtensils className="mx-auto mb-4 text-6xl text-gray-300" />
+                  <h3 className="mb-2 text-xl font-medium text-gray-500">No recipes yet</h3>
+                  <p className="mb-6 text-gray-400">Get started by adding your first recipe</p>
                   <button
                     onClick={() => setIsAddingRecipe(true)}
                     className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
@@ -1143,8 +1194,8 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Recipe Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="grid grid-cols-1 gap-6 mt-6 md:grid-cols-2">
+              <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold text-[#383B26] mb-4">Recipe Categories</h3>
                 <div className="space-y-2">
                   {Object.entries(stats.byFolder).map(([folder, count]) => (
@@ -1156,7 +1207,7 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold text-[#383B26] mb-4">Quick Stats</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
@@ -1209,7 +1260,7 @@ const AdminContent: React.FC = () => {
               </div>
               
               {/* Action Buttons */}
-              <div className="flex space-x-3 mt-4">
+              <div className="flex mt-4 space-x-3">
                 <button
                   onClick={() => setIsAddingVlog(true)}
                   className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
@@ -1232,7 +1283,7 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Vlog Section Navigation */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+            <div className="p-4 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex space-x-6 border-b">
                 {[
                   { id: 'hero', name: 'Hero Section', icon: FaStar },
@@ -1263,7 +1314,7 @@ const AdminContent: React.FC = () => {
             {vlogActiveTab === 'hero' && (
               <div className="space-y-6">
                 {/* Hero Content */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="p-6 bg-white rounded-lg shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26]">Hero Section Content</h2>
@@ -1278,7 +1329,7 @@ const AdminContent: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     {/* Text Content */}
                     <div>
                       {editingVlogHero ? (
@@ -1329,14 +1380,14 @@ const AdminContent: React.FC = () => {
                                 console.error('Save error:', error);
                               }
                             }}
-                            className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+                            className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
                           >
                             <FaSave className="mr-2" />
                             Save Changes
                           </button>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="p-4 rounded-lg bg-gray-50">
                           <h2 className="text-2xl font-bold text-[#383B26] mb-2">{vlogHeroData.title}</h2>
                           <div className="space-y-2">
                             <div>
@@ -1355,8 +1406,8 @@ const AdminContent: React.FC = () => {
                     {/* Featured Video Preview */}
                     <div>
                       <h3 className="font-medium text-[#383B26] mb-3">Featured Video Preview</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="bg-gray-200 h-32 flex items-center justify-center rounded mb-3">
+                      <div className="p-4 rounded-lg bg-gray-50">
+                        <div className="flex items-center justify-center h-32 mb-3 bg-gray-200 rounded">
                           <div className="text-center text-gray-500">
                             <FaVideo className="mx-auto mb-2 text-xl" />
                             <p className="text-sm">Video Preview</p>
@@ -1391,7 +1442,7 @@ const AdminContent: React.FC = () => {
 
             {/* Videos Tab */}
             {vlogActiveTab === 'videos' && (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-[#383B26]">Video Management</h2>
@@ -1408,9 +1459,9 @@ const AdminContent: React.FC = () => {
 
               <div className="space-y-4">
                 {vlogs.map((vlog) => (
-                  <div key={vlog.id} className="border rounded-lg p-4 flex items-center justify-between">
+                  <div key={vlog.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <Image src={vlog.thumbnailUrl} alt={vlog.title} className="w-24 h-16 object-cover rounded" width={96} height={64} />
+                      <Image src={vlog.thumbnailUrl} alt={vlog.title} className="object-cover w-24 h-16 rounded" width={96} height={64} />
                       <div>
                         <h3 className="font-medium text-[#383B26]">{vlog.title}</h3>
                         <p className="text-sm text-[#8F907E]">{vlog.description}</p>
@@ -1418,7 +1469,7 @@ const AdminContent: React.FC = () => {
                           <span>{vlog.duration}</span>
                           <span>{vlog.views} views</span>
                           <span>{vlog.publishedAt}</span>
-                          {vlog.isFeatured && <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Featured</span>}
+                          {vlog.isFeatured && <span className="px-2 py-1 text-yellow-800 bg-yellow-100 rounded">Featured</span>}
                         </div>
                       </div>
                     </div>
@@ -1437,7 +1488,7 @@ const AdminContent: React.FC = () => {
                             });
                           }
                         }}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded"
+                        className="p-2 text-red-600 rounded hover:bg-red-50"
                       >
                         <FaTrash />
                       </button>
@@ -1450,7 +1501,7 @@ const AdminContent: React.FC = () => {
 
             {/* Photo Gallery Tab */}
             {vlogActiveTab === 'gallery' && (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-[#383B26]">Photo Gallery Management</h2>
@@ -1469,20 +1520,20 @@ const AdminContent: React.FC = () => {
               </div>
               
               {photoAlbums.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {photoAlbums.map((album) => (
-                    <div key={album.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div key={album.id} className="overflow-hidden border border-gray-200 rounded-lg">
                       {/* Album Cover */}
                       <div className="relative">
                         <Image
                           src={album.coverImage}
                           alt={album.title}
-                          className="w-full h-48 object-cover"
+                          className="object-cover w-full h-48"
                           width={400}
                           height={192}
                         />
                         {album.isFeatured && (
-                          <span className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center">
+                          <span className="absolute flex items-center px-2 py-1 text-xs text-white bg-yellow-500 rounded top-2 left-2">
                             <FaStar className="mr-1" />
                             Featured
                           </span>
@@ -1532,7 +1583,7 @@ const AdminContent: React.FC = () => {
                                 }
                               }
                             }}
-                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                            className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600"
                           >
                             <FaTrash />
                           </button>
@@ -1543,19 +1594,19 @@ const AdminContent: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-12 text-[#8F907E]">
-                  <FaImage className="mx-auto text-4xl mb-4 opacity-50" />
+                  <FaImage className="mx-auto mb-4 text-4xl opacity-50" />
                   <p>No photo albums created yet</p>
-                  <p className="text-sm mt-2">Click &quot;Add Album&quot; to create your first photo album</p>
+                  <p className="mt-2 text-sm">Click &quot;Add Album&quot; to create your first photo album</p>
                 </div>
               )}
 
               {/* Image Upload Guidelines */}
-              <div className="bg-blue-50 p-6 rounded-lg border-l-4 border-blue-400 mt-6">
+              <div className="p-6 mt-6 border-l-4 border-blue-400 rounded-lg bg-blue-50">
                 <h3 className="font-medium text-[#383B26] mb-4 flex items-center">
                   <FaImage className="mr-2 text-blue-600" />
                   📷 Image Upload Guidelines
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
                     <h4 className="font-medium text-[#383B26] mb-3">Recommended Formats</h4>
                     <ul className="text-sm text-[#8F907E] space-y-1">
@@ -1567,7 +1618,7 @@ const AdminContent: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="font-medium text-[#383B26] mb-3">Avoid These Formats</h4>
-                    <ul className="text-sm text-red-600 space-y-1">
+                    <ul className="space-y-1 text-sm text-red-600">
                       <li>• <strong>RAW files:</strong> CR2, NEF, ARW, DNG (too large)</li>
                       <li>• <strong>TIFF/TIF:</strong> Uncompressed, very large files</li>
                       <li>• <strong>PSD:</strong> Photoshop files (not web-compatible)</li>
@@ -1575,7 +1626,7 @@ const AdminContent: React.FC = () => {
                     </ul>
                   </div>
                 </div>
-                <div className="mt-4 p-3 bg-yellow-50 rounded border-l-2 border-yellow-400">
+                <div className="p-3 mt-4 border-l-2 border-yellow-400 rounded bg-yellow-50">
                   <p className="text-sm text-[#8F907E]">
                     <strong>💡 Tip:</strong> If uploading from iPhone/Android, use &quot;Medium&quot; or &quot;Large&quot; size options instead of &quot;Actual Size&quot; to avoid huge file sizes.
                   </p>
@@ -1587,7 +1638,7 @@ const AdminContent: React.FC = () => {
             {/* Spotify Tab */}
             {vlogActiveTab === 'spotify' && (
               <>
-                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26]">Spotify Playlists Section</h2>
@@ -1603,7 +1654,7 @@ const AdminContent: React.FC = () => {
                   </div>
 
                   {/* Section Content Configuration */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-1 gap-4 p-4 mb-6 rounded-lg md:grid-cols-2 bg-gray-50">
                     <div>
                       <label className="block text-sm font-medium text-[#383B26] mb-1">Section Title</label>
                       <input
@@ -1624,23 +1675,23 @@ const AdminContent: React.FC = () => {
 
                   {/* Playlists Grid */}
                   {spotifyPlaylists.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {spotifyPlaylists.map((playlist) => (
-                        <div key={playlist.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div key={playlist.id} className="overflow-hidden border border-gray-200 rounded-lg">
                           {/* Playlist Card */}
                           <div className="relative">
                             <div 
-                              className="h-32 flex flex-col items-center justify-center text-white relative"
+                              className="relative flex flex-col items-center justify-center h-32 text-white"
                               style={{ backgroundColor: playlist.color }}
                             >
-                              <FaMusic className="text-3xl mb-2 opacity-70" />
-                              <div className="text-center px-2">
-                                <p className="font-medium text-sm">{playlist.name}</p>
+                              <FaMusic className="mb-2 text-3xl opacity-70" />
+                              <div className="px-2 text-center">
+                                <p className="text-sm font-medium">{playlist.name}</p>
                                 <p className="text-xs opacity-80">Mood: {playlist.mood}</p>
                               </div>
                               {!playlist.isActive && (
                                 <div className="absolute top-2 right-2">
-                                  <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded">
+                                  <span className="px-2 py-1 text-xs text-white bg-gray-500 rounded">
                                     Hidden
                                   </span>
                                 </div>
@@ -1704,8 +1755,8 @@ const AdminContent: React.FC = () => {
                     </div>
                   ) : (
                     <div className="text-center py-12 text-[#8F907E]">
-                      <FaMusic className="mx-auto text-4xl mb-4 opacity-50" />
-                      <p className="text-lg font-medium mb-2">No Playlists Yet</p>
+                      <FaMusic className="mx-auto mb-4 text-4xl opacity-50" />
+                      <p className="mb-2 text-lg font-medium">No Playlists Yet</p>
                       <p className="text-sm">Add your first Spotify playlist to get started</p>
                       <button 
                         onClick={() => setShowPlaylistModal(true)}
@@ -1721,8 +1772,8 @@ const AdminContent: React.FC = () => {
             )}
 
             {/* Content Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold text-[#383B26] mb-4">Video Performance</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
@@ -1740,7 +1791,7 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold text-[#383B26] mb-4">Photo Gallery Stats</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
@@ -1758,7 +1809,7 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold text-[#383B26] mb-4">Spotify Integration</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
@@ -1788,7 +1839,7 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Healing Sub-tabs */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+            <div className="p-4 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex space-x-6 border-b">
                 {[
                   { id: 'hero', name: 'Hero Section', icon: FaStar },
@@ -1817,7 +1868,7 @@ const AdminContent: React.FC = () => {
             {healingActiveTab === 'hero' && (
               <div className="space-y-6">
                 {/* Hero Content */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="p-6 bg-white rounded-lg shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26]">Hero Section Content</h2>
@@ -1832,7 +1883,7 @@ const AdminContent: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     {/* Text Content */}
                     <div>
                       {editingHealingHero ? (
@@ -1868,14 +1919,14 @@ const AdminContent: React.FC = () => {
                               setEditingHealingHero(false);
                               toast.success('Hero section updated!');
                             }}
-                            className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+                            className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
                           >
                             <FaSave className="mr-2" />
                             Save Changes
                           </button>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="p-4 rounded-lg bg-gray-50">
                           <h3 className="text-2xl font-bold text-[#383B26] mb-2">{healingHeroData.title}</h3>
                           <p className="text-lg text-[#8F907E] mb-3">{healingHeroData.subtitle}</p>
                           <p className="text-sm text-gray-700">{healingHeroData.bodyText}</p>
@@ -1886,8 +1937,8 @@ const AdminContent: React.FC = () => {
                     {/* Featured Video */}
                     <div>
                       <h3 className="font-medium text-[#383B26] mb-3">Featured Video</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="bg-gray-200 h-32 flex items-center justify-center rounded mb-3">
+                      <div className="p-4 rounded-lg bg-gray-50">
+                        <div className="flex items-center justify-center h-32 mb-3 bg-gray-200 rounded">
                           <div className="text-center text-gray-500">
                             <FaVideo className="mx-auto mb-2 text-xl" />
                             <p className="text-sm">Video Preview</p>
@@ -1923,7 +1974,7 @@ const AdminContent: React.FC = () => {
             {healingActiveTab === 'carousels' && (
               <div className="space-y-6">
                 {/* Carousel Headers */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="p-6 bg-white rounded-lg shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26]">Carousel Headers</h2>
@@ -1938,8 +1989,8 @@ const AdminContent: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="border rounded-lg p-4 relative group">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="relative p-4 border rounded-lg group">
                       <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 1: Candida Cleanse</h3>
                       <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
                       <button
@@ -1956,7 +2007,7 @@ const AdminContent: React.FC = () => {
                         <FaEdit />
                       </button>
                     </div>
-                    <div className="border rounded-lg p-4 relative group">
+                    <div className="relative p-4 border rounded-lg group">
                       <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 2: Rebuild & Repair</h3>
                       <p className="text-sm text-[#8F907E]">Videos focused on rebuilding gut health after cleansing</p>
                       <button
@@ -1979,7 +2030,7 @@ const AdminContent: React.FC = () => {
                 {/* Video Carousels */}
                 <div className="space-y-6">
                   {/* Part 1 Carousel */}
-                  <div className="bg-white p-6 rounded-lg shadow-md">
+                  <div className="p-6 bg-white rounded-lg shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 1: Candida Cleanse</h3>
@@ -1997,25 +2048,25 @@ const AdminContent: React.FC = () => {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                       {healingVideos
                         .filter(video => video.carousel === 'part1' && video.isActive)
                         .sort((a, b) => a.order - b.order)
                         .map((video) => (
-                          <div key={video.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div key={video.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative">
                               <Image
                                 src={video.thumbnailUrl}
                                 alt={video.title}
-                                className="w-full h-32 object-cover"
+                                className="object-cover w-full h-32"
                                 width={400}
                                 height={128}
                               />
-                              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <FaVideo className="text-white text-2xl" />
+                              <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
+                                <FaVideo className="text-2xl text-white" />
                               </div>
                               {video.duration && (
-                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                                <div className="absolute px-2 py-1 text-xs text-white bg-black bg-opacity-75 rounded bottom-2 right-2">
                                   {video.duration}
                                 </div>
                               )}
@@ -2049,7 +2100,7 @@ const AdminContent: React.FC = () => {
                                       }
                                     }
                                   }}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 flex items-center"
+                                  className="flex items-center px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
                                 >
                                   <FaTrash className="mr-1" />
                                   Delete
@@ -2062,7 +2113,7 @@ const AdminContent: React.FC = () => {
                   </div>
 
                   {/* Part 2 Carousel */}
-                  <div className="bg-white p-6 rounded-lg shadow-md">
+                  <div className="p-6 bg-white rounded-lg shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 2: Rebuild & Repair</h3>
@@ -2080,25 +2131,25 @@ const AdminContent: React.FC = () => {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                       {healingVideos
                         .filter(video => video.carousel === 'part2' && video.isActive)
                         .sort((a, b) => a.order - b.order)
                         .map((video) => (
-                          <div key={video.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div key={video.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative">
                               <Image
                                 src={video.thumbnailUrl}
                                 alt={video.title}
-                                className="w-full h-32 object-cover"
+                                className="object-cover w-full h-32"
                                 width={400}
                                 height={128}
                               />
-                              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <FaVideo className="text-white text-2xl" />
+                              <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
+                                <FaVideo className="text-2xl text-white" />
                               </div>
                               {video.duration && (
-                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                                <div className="absolute px-2 py-1 text-xs text-white bg-black bg-opacity-75 rounded bottom-2 right-2">
                                   {video.duration}
                                 </div>
                               )}
@@ -2132,7 +2183,7 @@ const AdminContent: React.FC = () => {
                                       }
                                     }
                                   }}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 flex items-center"
+                                  className="flex items-center px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
                                 >
                                   <FaTrash className="mr-1" />
                                   Delete
@@ -2150,7 +2201,7 @@ const AdminContent: React.FC = () => {
             {healingActiveTab === 'products' && (
               <div className="space-y-6">
                 {/* Products Header */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="p-6 bg-white rounded-lg shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26]">Healing Products & Supplements</h2>
@@ -2166,11 +2217,11 @@ const AdminContent: React.FC = () => {
                   </div>
 
                   {/* Healing Products */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {healingProducts.length === 0 ? (
-                      <div className="col-span-full text-center py-8">
-                        <FaHeartbeat className="mx-auto text-4xl text-gray-300 mb-4" />
-                        <p className="text-gray-500 mb-4">No products added yet</p>
+                      <div className="py-8 text-center col-span-full">
+                        <FaHeartbeat className="mx-auto mb-4 text-4xl text-gray-300" />
+                        <p className="mb-4 text-gray-500">No products added yet</p>
                         <button 
                           onClick={() => setIsAddingHealingProduct(true)}
                           className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
@@ -2184,26 +2235,26 @@ const AdminContent: React.FC = () => {
                         .filter(product => product.isActive)
                         .sort((a, b) => a.order - b.order)
                         .map((product) => (
-                          <div key={product.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div key={product.id} className="p-4 transition-shadow border rounded-lg hover:shadow-md">
                             <div className="relative mb-3">
                               {product.imageUrl ? (
                                 <Image 
                                   src={product.imageUrl} 
                                   alt={product.name}
-                                  className="w-full h-24 object-cover rounded"
+                                  className="object-cover w-full h-24 rounded"
                                   width={400}
                                   height={96}
                                 />
                               ) : (
-                                <div className="bg-gray-200 h-24 rounded flex items-center justify-center">
-                                  <FaHeartbeat className="text-gray-400 text-xl" />
+                                <div className="flex items-center justify-center h-24 bg-gray-200 rounded">
+                                  <FaHeartbeat className="text-xl text-gray-400" />
                                 </div>
                               )}
                             </div>
                             <h3 className="font-medium text-[#383B26] mb-1">{product.name}</h3>
                             <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{product.purpose}</p>
                             {product.howToUse && (
-                              <p className="text-xs text-gray-600 mb-2 line-clamp-1">How to use: {product.howToUse}</p>
+                              <p className="mb-2 text-xs text-gray-600 line-clamp-1">How to use: {product.howToUse}</p>
                             )}
                             {product.amazonUrl && (
                               <a 
@@ -2232,7 +2283,7 @@ const AdminContent: React.FC = () => {
                                     }
                                   }
                                 }}
-                                className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                                className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600"
                               >
                                 <FaTrash />
                               </button>
@@ -2409,21 +2460,21 @@ const AdminContent: React.FC = () => {
                     return matchesCategory && matchesStatus && matchesSearch;
                   })
                   .map(product => (
-                    <div key={product.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div key={product.id} className="p-4 transition-shadow bg-white border border-gray-200 rounded-lg hover:shadow-md">
                       <div className="flex items-start gap-4">
                         {/* Product Image */}
-                        <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                        <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg">
                           {(product.image || product.imageUrl) ? (
                             <Image 
                               src={(product.image || product.imageUrl) || '/placeholder.jpg'} 
                               alt={product.title} 
-                              className="w-full h-full object-cover" 
+                              className="object-cover w-full h-full" 
                               fill
                               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <FaStore className="text-gray-400 text-xl" />
+                            <div className="flex items-center justify-center w-full h-full">
+                              <FaStore className="text-xl text-gray-400" />
                             </div>
                           )}
                         </div>
@@ -2435,7 +2486,7 @@ const AdminContent: React.FC = () => {
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.title}</h3>
                                 {product.showInFavorites && (
-                                  <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">⭐ Favorite</span>
+                                  <span className="px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full">⭐ Favorite</span>
                                 )}
                                 {product.isAlexisPick && (
                                   <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis&apos; Pick</span>
@@ -2458,14 +2509,14 @@ const AdminContent: React.FC = () => {
                                 )}
                               </div>
                               
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                              <p className="mb-2 text-sm text-gray-600 line-clamp-2">
                                 {product.noteShort || product.description || 'No description'}
                               </p>
                               
                               {product.tags && product.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                   {product.tags.slice(0, 3).map((tag, index) => (
-                                    <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                    <span key={index} className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded">
                                       {tag}
                                     </span>
                                   ))}
@@ -2511,10 +2562,10 @@ const AdminContent: React.FC = () => {
                     </div>
                   ))
               ) : (
-                <div className="bg-white rounded-lg p-8 text-center">
-                  <FaStore className="mx-auto text-4xl text-gray-300 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">No products found</h3>
-                  <p className="text-gray-500 mb-4">
+                <div className="p-8 text-center bg-white rounded-lg">
+                  <FaStore className="mx-auto mb-4 text-4xl text-gray-300" />
+                  <h3 className="mb-2 text-lg font-medium text-gray-600">No products found</h3>
+                  <p className="mb-4 text-gray-500">
                     {sfSearch || sfCategory !== 'all' || sfStatus !== 'all' 
                       ? 'Try adjusting your search or filters' 
                       : 'Add your first product to get started'}
@@ -2530,8 +2581,8 @@ const AdminContent: React.FC = () => {
             </div>
 
             {/* Enhanced Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-              <div className="bg-white p-4 rounded-lg shadow-md">
+            <div className="grid grid-cols-1 gap-6 mt-6 md:grid-cols-2 lg:grid-cols-4">
+              <div className="p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Categories</h3>
                 <div className="space-y-2">
                   {Object.entries(sfStats.byCategory).map(([category, count]) => (
@@ -2543,7 +2594,7 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow-md">
+              <div className="p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Status</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -2561,7 +2612,7 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow-md">
+              <div className="p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Favorites</h3>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-[#B89178] mb-1">{sfStats.favorites}</div>
@@ -2569,18 +2620,18 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow-md">
+              <div className="p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-sm font-semibold text-[#8F907E] uppercase mb-3">Quick Actions</h3>
                 <div className="space-y-2">
                   <button 
                     onClick={() => setSfCategory('food')}
-                    className="w-full text-left text-sm hover:bg-gray-50 p-1 rounded"
+                    className="w-full p-1 text-sm text-left rounded hover:bg-gray-50"
                   >
                     View Food ({(sfStats.byCategory as any).food || 0})
                   </button>
                   <button 
                     onClick={() => setSfStatus('draft')}
-                    className="w-full text-left text-sm hover:bg-gray-50 p-1 rounded"
+                    className="w-full p-1 text-sm text-left rounded hover:bg-gray-50"
                   >
                     View Drafts ({sfStats.byStatus.draft})
                   </button>
