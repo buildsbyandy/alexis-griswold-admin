@@ -50,6 +50,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to find carousel' })
       }
 
+      // Ensure video_order is unique within the carousel (1-5)
+      const requestedOrder = video_order || 1
+      if (requestedOrder < 1 || requestedOrder > 5) {
+        return res.status(400).json({ error: 'video_order must be between 1 and 5' })
+      }
+
+      // Check if the order is already taken in this carousel
+      const { data: existingVideo } = await supabaseAdmin
+        .from('carousel_videos')
+        .select('id')
+        .eq('carousel_id', carousel.id)
+        .eq('video_order', requestedOrder)
+        .single()
+
+      if (existingVideo) {
+        return res.status(409).json({ 
+          error: `Video order ${requestedOrder} is already taken in this carousel. Please choose a different order (1-5).` 
+        })
+      }
+
       // Add video to carousel
       const { data: video, error: videoError } = await supabaseAdmin
         .from('carousel_videos')
@@ -58,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           youtube_url,
           video_title,
           video_description,
-          video_order: video_order || 1
+          video_order: requestedOrder
         })
         .select('*')
         .single()

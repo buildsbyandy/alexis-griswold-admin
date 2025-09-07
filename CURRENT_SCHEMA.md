@@ -98,6 +98,10 @@ CREATE TABLE public.home_content (
   copyright_text text NOT NULL DEFAULT ''::text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_published boolean DEFAULT true,
+  video_title text,
+  video_description text,
+  video_history jsonb DEFAULT '[]'::jsonb,
   CONSTRAINT home_content_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.navigation_items (

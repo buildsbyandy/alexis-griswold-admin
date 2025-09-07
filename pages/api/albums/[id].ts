@@ -24,6 +24,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { photos, ...albumData } = req.body
       
+      // Validate sort_order if provided (1-6 unique limit)
+      if (albumData.order !== undefined) {
+        const requestedOrder = albumData.order
+        if (requestedOrder < 1 || requestedOrder > 6) {
+          return res.status(400).json({ error: 'Album order must be between 1 and 6' })
+        }
+
+        // Check if the order is already taken by another album
+        const { data: existingAlbum } = await supabaseAdmin
+          .from('photo_albums')
+          .select('id')
+          .eq('sort_order', requestedOrder)
+          .neq('id', id)
+          .single()
+
+        if (existingAlbum) {
+          return res.status(409).json({ 
+            error: `Album order ${requestedOrder} is already taken. Please choose a different order (1-6).` 
+          })
+        }
+      }
+      
       // Remove undefined fields from the update
       const updateData = Object.fromEntries(
         Object.entries({

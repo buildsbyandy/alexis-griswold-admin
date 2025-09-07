@@ -676,7 +676,10 @@ const AdminContent: React.FC = () => {
                     </div>
                     
                     {/* Upload Button - Now below video preview */}
-                    <div className="flex justify-center mt-3">
+                    <div className="flex flex-col items-center mt-3 space-y-2">
+                      <div className="text-xs text-gray-500 text-center">
+                        Upload a video to automatically publish it as your background
+                      </div>
                       <FileUpload
                         accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
                         uploadType="video"
@@ -717,7 +720,7 @@ const AdminContent: React.FC = () => {
                             if (response.ok) {
                               const responseData = await response.json();
                               console.log('API response success:', responseData);
-                              toast.success('Video uploaded and saved successfully!');
+                              toast.success('Video uploaded and published successfully!');
                               
                               // Update video history from API response
                               if (responseData.content?.video_history) {
@@ -729,11 +732,11 @@ const AdminContent: React.FC = () => {
                             } else {
                               const errorData = await response.json();
                               console.error('API Error:', errorData);
-                              toast.error(`Failed to save: ${errorData.error || 'Unknown error'}`);
+                              toast.error(`Failed to publish: ${errorData.error || 'Unknown error'}`);
                             }
                           } catch (error) {
                             console.error('Auto-save error:', error);
-                            toast.error('Video uploaded but failed to save. Please click Save Changes.');
+                            toast.error('Video uploaded but failed to publish. Please click "Save Changes" to publish.');
                           }
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
@@ -885,11 +888,11 @@ const AdminContent: React.FC = () => {
                         
                         if (response.ok) {
                           setEditingHomeContent(false);
-                          toast.success('Homepage content saved successfully!');
+                          toast.success('Homepage content published successfully!');
                           // Reload data to get updated video history
                           loadData();
                         } else {
-                          throw new Error('Failed to save');
+                          throw new Error('Failed to publish');
                         }
                       } catch (error) {
                         toast.error('Failed to save homepage content');
@@ -899,7 +902,7 @@ const AdminContent: React.FC = () => {
                     className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
                   >
                     <FaSave className="mr-2" />
-                    Save Changes
+                    Publish Changes
                   </button>
                 </div>
               )}
@@ -907,6 +910,18 @@ const AdminContent: React.FC = () => {
 
             {/* Video History Management */}
             <div className="p-6 mb-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-[#383B26] mb-2">📹 Video History</h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <h4 className="text-sm font-medium text-blue-800 mb-1">How it works:</h4>
+                  <ul className="text-xs text-blue-700 space-y-1">
+                    <li>• <strong>Upload a video</strong> → It&apos;s automatically published as your background</li>
+                    <li>• <strong>Previous videos</strong> are saved in history (max 3)</li>
+                    <li>• <strong>Click any video</strong> in history to make it current</li>
+                    <li>• <strong>Delete videos</strong> from history to free up space</li>
+                  </ul>
+                </div>
+              </div>
               <VideoHistoryCarousel
                 currentVideo={homePageContent.videoBackground}
                 videoHistory={videoHistory}

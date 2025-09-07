@@ -35,7 +35,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updateData.video_description = req.body.video_description
       }
       if (req.body.video_order !== undefined) {
-        updateData.video_order = req.body.video_order
+        const requestedOrder = req.body.video_order
+        if (requestedOrder < 1 || requestedOrder > 5) {
+          return res.status(400).json({ error: 'video_order must be between 1 and 5' })
+        }
+
+        // Get current video to check its carousel_id
+        const { data: currentVideo, error: currentError } = await supabaseAdmin
+          .from('carousel_videos')
+          .select('carousel_id')
+          .eq('id', id)
+          .single()
+
+        if (currentError) {
+          return res.status(404).json({ error: 'Video not found' })
+        }
+
+        // Check if the order is already taken in the carousel (excluding current video)
+        const { data: existingVideo } = await supabaseAdmin
+          .from('carousel_videos')
+          .select('id')
+          .eq('carousel_id', currentVideo.carousel_id)
+          .eq('video_order', requestedOrder)
+          .neq('id', id)
+          .single()
+
+        if (existingVideo) {
+          return res.status(409).json({ 
+            error: `Video order ${requestedOrder} is already taken in this carousel. Please choose a different order (1-5).` 
+          })
+        }
+
+        updateData.video_order = requestedOrder
       }
 
       // Handle carousel changes (move to different carousel)

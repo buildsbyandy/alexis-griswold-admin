@@ -28,13 +28,40 @@ interface VideoHistoryItem {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    const { data, error } = await supabaseAdmin
+    // First try to get the specific home content record
+    const { data: specificData, error: specificError } = await supabaseAdmin
       .from('home_content')
       .select('*')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
       .single()
     
-    if (error && error.code !== 'PGRST116') {
-      return res.status(500).json({ error: 'Failed to fetch home content' })
+    if (specificData) {
+      return res.status(200).json({ content: specificData })
+    }
+    
+    // If specific record doesn't exist, get the first published record
+    const { data: publishedData, error: publishedError } = await supabaseAdmin
+      .from('home_content')
+      .select('*')
+      .eq('is_published', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (publishedData) {
+      return res.status(200).json({ content: publishedData })
+    }
+    
+    // If no published record exists, get any record
+    const { data: anyData, error: anyError } = await supabaseAdmin
+      .from('home_content')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (anyData) {
+      return res.status(200).json({ content: anyData })
     }
     
     // Return safe defaults if no data exists
@@ -42,10 +69,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       background_video_path: '',
       fallback_image_path: '',
       video_title: 'Welcome to Alexis Griswold',
-      video_description: 'Experience wellness, recipes, and lifestyle content'
+      video_description: 'Experience wellness, recipes, and lifestyle content',
+      video_history: []
     }
     
-    return res.status(200).json({ content: data || defaultContent })
+    return res.status(200).json({ content: defaultContent })
   }
 
   if (req.method === 'PUT') {
@@ -84,6 +112,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       videoHistory.unshift(historyItem)
       videoHistory = videoHistory.slice(0, 3)
     }
+    
+    // First, unpublish all existing records
+    await supabaseAdmin
+      .from('home_content')
+      .update({ is_published: false })
+      .neq('id', '00000000-0000-0000-0000-000000000001')
     
     // Upsert the home content with updated history
     const upsertData = {
