@@ -40,6 +40,7 @@ const AdminContent: React.FC = () => {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
   const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
+  const [recipeActiveTab, setRecipeActiveTab] = useState<'recipes' | 'page-content' | 'hero-videos'>('recipes');
   const [vlogs, setVlogs] = useState<VlogVideo[]>([]);
   const [editingVlog, setEditingVlog] = useState<VlogVideo | null>(null);
   const [isAddingVlog, setIsAddingVlog] = useState(false);
@@ -1122,16 +1123,45 @@ const AdminContent: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons Row */}
-            <div className="p-4 mb-6 bg-white rounded-lg shadow-md">
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setIsAddingRecipe(true)}
-                  className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
-                >
-                  <FaPlus className="mr-2" />
-                  Add New Recipe
-                </button>
+            {/* Recipe Sub-Navigation */}
+            <div className="mb-6 bg-white rounded-lg shadow-md">
+              <div className="border-b border-gray-200">
+                <nav className="flex px-6">
+                  {[
+                    { id: 'recipes', name: 'Recipes', icon: '🍽️' },
+                    { id: 'page-content', name: 'Page Content', icon: '📝' },
+                    { id: 'hero-videos', name: 'Hero Videos', icon: '🎬' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setRecipeActiveTab(tab.id as any)}
+                      className={`${
+                        recipeActiveTab === tab.id
+                          ? 'border-[#B8A692] text-[#B8A692]'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 mr-8`}
+                    >
+                      <span>{tab.icon}</span>
+                      {tab.name}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            {recipeActiveTab === 'recipes' && (
+              <>
+                {/* Action Buttons Row */}
+                <div className="p-4 mb-6 bg-white rounded-lg shadow-md">
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setIsAddingRecipe(true)}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add New Recipe
+                    </button>
                 <button 
                   onClick={handleExportRecipes}
                   className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
@@ -1314,6 +1344,199 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             </div>
+              </>
+            )}
+
+            {/* Page Content Tab */}
+            {recipeActiveTab === 'page-content' && (
+              <div className="space-y-6">
+                {/* Hero Section Editor */}
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <h2 className="text-xl font-semibold text-[#383B26] mb-4 flex items-center">
+                    <span className="text-2xl mr-3">📝</span>
+                    Recipe Page Hero Content
+                  </h2>
+                  <p className="text-[#8F907E] mb-6">Manage the main hero section text that appears at the top of the recipes page</p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#383B26] mb-2">Hero Title</label>
+                      <input
+                        type="text"
+                        className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                        placeholder="RECIPES & TUTORIALS"
+                        // value={heroContent.title}
+                        // onChange={(e) => setHeroContent(prev => ({ ...prev, title: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Main heading displayed prominently</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-[#383B26] mb-2">Hero Subtitle</label>
+                      <input
+                        type="text"
+                        className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                        placeholder="Living with passion, energy, and confidence starts from within."
+                        // value={heroContent.subtitle}
+                        // onChange={(e) => setHeroContent(prev => ({ ...prev, subtitle: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Supporting text under the main title</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-[#383B26] mb-2">Hero Body Paragraph</label>
+                      <textarea
+                        rows={4}
+                        className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                        placeholder="The recipes and rituals I share here are the foundation of how I fuel my body, mind, and spirit everyday..."
+                        // value={heroContent.bodyText}
+                        // onChange={(e) => setHeroContent(prev => ({ ...prev, bodyText: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Detailed description that appears in the hero section</p>
+                    </div>
+                    
+                    <div className="flex justify-end pt-4">
+                      <button 
+                        className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                        // onClick={handleSaveHeroContent}
+                      >
+                        <FaSave className="mr-2" />
+                        Save Hero Content
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview Section */}
+                <div className="p-6 bg-gray-50 rounded-lg shadow-md">
+                  <h3 className="text-lg font-semibold text-[#383B26] mb-4 flex items-center">
+                    <span className="text-xl mr-2">👁️</span>
+                    Live Preview
+                  </h3>
+                  <div className="bg-white p-8 rounded-lg border-2 border-dashed border-gray-300">
+                    <h1 className="text-4xl font-bold text-[#383B26] mb-3">RECIPES & TUTORIALS</h1>
+                    <p className="text-lg text-[#8F907E] mb-4">Living with passion, energy, and confidence starts from within.</p>
+                    <p className="text-gray-700 leading-relaxed">
+                      The recipes and rituals I share here are the foundation of how I fuel my body, mind, and spirit everyday. Every smoothie, every meal, and every moment of self-care is designed to support a vibrant, fast-paced life where you feel light, alive, and ready for anything. This is more than food and tutorials, this is a lifestyle rooted in vitality.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hero Videos Tab */}
+            {recipeActiveTab === 'hero-videos' && (
+              <div className="space-y-6">
+                {/* YouTube Reels Carousel Manager */}
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-xl font-semibold text-[#383B26] flex items-center">
+                        <span className="text-2xl mr-3">🎬</span>
+                        YouTube Reels Carousel
+                      </h2>
+                      <p className="text-[#8F907E] mt-1">Manage the video carousel that appears in the hero section</p>
+                    </div>
+                    <button 
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                      // onClick={() => setShowAddHeroVideo(true)}
+                    >
+                      <FaPlus className="mr-2" />
+                      Add Video
+                    </button>
+                  </div>
+
+                  {/* Video List */}
+                  <div className="space-y-4">
+                    {/* Example Video Item */}
+                    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0 w-24 h-16 bg-gray-200 rounded overflow-hidden">
+                          <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
+                            <FaVideo className="text-gray-600" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-[#383B26]">YouTube Reel Title</h4>
+                          <p className="text-sm text-gray-600 mt-1">https://www.youtube.com/shorts/...</p>
+                          <p className="text-xs text-gray-500 mt-1">Order: 1 • Added 2 hours ago</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button className="p-2 text-gray-400 hover:text-[#B8A692]">
+                            <FaEdit />
+                          </button>
+                          <button className="p-2 text-gray-400 hover:text-red-600">
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Empty State */}
+                    <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                      <FaVideo className="mx-auto text-4xl text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-600 mb-2">No Hero Videos Yet</h3>
+                      <p className="text-gray-500 mb-4">Add YouTube Reels or Shorts to display in the hero carousel</p>
+                      <button 
+                        className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
+                        // onClick={() => setShowAddHeroVideo(true)}
+                      >
+                        <FaPlus className="mr-2" />
+                        Add Your First Video
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Beginner Recipes Preview */}
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <h2 className="text-xl font-semibold text-[#383B26] mb-4 flex items-center">
+                    <span className="text-2xl mr-3">👶</span>
+                    Beginner Recipes Carousel
+                  </h2>
+                  <p className="text-[#8F907E] mb-6">
+                    These are automatically populated from recipes marked as "Beginner Recipe" in the main recipes tab. 
+                    The carousel shows recipes where <code className="bg-gray-100 px-2 py-1 rounded text-sm">isBeginner=true</code>.
+                  </p>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start">
+                      <div className="text-blue-400 mr-3 mt-0.5">ℹ️</div>
+                      <div>
+                        <p className="text-sm text-blue-800 font-medium">How to manage beginner recipes:</p>
+                        <ol className="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+                          <li>Go to the "Recipes" tab</li>
+                          <li>Edit any recipe</li>
+                          <li>Check the "Beginner Recipe" checkbox</li>
+                          <li>Save the recipe</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview of beginner recipes */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-[#383B26] mb-3">Current Beginner Recipes Preview</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* This would be dynamically populated */}
+                      <div className="text-center p-4 border border-gray-200 rounded-lg">
+                        <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center">
+                          <FaUtensils className="text-gray-400 text-2xl" />
+                        </div>
+                        <p className="text-sm font-medium">Green Detox Juice</p>
+                        <p className="text-xs text-gray-500">Beginner • Juice</p>
+                      </div>
+                      <div className="text-center p-4 border-2 border-dashed border-gray-300 rounded-lg">
+                        <div className="w-full h-32 bg-gray-100 rounded mb-3 flex items-center justify-center">
+                          <FaPlus className="text-gray-400 text-xl" />
+                        </div>
+                        <p className="text-sm text-gray-500">Add more beginner recipes</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
