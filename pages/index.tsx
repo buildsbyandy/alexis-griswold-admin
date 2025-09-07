@@ -1237,13 +1237,6 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Home Content Modal */}
-            <HomeContentModal
-              isOpen={homeContentModalOpen}
-              onClose={() => setHomeContentModalOpen(false)}
-              initialData={homePageContent}
-              onSave={handleSaveHomeContent}
-            />
           </div>
         )}
 
@@ -2773,6 +2766,14 @@ const AdminContent: React.FC = () => {
         currentFeaturedVideoId={vlogHeroData.featuredVideoId}
         onSelect={handleSelectVlogFeaturedVideo}
         title="Select Featured Video for Vlogs Page"
+      />
+
+      {/* Home Content Modal */}
+      <HomeContentModal
+        isOpen={homeContentModalOpen}
+        onClose={() => setHomeContentModalOpen(false)}
+        initialData={homePageContent}
+        onSave={handleSaveHomeContent}
       />
     </div>
   );

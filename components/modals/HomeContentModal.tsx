@@ -96,8 +96,8 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black bg-opacity-50" style={{ zIndex: 9999 }}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden relative">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-[#F5F3F0]">
           <h2 className="text-xl font-semibold text-[#383B26]">Edit Home Content</h2>
