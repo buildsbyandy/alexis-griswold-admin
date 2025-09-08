@@ -20,8 +20,6 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     youtubeUrl: '',
     thumbnailUrl: '',
     publishedAt: '',
-    views: '',
-    duration: '',
     carousel: 'main-channel' as VlogCarouselType,
     isFeatured: false,
     order: 0,
@@ -35,8 +33,6 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
         youtubeUrl: vlog.youtubeUrl,
         thumbnailUrl: vlog.thumbnailUrl,
         publishedAt: vlog.publishedAt,
-        views: '',
-        duration: vlog.duration,
         carousel: vlog.carousel,
         isFeatured: vlog.isFeatured,
         order: vlog.order,
@@ -49,8 +45,6 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
         youtubeUrl: '',
         thumbnailUrl: '',
         publishedAt: new Date().toISOString().split('T')[0], // Default to today
-        views: '0',
-        duration: '',
         carousel: 'main-channel',
         isFeatured: false,
         order: 0,
@@ -93,7 +87,8 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     // Auto-extract YouTube thumbnail if no custom thumbnail provided
     const submitData = {
       ...formData,
-      thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl)
+      thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl),
+      duration: '' // Duration will be auto-populated by YouTube API
     };
 
     try {
@@ -200,31 +195,6 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
               <p className="text-xs text-gray-600 mt-1">1-2 sentences summarizing the vlog content</p>
             </div>
 
-            {/* Video Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Duration</label>
-                <input
-                  type="text"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                  placeholder="e.g., 8:32"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                />
-                <p className="text-xs text-gray-600 mt-1">Video length in MM:SS format</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Views</label>
-                <input
-                  type="text"
-                  value={formData.views}
-                  onChange={(e) => setFormData(prev => ({ ...prev, views: e.target.value }))}
-                  placeholder="e.g., 12.5K"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                />
-                <p className="text-xs text-gray-600 mt-1">Current view count from YouTube (e.g., 1.2K, 450, 2.1M)</p>
-              </div>
-            </div>
 
             {/* Thumbnail Upload */}
             <div>

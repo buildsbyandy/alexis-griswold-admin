@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '../../../lib/supabase/admin'
+import { youtubeService } from '../../../lib/services/youtubeService'
 
 export const config = { runtime: 'nodejs' }
 
@@ -22,14 +23,75 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const email = session?.user?.email
     if (!email || !isAdminEmail(email)) return res.status(401).json({ error: 'Unauthorized' })
     
-    const { data, error } = await supabaseAdmin
-      .from('vlogs')
-      .insert(req.body)
-      .select('*')
-      .single()
-    
-    if (error) return res.status(500).json({ error: 'Failed to create vlog' })
-    return res.status(201).json({ vlog: data })
+    try {
+      const { youtube_url, carousel, title: customTitle, description: customDescription } = req.body
+      
+      // Validate required fields
+      if (!youtube_url) {
+        return res.status(400).json({ error: 'YouTube URL is required' })
+      }
+      
+      if (!carousel) {
+        return res.status(400).json({ error: 'Carousel selection is required' })
+      }
+      
+      // Validate YouTube URL format
+      if (!youtubeService.isValidYouTubeUrl(youtube_url)) {
+        return res.status(400).json({ error: 'Invalid YouTube URL format' })
+      }
+      
+      // Extract video metadata from YouTube
+      const youtubeData = await youtubeService.getVideoDataFromUrl(youtube_url)
+      if (!youtubeData) {
+        return res.status(404).json({ error: 'Video not found or private' })
+      }
+      
+      // Prepare vlog data - use custom title/description if provided, otherwise use YouTube data
+      const vlogData = {
+        title: customTitle?.trim() || youtubeData.title,
+        description: customDescription?.trim() || youtubeData.description,
+        youtube_url: youtube_url,
+        youtube_id: youtubeData.id,
+        thumbnail_url: youtubeData.thumbnailUrl,
+        published_at: youtubeData.publishedAt,
+        duration: youtubeData.duration,
+        views: youtubeData.viewCount,
+        carousel: carousel,
+        is_featured: req.body.is_featured || false,
+        display_order: req.body.display_order || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      const { data, error } = await supabaseAdmin
+        .from('vlogs')
+        .insert(vlogData)
+        .select('*')
+        .single()
+      
+      if (error) {
+        console.error('Database error creating vlog:', error)
+        return res.status(500).json({ 
+          error: 'Failed to save vlog to database',
+          details: error.message 
+        })
+      }
+      
+      return res.status(201).json({ 
+        vlog: data,
+        message: 'Vlog created successfully with YouTube metadata'
+      })
+      
+    } catch (error) {
+      console.error('Error creating vlog:', error)
+      if (error instanceof Error) {
+        return res.status(500).json({ 
+          error: 'Failed to create vlog',
+          details: error.message 
+        })
+      }
+      return res.status(500).json({ error: 'Internal server error' })
+    }
   }
 
   res.setHeader('Allow', 'GET,POST')
