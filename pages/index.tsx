@@ -20,7 +20,10 @@ import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
 import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist, type VlogCarouselType } from '../lib/services/vlogService';
 import healingService, { type HealingVideo } from '../lib/services/healingService';
-import storefrontService, { type StorefrontProduct } from '../lib/services/storefrontService';
+import storefrontService from '../lib/services/storefrontService';
+import type { StorefrontProduct } from '../lib/services/storefrontService';
+import { type StorefrontProductFormData, type StorefrontCategoryOption } from '../lib/types/storefront';
+import { upsertStorefrontProduct, deleteStorefrontProduct, getStorefrontCategories } from '../lib/actions/storefront';
 import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
@@ -96,6 +99,7 @@ const AdminContent: React.FC = () => {
   const [sfCategory, setSfCategory] = useState<string>('all');
   const [sfStatus, setSfStatus] = useState<string>('all');
   const [sfStats, setSfStats] = useState({ total: 0, byStatus: { draft: 0, published: 0, archived: 0 }, byCategory: {}, favorites: 0 });
+  const [sfCategories, setSfCategories] = useState<StorefrontCategoryOption[]>([]);
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
@@ -542,14 +546,12 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveStorefrontProduct = async (productData: Omit<StorefrontProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveStorefrontProduct = async (productData: StorefrontProductFormData) => {
     try {
-      if (sfEditing && !sfIsAdding) {
-        // Update existing product
-        await storefrontService.update(sfEditing.id, productData);
-      } else {
-        // Create new product
-        await storefrontService.add(productData);
+      const result = await upsertStorefrontProduct(productData, sfEditing?.id);
+      
+      if (!result.success) {
+        throw new Error(result.error);
       }
       
       // Reload products and stats
@@ -664,6 +666,12 @@ const AdminContent: React.FC = () => {
 
       const storefrontItems = await storefrontService.getAll();
       setSfItems(storefrontItems);
+
+      // Load storefront categories
+      const categoriesResult = await getStorefrontCategories();
+      if (categoriesResult.success) {
+        setSfCategories(categoriesResult.categories);
+      }
 
       const vlogStatsData = await vlogService.getStats();
       setVlogStats(vlogStatsData);
@@ -3247,6 +3255,7 @@ const AdminContent: React.FC = () => {
         }}
         product={sfEditing}
         onSave={handleSaveStorefrontProduct}
+        categories={sfCategories}
       />
 
       {/* Featured Video Selector Modals */}

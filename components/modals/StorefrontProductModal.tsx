@@ -1,117 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FaTimes, FaSave, FaStore, FaPlus, FaTrash } from 'react-icons/fa';
-import type { StorefrontProduct } from '../../lib/services/storefrontService';
+import type { StorefrontProduct as ServiceStorefrontProduct } from '../../lib/services/storefrontService';
+import type { StorefrontProductFormInput, StorefrontProductFormData, StorefrontCategoryOption } from '../../lib/types/storefront';
+import { StorefrontProductFormSchema } from '../../lib/types/storefront';
+import { slugify, parsePrice } from '../../lib/utils/storefront';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 
 interface StorefrontProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product?: StorefrontProduct | null;
-  onSave: (product: Omit<StorefrontProduct, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  product?: ServiceStorefrontProduct | null;
+  onSave: (product: StorefrontProductFormData) => Promise<void>;
+  categories?: StorefrontCategoryOption[];
 }
 
-const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen, onClose, product, onSave }) => {
-  const [formData, setFormData] = useState({
-    title: '',
+const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen, onClose, product, onSave, categories = [] }) => {
+  const [formData, setFormData] = useState<StorefrontProductFormInput>({
+    product_title: '',
     slug: '',
-    category: 'food' as 'food' | 'healing' | 'home' | 'personal-care',
-    amazonUrl: '',
-    image: '',
-    imageUrl: '',
-    imageAlt: '',
+    category_name: 'Food',
+    amazon_url: '',
+    price: '',
+    product_image_path: '',
     noteShort: '',
     noteLong: '',
-    description: '',
-    price: undefined as number | undefined,
-    tags: [] as string[],
+    tags: [],
     isAlexisPick: false,
-    isFavorite: false,
+    is_favorite: false,
     showInFavorites: false,
-    status: 'draft' as 'draft' | 'published' | 'archived',
+    status: 'draft',
     sortWeight: 0,
-    usedIn: [] as { type: 'recipe' | 'video'; slug: string; title?: string }[],
-    pairsWith: [] as string[],
-    clicks30d: 0,
   });
 
   const [newTag, setNewTag] = useState('');
-  const [newPairsWith, setNewPairsWith] = useState('');
 
   useEffect(() => {
     if (product) {
+      // Map from service StorefrontProduct to form input
       setFormData({
-        title: product.title,
+        product_title: product.title,
         slug: product.slug,
-        category: product.category,
-        amazonUrl: product.amazonUrl,
-        image: product.image,
-        imageUrl: product.imageUrl || '',
-        imageAlt: product.imageAlt,
-        noteShort: product.noteShort,
+        category_name: product.category === 'food' ? 'Food' : 
+                      product.category === 'healing' ? 'Healing' : 
+                      product.category === 'home' ? 'Home' : 'Personal Care',
+        amazon_url: product.amazonUrl,
+        price: product.price?.toString() || '',
+        product_image_path: product.image,
+        noteShort: product.noteShort || '',
         noteLong: product.noteLong || '',
-        description: product.description || '',
-        price: product.price,
-        tags: product.tags,
+        tags: product.tags || [],
         isAlexisPick: product.isAlexisPick,
-        isFavorite: product.isFavorite || false,
+        is_favorite: product.isFavorite || false,
         showInFavorites: product.showInFavorites,
         status: product.status,
         sortWeight: product.sortWeight,
-        usedIn: product.usedIn,
-        pairsWith: product.pairsWith,
-        clicks30d: product.clicks30d || 0,
       });
     } else {
       // Reset form for new product
       setFormData({
-        title: '',
+        product_title: '',
         slug: '',
-        category: 'food',
-        amazonUrl: '',
-        image: '',
-        imageUrl: '',
-        imageAlt: '',
+        category_name: 'Food',
+        amazon_url: '',
+        price: '',
+        product_image_path: '',
         noteShort: '',
         noteLong: '',
-        description: '',
-        price: undefined,
         tags: [],
         isAlexisPick: false,
-        isFavorite: false,
+        is_favorite: false,
         showInFavorites: false,
         status: 'draft',
         sortWeight: 0,
-        usedIn: [],
-        pairsWith: [],
-        clicks30d: 0,
       });
     }
   }, [product]);
 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .trim();
-  };
+  // Use the utility function for slug generation
 
   const handleTitleChange = (title: string) => {
     setFormData(prev => ({
       ...prev,
-      title,
-      slug: generateSlug(title),
-      imageAlt: title ? `${title} product image` : ''
+      product_title: title,
+      slug: prev.slug || slugify(title), // Only auto-generate if slug is empty
     }));
   };
 
   const addTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+    if (newTag.trim() && !formData.tags?.includes(newTag.trim())) {
       setFormData(prev => ({
         ...prev,
-        tags: [...prev.tags, newTag.trim()]
+        tags: [...(prev.tags || []), newTag.trim()]
       }));
       setNewTag('');
     }
@@ -120,57 +101,35 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
   const removeTag = (tagToRemove: string) => {
     setFormData(prev => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: (prev.tags || []).filter(tag => tag !== tagToRemove)
     }));
   };
 
-  const addPairsWith = () => {
-    if (newPairsWith.trim() && !formData.pairsWith.includes(newPairsWith.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        pairsWith: [...prev.pairsWith, newPairsWith.trim()]
-      }));
-      setNewPairsWith('');
-    }
-  };
-
-  const removePairsWith = (itemToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      pairsWith: prev.pairsWith.filter(item => item !== itemToRemove)
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title.trim()) {
-      toast.error('Product title is required');
-      return;
-    }
-
-    if (!formData.amazonUrl.trim()) {
-      toast.error('Amazon URL is required');
-      return;
-    }
-
-    // Validate URL format
-    if (!formData.amazonUrl.startsWith('https://')) {
-      toast.error('Amazon URL must start with https://');
-      return;
-    }
-
-    if (!formData.noteShort.trim()) {
-      toast.error('Short note is required');
-      return;
-    }
-
     try {
-      await onSave(formData);
+      // Generate slug if empty
+      const finalFormData = {
+        ...formData,
+        slug: formData.slug || slugify(formData.product_title),
+      };
+      
+      // Validate with Zod schema
+      const validatedData = StorefrontProductFormSchema.parse(finalFormData);
+      
+      await onSave(validatedData);
       onClose();
       toast.success(`Product ${product ? 'updated' : 'created'} successfully!`);
-    } catch (error) {
-      toast.error(`Failed to ${product ? 'update' : 'create'} product`);
+    } catch (error: any) {
+      if (error.errors) {
+        // Zod validation errors
+        const firstError = error.errors[0];
+        toast.error(firstError.message);
+      } else {
+        toast.error(`Failed to ${product ? 'update' : 'create'} product`);
+      }
     }
   };
 
@@ -202,7 +161,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Product Title *</label>
                 <input
                   type="text"
-                  value={formData.title}
+                  value={formData.product_title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   required
@@ -224,14 +183,25 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
                 <select
-                  value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
+                  value={formData.category_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, category_name: e.target.value as any }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
-                  <option value="food">Food</option>
-                  <option value="healing">Healing</option>
-                  <option value="home">Home</option>
-                  <option value="personal-care">Personal Care</option>
+                  {categories.length > 0 ? (
+                    categories.map((cat) => (
+                      <option key={cat.category_name} value={cat.category_name}>
+                        {cat.category_name}
+                      </option>
+                    ))
+                  ) : (
+                    // Fallback to hardcoded options if categories not loaded
+                    <>
+                      <option value="Food">Food</option>
+                      <option value="Healing">Healing</option>
+                      <option value="Home">Home</option>
+                      <option value="Personal Care">Personal Care</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div>
@@ -263,8 +233,8 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Amazon URL *</label>
                 <input
                   type="url"
-                  value={formData.amazonUrl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amazonUrl: e.target.value }))}
+                  value={formData.amazon_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, amazon_url: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="https://www.amazon.com/product-name/dp/..."
                   required
@@ -277,7 +247,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   type="number"
                   step="0.01"
                   value={formData.price || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
               </div>
@@ -287,14 +257,14 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-3">Product Image</label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {(formData.imageUrl || formData.image) ? (
+                {formData.product_image_path ? (
                   <div className="relative">
-                    <Image src={formData.imageUrl || formData.image} alt="Product" width={800} height={192} className="w-full h-48 object-cover rounded" />
+                    <Image src={formData.product_image_path} alt="Product" width={800} height={192} className="w-full h-48 object-cover rounded" />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        onUpload={(url) => setFormData(prev => ({ ...prev, imageUrl: url, image: url }))}
+                        onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
                         Change Image
@@ -307,7 +277,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
-                      onUpload={(url) => setFormData(prev => ({ ...prev, imageUrl: url, image: url }))}
+                      onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
                       className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                     >
                       Upload Product Image
@@ -322,7 +292,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <label className="block text-sm font-medium text-[#383B26] mb-1">Short Note *</label>
               <input
                 type="text"
-                value={formData.noteShort}
+                value={formData.noteShort || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, noteShort: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Brief description shown in product cards"
@@ -333,7 +303,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Long Note</label>
               <textarea
-                value={formData.noteLong}
+                value={formData.noteLong || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, noteLong: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Detailed description"
@@ -344,7 +314,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-3">Tags</label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {formData.tags.map((tag, index) => (
+                {(formData.tags || []).map((tag, index) => (
                   <span
                     key={index}
                     className="px-3 py-1 bg-[#E3D4C2] text-[#383B26] rounded-full text-sm flex items-center"
@@ -393,8 +363,8 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.isFavorite}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isFavorite: e.target.checked }))}
+                  checked={formData.is_favorite}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_favorite: e.target.checked }))}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Favorite</span>
