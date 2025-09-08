@@ -55,7 +55,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         thumbnail_url: youtubeData.thumbnailUrl,
         published_at: youtubeData.publishedAt,
         duration: youtubeData.duration,
-        views: youtubeData.viewCount,
         carousel: carousel,
         is_featured: req.body.is_featured || false,
         display_order: req.body.display_order || 0,
