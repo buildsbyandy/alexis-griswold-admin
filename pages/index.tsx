@@ -23,7 +23,6 @@ import healingService, { type HealingVideo } from '../lib/services/healingServic
 import storefrontService from '../lib/services/storefrontService';
 import type { StorefrontProduct } from '../lib/services/storefrontService';
 import { type StorefrontProductFormData, type StorefrontCategoryOption } from '../lib/types/storefront';
-import { upsertStorefrontProduct, deleteStorefrontProduct, getStorefrontCategories } from '../lib/actions/storefront';
 import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
@@ -548,10 +547,63 @@ const AdminContent: React.FC = () => {
 
   const handleSaveStorefrontProduct = async (productData: StorefrontProductFormData) => {
     try {
-      const result = await upsertStorefrontProduct(productData, sfEditing?.id);
-      
-      if (!result.success) {
-        throw new Error(result.error);
+      // Use existing API routes for now - they'll handle the validation
+      if (sfEditing && !sfIsAdding) {
+        // Convert form data to API format
+        const apiData = {
+          product_title: productData.product_title,
+          slug: productData.slug,
+          category_name: productData.category_name,
+          amazon_url: productData.amazon_url,
+          price: productData.price,
+          product_image_path: productData.product_image_path,
+          noteShort: productData.noteShort,
+          noteLong: productData.noteLong,
+          tags: productData.tags,
+          isAlexisPick: productData.isAlexisPick,
+          is_favorite: productData.is_favorite,
+          showInFavorites: productData.showInFavorites,
+          status: productData.status,
+          sortWeight: productData.sortWeight,
+        };
+        
+        const response = await fetch(`/api/storefront/${sfEditing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(apiData)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update product');
+        }
+      } else {
+        // Create new product
+        const apiData = {
+          product_title: productData.product_title,
+          slug: productData.slug || productData.product_title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          category_name: productData.category_name,
+          amazon_url: productData.amazon_url,
+          price: productData.price,
+          product_image_path: productData.product_image_path,
+          noteShort: productData.noteShort,
+          noteLong: productData.noteLong,
+          tags: productData.tags,
+          isAlexisPick: productData.isAlexisPick,
+          is_favorite: productData.is_favorite,
+          showInFavorites: productData.showInFavorites,
+          status: productData.status,
+          sortWeight: productData.sortWeight,
+        };
+        
+        const response = await fetch('/api/storefront', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(apiData)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to create product');
+        }
       }
       
       // Reload products and stats
@@ -668,9 +720,14 @@ const AdminContent: React.FC = () => {
       setSfItems(storefrontItems);
 
       // Load storefront categories
-      const categoriesResult = await getStorefrontCategories();
-      if (categoriesResult.success) {
-        setSfCategories(categoriesResult.categories);
+      try {
+        const response = await fetch('/api/storefront/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setSfCategories(data.categories || []);
+        }
+      } catch (error) {
+        console.error('Error loading categories:', error);
       }
 
       const vlogStatsData = await vlogService.getStats();
