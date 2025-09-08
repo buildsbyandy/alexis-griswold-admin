@@ -1625,7 +1625,7 @@ const AdminContent: React.FC = () => {
                     Beginner Recipes Carousel
                   </h2>
                   <p className="text-[#8F907E] mb-6">
-                    These are automatically populated from recipes marked as "Beginner Recipe" in the main recipes tab. 
+                    These are automatically populated from recipes marked as &quot;Beginner Recipe&quot; in the main recipes tab. 
                     The carousel shows recipes where <code className="bg-gray-100 px-2 py-1 rounded text-sm">isBeginner=true</code>.
                   </p>
                   
@@ -1635,9 +1635,9 @@ const AdminContent: React.FC = () => {
                       <div>
                         <p className="text-sm text-blue-800 font-medium">How to manage beginner recipes:</p>
                         <ol className="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
-                          <li>Go to the "Recipes" tab</li>
+                          <li>Go to the &quot;Recipes&quot; tab</li>
                           <li>Edit any recipe</li>
-                          <li>Check the "Beginner Recipe" checkbox</li>
+                          <li>Check the &quot;Beginner Recipe&quot; checkbox</li>
                           <li>Save the recipe</li>
                         </ol>
                       </div>
