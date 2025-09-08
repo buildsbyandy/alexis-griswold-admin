@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '../../../lib/supabase/admin'
+import { youtubeService } from '../../../lib/services/youtubeService'
 
 export const config = { runtime: 'nodejs' }
 
@@ -15,9 +16,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'POST') {
-    // Add video to healing carousel
+    // Add video to healing carousel with YouTube API integration
     try {
-      const { page_type, carousel_number, youtube_url, video_title, video_description, video_order } = req.body
+      const { page_type, carousel_number, youtube_url, video_title: customTitle, video_description: customDescription, video_order } = req.body
+
+      // Validate required fields
+      if (!youtube_url) {
+        return res.status(400).json({ error: 'YouTube URL is required' })
+      }
+
+      // Validate YouTube URL format
+      if (!youtubeService.isValidYouTubeUrl(youtube_url)) {
+        return res.status(400).json({ error: 'Invalid YouTube URL format' })
+      }
+
+      // Extract video metadata from YouTube
+      const youtubeData = await youtubeService.getVideoDataFromUrl(youtube_url)
+      if (!youtubeData) {
+        return res.status(404).json({ error: 'Video not found or private' })
+      }
 
       // First, find or create the carousel
       let { data: carousel, error: carouselError } = await supabaseAdmin
@@ -70,14 +87,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
       }
 
-      // Add video to carousel
+      // Add video to carousel with YouTube metadata
       const { data: video, error: videoError } = await supabaseAdmin
         .from('carousel_videos')
         .insert({
           carousel_id: carousel.id,
           youtube_url,
-          video_title,
-          video_description,
+          video_title: customTitle?.trim() || youtubeData.title,
+          video_description: customDescription?.trim() || youtubeData.description,
           video_order: requestedOrder
         })
         .select('*')
@@ -88,7 +105,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to add video' })
       }
 
-      return res.status(201).json({ video })
+      return res.status(201).json({ 
+        video,
+        message: 'Healing video created successfully with YouTube metadata'
+      })
     } catch (error) {
       console.error('Error in carousel-videos POST:', error)
       return res.status(500).json({ error: 'Internal server error' })

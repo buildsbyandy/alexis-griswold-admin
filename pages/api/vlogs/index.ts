@@ -57,9 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         duration: youtubeData.duration,
         carousel: carousel,
         is_featured: req.body.is_featured || false,
-        display_order: req.body.display_order || 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        display_order: req.body.display_order || 0
       }
       
       const { data, error } = await supabaseAdmin

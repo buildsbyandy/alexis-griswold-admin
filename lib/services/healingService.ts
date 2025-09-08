@@ -13,7 +13,6 @@ export interface HealingVideo {
   youtubeId?: string;
   thumbnailUrl: string;
   duration: string;
-  views: string;
   carousel: HealingCarouselType;
   order: number;
   isActive: boolean;
@@ -188,7 +187,6 @@ class HealingService {
             youtubeId: this.extractYouTubeId(video.youtube_url || '') || undefined,
             thumbnailUrl: this.getYouTubeThumbnail(video.youtube_url) || '',
             duration: '', // Not stored in carousel_videos table
-            views: '', // Not stored in carousel_videos table
             carousel: carouselType,
             order: video.video_order || 0,
             isActive: true, // All carousel videos are considered active
@@ -306,7 +304,6 @@ class HealingService {
         youtubeId: 'dQw4w9WgXcQ',
         thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
         duration: '12:45',
-        views: '2.4K',
         carousel: 'part1',
         order: 1,
         isActive: true,
@@ -321,7 +318,6 @@ class HealingService {
         youtubeId: 'dQw4w9WgXcQ',
         thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
         duration: '8:30',
-        views: '1.8K',
         carousel: 'part1',
         order: 2,
         isActive: true,
@@ -336,7 +332,6 @@ class HealingService {
         youtubeId: 'dQw4w9WgXcQ',
         thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
         duration: '10:20',
-        views: '3.1K',
         carousel: 'part2',
         order: 1,
         isActive: true,
@@ -351,7 +346,6 @@ class HealingService {
         youtubeId: 'dQw4w9WgXcQ',
         thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
         duration: '14:20',
-        views: '2.7K',
         carousel: 'part2',
         order: 2,
         isActive: true,

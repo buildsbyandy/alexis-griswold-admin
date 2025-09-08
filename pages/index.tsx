@@ -72,7 +72,8 @@ const AdminContent: React.FC = () => {
     bodyText: 'Every moment captured, every story shared, every adventure lived. My vlogs are windows into a life filled with purpose, passion, and the simple joys that make each day extraordinary.',
     featuredVideoId: '',
     featuredVideoTitle: '',
-    featuredVideoDate: ''
+    featuredVideoDate: '',
+    featuredVideoThumbnail: ''
   });
   const [healingProducts, setHealingProducts] = useState<HealingProduct[]>([]);
   const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProduct | null>(null);
@@ -592,7 +593,8 @@ const AdminContent: React.FC = () => {
         ...prev,
         featuredVideoId: video.youtubeId || video.id,
         featuredVideoTitle: video.title,
-        featuredVideoDate: video.publishedAt || new Date().toISOString().split('T')[0]
+        featuredVideoDate: video.publishedAt || new Date().toISOString().split('T')[0],
+        featuredVideoThumbnail: video.thumbnailUrl
       }));
       
       toast.success('Featured video updated successfully!');
@@ -1863,11 +1865,23 @@ const AdminContent: React.FC = () => {
                     <div>
                       <h3 className="font-medium text-[#383B26] mb-3">Featured Video Preview</h3>
                       <div className="p-4 rounded-lg bg-gray-50">
-                        <div className="flex items-center justify-center h-32 mb-3 bg-gray-200 rounded">
-                          <div className="text-center text-gray-500">
-                            <FaVideo className="mx-auto mb-2 text-xl" />
-                            <p className="text-sm">Video Preview</p>
-                          </div>
+                        <div className="h-48 mb-3 bg-gray-200 rounded overflow-hidden relative">
+                          {vlogHeroData.featuredVideoThumbnail ? (
+                            <Image 
+                              src={vlogHeroData.featuredVideoThumbnail}
+                              alt={vlogHeroData.featuredVideoTitle || 'Featured Video'}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <div className="text-center text-gray-500">
+                                <FaVideo className="mx-auto mb-2 text-xl" />
+                                <p className="text-sm">Video Preview</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-1">
                           {vlogHeroData.featuredVideoTitle ? (
@@ -2244,19 +2258,25 @@ const AdminContent: React.FC = () => {
             {/* Content Analytics */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div className="p-6 bg-white rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold text-[#383B26] mb-4">Video Performance</h3>
+                <h3 className="text-lg font-semibold text-[#383B26] mb-4">Carousel Capacity</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Total Views:</span>
-                    <span className="font-medium">64.2K</span>
+                    <span className="text-[#8F907E]">Main Channel:</span>
+                    <span className={`font-medium ${vlogs.filter(v => v.carousel === 'main-channel').length >= 6 ? 'text-red-600' : 'text-green-600'}`}>
+                      {vlogs.filter(v => v.carousel === 'main-channel').length}/6
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Avg. Duration:</span>
-                    <span className="font-medium">11:54</span>
+                    <span className="text-[#8F907E]">AG Vlogs:</span>
+                    <span className={`font-medium ${vlogs.filter(v => v.carousel === 'ag-vlogs').length >= 6 ? 'text-red-600' : 'text-green-600'}`}>
+                      {vlogs.filter(v => v.carousel === 'ag-vlogs').length}/6
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#8F907E]">Featured Views:</span>
-                    <span className="font-medium">12.5K</span>
+                    <span className="text-[#8F907E]">Featured:</span>
+                    <span className={`font-medium ${vlogs.filter(v => v.isFeatured).length >= 1 ? 'text-amber-600' : 'text-green-600'}`}>
+                      {vlogs.filter(v => v.isFeatured).length}/1
+                    </span>
                   </div>
                 </div>
               </div>

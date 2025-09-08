@@ -1,0 +1,28 @@
+# Admin CMS Context Rules
+
+- Framework: Next.js (TypeScript, App Router).
+- State: Use React hooks and Next.js server components where appropriate.
+- Database: Prisma with Supabase Postgres.
+- Auth: NextAuth with Google OAuth, Supabase service role for admin tasks.
+- API: Use Next.js API routes under `/app/api`.
+- Styling: TailwindCSS only. No inline styles.
+- File structure:
+  - `app/` for routes and layouts
+  - `components/` for UI
+  - `lib/` for helpers and config
+
+# Quoting Rules
+- Always use **single quotes `'`** for imports, strings, and JSX props.
+- Only use `&quot;` when writing raw HTML inside JSX (e.g. `<p title=&quot;example&quot;>`).
+- For TypeScript/JavaScript strings, use `'` to avoid escape issues.
+- Never output double quotes `"` inside double-quoted JSX attributes — switch to single quotes instead.
+
+# Boundaries
+- Do not mix logic for the public-facing website into this repo.
+- Do not generate Vite code here — this project is strictly Next.js.
+
+# Shared Conventions
+- Always generate TypeScript, not JavaScript.
+- Favor clean, modular, and scalable code.
+- Prioritize accessibility and mobile responsiveness.
+- Keep responses concise — prefer annotated code snippets with explanations.

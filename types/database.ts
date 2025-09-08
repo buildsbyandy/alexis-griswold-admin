@@ -337,7 +337,6 @@ export interface VlogFormData {
   
   // Metadata
   duration?: string;
-  views: number;
   tags: string[];
   publishedAt?: string;
 }

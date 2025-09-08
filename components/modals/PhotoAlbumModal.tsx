@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FaTimes, FaSave, FaImage, FaPlus, FaTrash, FaUpload } from 'react-icons/fa';
 import type { PhotoAlbum, Photo } from '../../lib/services/vlogService';
-import FileUpload from '../ui/FileUpload';
+import ImageUpload from '../admin/ImageUpload';
 import toast from 'react-hot-toast';
 
 interface PhotoAlbumModalProps {
@@ -83,7 +83,7 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
 
   const handleAddPhoto = () => {
     if (!newPhoto.src.trim() || !newPhoto.alt.trim()) {
-      toast.error('Photo URL and alt text are required');
+      toast.error('Photo image and alt text are required');
       return;
     }
 
@@ -208,13 +208,13 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
             {/* Cover Image */}
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Cover Image *</label>
-              <input
-                type="url"
-                value={formData.coverImage}
-                onChange={(e) => setFormData(prev => ({ ...prev, coverImage: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Enter cover image URL..."
-                required
+              <ImageUpload
+                value={formData.coverImage ? [formData.coverImage] : []}
+                onChange={(urls) => setFormData(prev => ({ ...prev, coverImage: urls[0] || '' }))}
+                maxImages={1}
+                folder="albums"
+                placeholder="Upload cover image"
+                showPreview={true}
               />
             </div>
 
@@ -270,13 +270,17 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
                   <h4 className="font-medium text-[#383B26] mb-3">Add New Photo</h4>
                   <div className="space-y-3">
-                    <input
-                      type="url"
-                      value={newPhoto.src}
-                      onChange={(e) => setNewPhoto(prev => ({ ...prev, src: e.target.value }))}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      placeholder="Photo URL..."
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-[#383B26] mb-1">Photo Image</label>
+                      <ImageUpload
+                        value={newPhoto.src ? [newPhoto.src] : []}
+                        onChange={(urls) => setNewPhoto(prev => ({ ...prev, src: urls[0] || '' }))}
+                        maxImages={1}
+                        folder="albums"
+                        placeholder="Upload photo image"
+                        showPreview={true}
+                      />
+                    </div>
                     <input
                       type="text"
                       value={newPhoto.alt}

@@ -153,6 +153,18 @@ CREATE TABLE public.photos (
   CONSTRAINT photos_pkey PRIMARY KEY (id),
   CONSTRAINT photos_album_id_fkey FOREIGN KEY (album_id) REFERENCES public.photo_albums(id)
 );
+CREATE TABLE public.recipe_categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  category_name text NOT NULL UNIQUE,
+  category_slug text NOT NULL UNIQUE,
+  category_description text,
+  category_icon text,
+  display_order integer DEFAULT 0,
+  is_visible boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT recipe_categories_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.recipe_hero_videos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   youtube_url text NOT NULL,
@@ -160,6 +172,10 @@ CREATE TABLE public.recipe_hero_videos (
   video_order integer,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  video_thumbnail_url text,
+  video_description text,
+  is_active boolean DEFAULT true,
+  video_type text DEFAULT 'reel'::text,
   CONSTRAINT recipe_hero_videos_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.recipes (
@@ -193,6 +209,14 @@ CREATE TABLE public.recipes_page_content (
   hero_body_paragraph text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  hero_background_image text,
+  hero_cta_text text,
+  hero_cta_url text,
+  beginner_section_title text DEFAULT 'Just Starting Out'::text,
+  beginner_section_subtitle text DEFAULT 'Simple recipes for beginners'::text,
+  show_beginner_section boolean DEFAULT true,
+  page_seo_title text,
+  page_seo_description text,
   CONSTRAINT recipes_page_content_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.social_media_links (
@@ -297,7 +321,6 @@ CREATE TABLE public.vlogs (
   description text,
   thumbnail_url text,
   published_at text,
-  views text,
   duration text,
   is_featured boolean DEFAULT false,
   display_order integer,

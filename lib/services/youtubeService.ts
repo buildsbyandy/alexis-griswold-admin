@@ -5,7 +5,6 @@ export interface YouTubeVideoData {
   thumbnailUrl: string;
   publishedAt: string;
   duration: string;
-  viewCount: string;
   channelTitle: string;
 }
 
@@ -79,15 +78,18 @@ class YouTubeService {
   }
 
   /**
-   * Get the best thumbnail URL (maxresdefault, then fallbacks)
+   * Get the best thumbnail URL (prioritize reliable sizes)
    */
   private getBestThumbnail(thumbnails: any): string {
-    if (thumbnails.maxresdefault) {
-      return thumbnails.maxresdefault.url;
-    } else if (thumbnails.high) {
+    // Prioritize high quality but reliable thumbnail sizes
+    if (thumbnails.high) {
       return thumbnails.high.url;
     } else if (thumbnails.medium) {
       return thumbnails.medium.url;
+    } else if (thumbnails.standard) {
+      return thumbnails.standard.url;
+    } else if (thumbnails.maxresdefault) {
+      return thumbnails.maxresdefault.url;
     } else if (thumbnails.default) {
       return thumbnails.default.url;
     }
@@ -128,7 +130,6 @@ class YouTubeService {
         thumbnailUrl: this.getBestThumbnail(snippet.thumbnails),
         publishedAt: new Date(snippet.publishedAt).toISOString().split('T')[0], // Format as YYYY-MM-DD
         duration: this.formatDuration(contentDetails.duration),
-        viewCount: this.formatViewCount(statistics.viewCount),
         channelTitle: snippet.channelTitle
       };
     } catch (error) {

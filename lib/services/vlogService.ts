@@ -8,7 +8,6 @@ export interface VlogVideo {
   youtubeId?: string;
   thumbnailUrl: string;
   publishedAt: string;
-  views: string;
   duration: string;
   carousel: VlogCarouselType;
   isFeatured: boolean;
@@ -81,7 +80,6 @@ class VlogService {
         youtubeId: this.extractYouTubeId(v.youtube_url || ''),
         thumbnailUrl: v.thumbnail_url || '',
         publishedAt: v.published_at || '',
-        views: v.views || '',
         duration: v.duration || '',
         carousel: (v.carousel || 'main-channel') as VlogCarouselType,
         isFeatured: v.is_featured || false,
@@ -119,7 +117,6 @@ class VlogService {
         youtube_id: youtubeId,
         thumbnail_url: thumbnailUrl,
         published_at: input.publishedAt,
-        views: input.views,
         duration: input.duration,
         carousel: input.carousel,
         is_featured: input.isFeatured,
@@ -148,7 +145,6 @@ class VlogService {
       if (input.description !== undefined) vlogData.description = input.description;
       if (input.thumbnailUrl !== undefined) vlogData.thumbnail_url = input.thumbnailUrl;
       if (input.publishedAt !== undefined) vlogData.published_at = input.publishedAt;
-      if (input.views !== undefined) vlogData.views = input.views;
       if (input.duration !== undefined) vlogData.duration = input.duration;
       if (input.carousel !== undefined) vlogData.carousel = input.carousel;
       if (input.isFeatured !== undefined) vlogData.is_featured = input.isFeatured;
