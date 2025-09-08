@@ -231,17 +231,17 @@ class VlogService {
         title: album.album_title || '',
         description: album.album_description || '',
         coverImage: album.cover_image_path || '',
-        category: album.category || 'Lifestyle',
+        category: 'Lifestyle', // Default category since it's not in DB
         photos: (album.photos || []).map((photo: any) => ({
           id: photo.id,
           src: photo.image_path,
           alt: album.album_title, // Use album title as default alt
           caption: photo.photo_caption || '',
-          order: photo.sort_order || 0
+          order: photo.photo_order || 0
         })),
         date: album.album_date || '',
-        isFeatured: album.is_featured || false,
-        order: album.sort_order || 0,
+        isFeatured: false, // Default since it's not in DB
+        order: album.album_order || 0,
         createdAt: new Date(album.created_at),
         updatedAt: new Date(album.updated_at)
       }));

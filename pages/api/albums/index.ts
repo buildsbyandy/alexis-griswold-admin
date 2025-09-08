@@ -39,22 +39,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { photos, ...albumData } = req.body
       
-      // Validate sort_order (1-6 unique limit)
+      // Validate album_order (0-5 range)
       const requestedOrder = albumData.order || 0
-      if (requestedOrder < 1 || requestedOrder > 6) {
-        return res.status(400).json({ error: 'Album order must be between 1 and 6' })
+      if (requestedOrder < 0 || requestedOrder > 5) {
+        return res.status(400).json({ error: 'Album order must be between 0 and 5' })
       }
 
       // Check if the order is already taken
       const { data: existingAlbum } = await supabaseAdmin
         .from('photo_albums')
         .select('id')
-        .eq('sort_order', requestedOrder)
+        .eq('album_order', requestedOrder)
         .single()
 
       if (existingAlbum) {
         return res.status(409).json({ 
-          error: `Album order ${requestedOrder} is already taken. Please choose a different order (1-6).` 
+          error: `Album order ${requestedOrder} is already taken. Please choose a different order (0-5).` 
         })
       }
 
@@ -67,10 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           album_description: albumData.description || '',
           album_date: albumData.date,
           cover_image_path: albumData.coverImage,
-          category: albumData.category,
-          is_featured: albumData.isFeatured || false,
-          sort_order: requestedOrder,
-          is_published: true
+          album_order: requestedOrder
         })
         .select()
         .single()
@@ -86,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           album_id: album.id,
           image_path: photo.src,
           photo_caption: photo.caption || '',
-          sort_order: photo.order || index + 1
+          photo_order: photo.order || index + 1
         }))
 
         const { error: photosError } = await supabaseAdmin
