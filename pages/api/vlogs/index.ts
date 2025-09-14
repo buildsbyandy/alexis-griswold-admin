@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
-import supabaseAdmin from '../../../lib/supabase/admin'
+import supabaseAdmin from '@/lib/supabase'
 import { youtubeService } from '../../../lib/services/youtubeService'
 
 export const config = { runtime: 'nodejs' }

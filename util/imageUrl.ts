@@ -1,4 +1,4 @@
-import supabase from '../lib/supabase/admin'
+import supabase from '@/lib/supabase'
 
 export function imageUrl(bucket: string, path: string, w = 1200): string {
 	const { data } = supabase.storage.from(bucket).getPublicUrl(path, {
