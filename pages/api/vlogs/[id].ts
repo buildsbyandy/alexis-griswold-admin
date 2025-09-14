@@ -4,6 +4,11 @@ import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
 import { youtubeService } from '../../../lib/services/youtubeService'
+import type { Database } from '@/types/supabase.generated'
+
+type VlogRow = Database['public']['Tables']['vlogs']['Row']
+type VlogInsert = Database['public']['Tables']['vlogs']['Insert']
+type VlogUpdate = Database['public']['Tables']['vlogs']['Update']
 
 export const config = { runtime: 'nodejs' }
 
@@ -25,14 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error.code === 'PGRST116') return res.status(404).json({ error: 'Vlog not found' })
       return res.status(500).json({ error: 'Failed to fetch vlog' })
     }
-    return res.status(200).json({ vlog: data })
+    return res.status(200).json({ vlog: data as VlogRow })
   }
 
   if (req.method === 'PUT') {
     try {
       const { youtube_url, title: customTitle, description: customDescription, carousel, is_featured, display_order } = req.body
-      
-      let updateData: any = {
+
+      let updateData: VlogUpdate = {
         updated_at: new Date().toISOString()
       }
 
@@ -52,7 +57,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updateData = {
           ...updateData,
           youtube_url: youtube_url,
-          youtube_id: youtubeData.id,
           thumbnail_url: youtubeData.thumbnailUrl,
           published_at: youtubeData.publishedAt,
           duration: youtubeData.duration,
@@ -83,8 +87,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to update vlog' })
       }
       
-      return res.status(200).json({ 
-        vlog: data,
+      return res.status(200).json({
+        vlog: data as VlogRow,
         message: youtube_url ? 'Vlog updated successfully with YouTube metadata' : 'Vlog updated successfully'
       })
     } catch (error) {

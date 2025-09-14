@@ -3,6 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
+import type { Database } from '@/types/supabase.generated'
+
+type AlbumRow = Database['public']['Tables']['photo_albums']['Row']
+type AlbumInsert = Database['public']['Tables']['photo_albums']['Insert']
+type AlbumUpdate = Database['public']['Tables']['photo_albums']['Update']
+type PhotoInsert = Database['public']['Tables']['album_photos']['Insert']
 
 export const config = { runtime: 'nodejs' }
 
@@ -13,7 +19,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Album ID is required' })
   }
 
-  // All operations require admin authentication
+  if (req.method === 'GET') {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('photo_albums')
+        .select(`
+          *,
+          photos:album_photos(*)
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') return res.status(404).json({ error: 'Album not found' })
+        return res.status(500).json({ error: 'Failed to fetch album' })
+      }
+
+      return res.status(200).json({ album: data as AlbumRow })
+    } catch (error) {
+      console.error('Album fetch error:', error)
+      return res.status(500).json({ error: 'Failed to fetch album' })
+    }
+  }
+
+  // All modification operations require admin authentication
   const session = await getServerSession(req, res, authOptions)
   const email = session?.user?.email
   if (!email || !isAdminEmail(email)) {
@@ -22,12 +51,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { photos, ...albumData } = req.body
-      
+      const { album_title, album_category, album_date, album_order, album_description, is_featured, cover_image_path, photos } = req.body
+
       // Validate album_order if provided (0-5 range)
-      if (albumData.order !== undefined) {
-        const requestedOrder = albumData.order
-        if (requestedOrder < 0 || requestedOrder > 5) {
+      if (album_order !== undefined) {
+        if (album_order < 0 || album_order > 5) {
           return res.status(400).json({ error: 'Album order must be between 0 and 5' })
         }
 
@@ -35,29 +63,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { data: existingAlbum } = await supabaseAdmin
           .from('photo_albums')
           .select('id')
-          .eq('album_order', requestedOrder)
+          .eq('album_order', album_order)
           .neq('id', id)
           .single()
 
         if (existingAlbum) {
-          return res.status(409).json({ 
-            error: `Album order ${requestedOrder} is already taken. Please choose a different order (0-5).` 
+          return res.status(409).json({
+            error: `Album order ${album_order} is already taken. Please choose a different order (0-5).`
           })
         }
       }
       
-      // Remove undefined fields from the update
-      const updateData = Object.fromEntries(
-        Object.entries({
-          album_title: albumData.title,
-          album_subtitle: albumData.subtitle,
-          album_description: albumData.description,
-          album_date: albumData.date,
-          cover_image_path: albumData.coverImage,
-          album_order: albumData.order,
-          updated_at: new Date().toISOString()
-        }).filter(([_, value]) => value !== undefined)
-      )
+      // Build update object with only provided fields
+      const updateData: AlbumUpdate = {
+        updated_at: new Date().toISOString()
+      }
+
+      if (album_title !== undefined) updateData.album_title = album_title
+      if (album_description !== undefined) updateData.album_description = album_description
+      if (album_date !== undefined) updateData.album_date = album_date
+      if (cover_image_path !== undefined) updateData.cover_image_path = cover_image_path
+      if (album_order !== undefined) updateData.album_order = album_order
+      if (is_featured !== undefined) updateData.is_visible = is_featured
       
       // Update album
       const { data: album, error: albumError } = await supabaseAdmin
@@ -69,6 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       if (albumError) {
         console.error('Supabase album update error:', albumError)
+        if (albumError.code === 'PGRST116') return res.status(404).json({ error: 'Album not found' })
         return res.status(500).json({ error: 'Failed to update album' })
       }
 
@@ -82,11 +110,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // Add new photos
         if (photos.length > 0) {
-          const photoInserts = photos.map((photo: any, index: number) => ({
+          const photoInserts: PhotoInsert[] = photos.map((photo: any, index: number) => ({
             album_id: id,
-            image_path: photo.src,
-            photo_caption: photo.caption || '',
-            photo_order: photo.order || index + 1
+            image_path: photo.photo_url || photo.src,
+            photo_caption: photo.caption || null,
+            photo_order: photo.photo_order || index + 1
           }))
 
           const { error: photosError } = await supabaseAdmin
@@ -99,7 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       
-      return res.status(200).json({ album })
+      return res.status(200).json({ album: album as AlbumRow })
     } catch (error) {
       console.error('Album update error:', error)
       return res.status(500).json({ error: 'Failed to update album' })
@@ -132,6 +160,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  res.setHeader('Allow', 'PUT,DELETE')
+  res.setHeader('Allow', 'GET,PUT,DELETE')
   return res.status(405).json({ error: 'Method Not Allowed' })
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaMusic, FaPalette } from 'react-icons/fa';
-import type { SpotifyPlaylist } from '../../lib/services/vlogService';
+import type { SpotifyPlaylist } from '../../lib/services/playlistService';
 import toast from 'react-hot-toast';
 
 interface SpotifyPlaylistModalProps {
@@ -29,11 +29,11 @@ const COLOR_PALETTE = [
 const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onClose, playlist, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
-    mood: '',
-    color: '#2D2D2D',
-    spotifyUrl: '',
-    isActive: true,
-    order: 0
+    description: '',
+    theme_color: '#2D2D2D',
+    spotify_url: '',
+    is_active: true,
+    display_order: 0
   });
 
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -42,21 +42,21 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
     if (playlist) {
       setFormData({
         name: playlist.name,
-        mood: playlist.mood,
-        color: playlist.color,
-        spotifyUrl: playlist.spotifyUrl,
-        isActive: playlist.isActive,
-        order: playlist.order
+        description: playlist.description,
+        theme_color: playlist.theme_color,
+        spotify_url: playlist.spotify_url,
+        is_active: playlist.is_active,
+        display_order: playlist.display_order
       });
     } else {
       // Reset form for new playlist
       setFormData({
         name: '',
-        mood: '',
-        color: '#2D2D2D',
-        spotifyUrl: '',
-        isActive: true,
-        order: 0
+        description: '',
+        theme_color: '#2D2D2D',
+        spotify_url: '',
+        is_active: true,
+        display_order: 0
       });
     }
   }, [playlist]);
@@ -69,18 +69,18 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
       return;
     }
 
-    if (!formData.mood.trim()) {
+    if (!formData.description.trim()) {
       toast.error('Mood/Theme is required');
       return;
     }
 
-    if (!formData.spotifyUrl.trim()) {
+    if (!formData.spotify_url.trim()) {
       toast.error('Spotify URL is required');
       return;
     }
 
     // Validate Spotify URL format
-    if (!isValidSpotifyUrl(formData.spotifyUrl)) {
+    if (!isValidSpotifyUrl(formData.spotify_url)) {
       toast.error('Please enter a valid Spotify playlist URL');
       return;
     }
@@ -100,7 +100,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
   };
 
   const handleColorSelect = (color: string) => {
-    setFormData(prev => ({ ...prev, color }));
+    setFormData(prev => ({ ...prev, theme_color: color }));
     setShowColorPicker(false);
   };
 
@@ -145,8 +145,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
               <label className="block text-sm font-medium text-[#383B26] mb-1">Mood/Theme *</label>
               <input
                 type="text"
-                value={formData.mood}
-                onChange={(e) => setFormData(prev => ({ ...prev, mood: e.target.value }))}
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="e.g., Chill Vibes, Energy Boost, Feel Good"
                 required
@@ -163,11 +163,11 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                   onClick={() => setShowColorPicker(!showColorPicker)}
                   className="flex items-center space-x-3 w-full p-2 border border-gray-300 rounded-md hover:border-[#B8A692] focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
-                  <div 
+                  <div
                     className="w-8 h-8 rounded border-2 border-gray-300"
-                    style={{ backgroundColor: formData.color }}
+                    style={{ backgroundColor: formData.theme_color }}
                   ></div>
-                  <span className="text-gray-700">{formData.color}</span>
+                  <span className="text-gray-700">{formData.theme_color}</span>
                   <FaPalette className="ml-auto text-[#B8A692]" />
                 </button>
                 
@@ -180,7 +180,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                           type="button"
                           onClick={() => handleColorSelect(color)}
                           className={`w-10 h-10 rounded border-2 hover:scale-110 transition-transform ${
-                            formData.color === color ? 'border-[#B8A692] ring-2 ring-[#B8A692]' : 'border-gray-300'
+                            formData.theme_color === color ? 'border-[#B8A692] ring-2 ring-[#B8A692]' : 'border-gray-300'
                           }`}
                           style={{ backgroundColor: color }}
                         />
@@ -189,8 +189,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <input
                         type="color"
-                        value={formData.color}
-                        onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                        value={formData.theme_color}
+                        onChange={(e) => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
                         className="w-full h-8 rounded border border-gray-300"
                       />
                       <p className="text-xs text-gray-500 mt-1">Or choose custom color</p>
@@ -206,8 +206,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
               <label className="block text-sm font-medium text-[#383B26] mb-1">Spotify URL *</label>
               <input
                 type="url"
-                value={formData.spotifyUrl}
-                onChange={(e) => setFormData(prev => ({ ...prev, spotifyUrl: e.target.value }))}
+                value={formData.spotify_url}
+                onChange={(e) => setFormData(prev => ({ ...prev, spotify_url: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="https://open.spotify.com/playlist/..."
                 required
@@ -223,8 +223,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
+                  value={formData.display_order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="0"
                 />
@@ -234,8 +234,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 <input
                   type="checkbox"
                   id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
                   className="mr-2"
                 />
                 <label htmlFor="isActive" className="text-sm font-medium text-[#383B26]">
@@ -248,14 +248,14 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-2">Preview</label>
               <div className="border border-gray-200 rounded-lg p-4">
-                <div 
+                <div
                   className="w-48 h-32 rounded-lg flex flex-col items-center justify-center text-white relative overflow-hidden"
-                  style={{ backgroundColor: formData.color }}
+                  style={{ backgroundColor: formData.theme_color }}
                 >
                   <FaMusic className="text-3xl mb-2 opacity-70" />
                   <div className="text-center px-2">
                     <p className="font-medium text-sm">{formData.name || 'Playlist Name'}</p>
-                    <p className="text-xs opacity-80">Mood: {formData.mood || 'Mood/Theme'}</p>
+                    <p className="text-xs opacity-80">Mood: {formData.description || 'Mood/Theme'}</p>
                   </div>
                 </div>
               </div>

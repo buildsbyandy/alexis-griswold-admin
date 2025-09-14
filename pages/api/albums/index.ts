@@ -3,6 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
+import type { Database } from '@/types/supabase.generated'
+
+type AlbumRow = Database['public']['Tables']['photo_albums']['Row']
+type AlbumInsert = Database['public']['Tables']['photo_albums']['Insert']
+type AlbumUpdate = Database['public']['Tables']['photo_albums']['Update']
+type PhotoInsert = Database['public']['Tables']['album_photos']['Insert']
 
 export const config = { runtime: 'nodejs' }
 
@@ -22,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to fetch albums' })
       }
       
-      return res.status(200).json({ albums: data })
+      return res.status(200).json({ albums: data as AlbumRow[] })
     } catch (error) {
       console.error('Albums fetch error:', error)
       return res.status(500).json({ error: 'Failed to fetch albums' })
@@ -37,10 +43,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     try {
-      const { photos, ...albumData } = req.body
-      
+      const { album_title, album_category, album_date, album_order, album_description, is_featured, cover_image_path, photos } = req.body
+
+      // Validate required fields
+      if (!album_title?.trim()) {
+        return res.status(400).json({ error: 'Album title is required' })
+      }
+      if (!cover_image_path?.trim()) {
+        return res.status(400).json({ error: 'Cover image is required' })
+      }
+      if (!album_date) {
+        return res.status(400).json({ error: 'Album date is required' })
+      }
+
       // Validate album_order (0-5 range)
-      const requestedOrder = albumData.order || 0
+      const requestedOrder = album_order || 0
       if (requestedOrder < 0 || requestedOrder > 5) {
         return res.status(400).json({ error: 'Album order must be between 0 and 5' })
       }
@@ -59,16 +76,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Create the album first
+      const albumInsert: AlbumInsert = {
+        album_title: album_title,
+        album_description: album_description || null,
+        album_date: album_date,
+        cover_image_path: cover_image_path,
+        album_order: requestedOrder,
+        is_visible: is_featured || false
+      }
+
       const { data: album, error: albumError } = await supabaseAdmin
         .from('photo_albums')
-        .insert({
-          album_title: albumData.title,
-          album_subtitle: albumData.subtitle || '',
-          album_description: albumData.description || '',
-          album_date: albumData.date,
-          cover_image_path: albumData.coverImage,
-          album_order: requestedOrder
-        })
+        .insert(albumInsert)
         .select()
         .single()
       
@@ -79,11 +98,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Add photos if provided
       if (photos && Array.isArray(photos) && photos.length > 0) {
-        const photoInserts = photos.map((photo: any, index: number) => ({
+        const photoInserts: PhotoInsert[] = photos.map((photo: any, index: number) => ({
           album_id: album.id,
-          image_path: photo.src,
-          photo_caption: photo.caption || '',
-          photo_order: photo.order || index + 1
+          image_path: photo.photo_url || photo.src,
+          photo_caption: photo.caption || null,
+          photo_order: photo.photo_order || index + 1
         }))
 
         const { error: photosError } = await supabaseAdmin
@@ -96,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       
-      return res.status(201).json({ album })
+      return res.status(201).json({ album: album as AlbumRow })
     } catch (error) {
       console.error('Album creation error:', error)
       return res.status(500).json({ error: 'Failed to create album' })

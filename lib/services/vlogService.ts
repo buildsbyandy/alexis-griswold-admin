@@ -1,3 +1,9 @@
+import type { Database } from '@/types/supabase.generated'
+
+type VlogRow = Database['public']['Tables']['vlogs']['Row']
+type VlogInsert = Database['public']['Tables']['vlogs']['Insert']
+type VlogUpdate = Database['public']['Tables']['vlogs']['Update']
+
 export type VlogCarouselType = 'main-channel' | 'ag-vlogs';
 
 export interface VlogVideo {
@@ -16,38 +22,11 @@ export interface VlogVideo {
   updatedAt: Date;
 }
 
-export interface PhotoAlbum {
-  id: string;
-  title: string;
-  description: string;
-  coverImage: string;
-  category: 'Lifestyle' | 'Food' | 'Travel' | 'Wellness' | 'Fitness' | 'Home';
-  photos: Photo[];
-  date: string;
-  isFeatured: boolean;
-  order: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface Photo { id: string; src: string; alt: string; caption?: string; order: number; }
 
-export interface SpotifyPlaylist {
-  id: string;
-  name: string;
-  mood: string;
-  color: string;
-  spotifyUrl: string;
-  order: number;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 class VlogService {
   private readonly VLOGS_KEY = 'admin_vlogs';
-  private readonly ALBUMS_KEY = 'admin_albums';
-  private readonly PLAYLISTS_KEY = 'admin_spotify_playlists';
   private readonly YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@alexisgriswold';
   private readonly INSTAGRAM_URL = 'https://www.instagram.com/lexigriswold';
   private readonly SPOTIFY_PROFILE_URL = 'https://open.spotify.com/user/316v3frkjuxqbtjv5vsld3c2vz44';
@@ -72,9 +51,9 @@ class VlogService {
       if (!response.ok) throw new Error('Failed to fetch vlogs');
       const data = await response.json();
       // Map database fields to service interface
-      return (data.vlogs || []).map((v: any) => ({
+      return (data.vlogs as VlogRow[] || []).map((v: VlogRow) => ({
         id: v.id,
-        title: v.title,
+        title: v.title || '',
         description: v.description || '',
         youtubeUrl: v.youtube_url || '',
         youtubeId: this.extractYouTubeId(v.youtube_url || ''),
@@ -110,11 +89,10 @@ class VlogService {
       const thumbnailUrl = input.thumbnailUrl || this.generateThumbnailUrl(youtubeId);
 
       // Map interface to database fields
-      const vlogData = {
+      const vlogData: VlogInsert = {
         title: input.title,
         description: input.description,
         youtube_url: input.youtubeUrl,
-        youtube_id: youtubeId,
         thumbnail_url: thumbnailUrl,
         published_at: input.publishedAt,
         duration: input.duration,
@@ -140,7 +118,7 @@ class VlogService {
   async updateVlog(id: string, input: Partial<VlogVideo>): Promise<boolean> {
     try {
       // Map interface to database fields
-      const vlogData: any = {};
+      const vlogData: VlogUpdate = {};
       if (input.title !== undefined) vlogData.title = input.title;
       if (input.description !== undefined) vlogData.description = input.description;
       if (input.thumbnailUrl !== undefined) vlogData.thumbnail_url = input.thumbnailUrl;
@@ -160,7 +138,6 @@ class VlogService {
           throw new Error('Could not extract YouTube ID from URL');
         }
         vlogData.youtube_url = input.youtubeUrl;
-        vlogData.youtube_id = youtubeId;
         // Auto-update thumbnail if not explicitly provided
         if (input.thumbnailUrl === undefined) {
           vlogData.thumbnail_url = this.generateThumbnailUrl(youtubeId);
@@ -206,162 +183,23 @@ class VlogService {
   getInstagramUrl(): string { return this.INSTAGRAM_URL; }
   getSpotifyProfileUrl(): string { return this.SPOTIFY_PROFILE_URL; }
 
-  getAllPlaylists(): SpotifyPlaylist[] { 
-    try { 
-      const s = typeof localStorage !== 'undefined' ? localStorage.getItem(this.PLAYLISTS_KEY) : null; 
-      return s ? JSON.parse(s) : []; 
-    } catch { 
-      return []; 
-    } 
-  }
-  getDisplayPlaylists(limit=3): SpotifyPlaylist[] { return this.getAllPlaylists().filter(p=>p.isActive).sort((a,b)=>a.order-b.order).slice(0,limit); }
-  addPlaylist(p: Omit<SpotifyPlaylist,'id'|'createdAt'|'updatedAt'>): boolean { try { const list=this.getAllPlaylists(); list.push({ ...p, id: Date.now().toString(), createdAt:new Date(), updatedAt:new Date() }); this.savePlaylists(list); return true;} catch {return false;} }
-  updatePlaylist(id: string, u: Partial<SpotifyPlaylist>): boolean { try { const list=this.getAllPlaylists(); const i=list.findIndex(x=>x.id===id); if(i===-1) return false; list[i]={...list[i],...u,updatedAt:new Date()}; this.savePlaylists(list); return true;} catch {return false;} }
-  deletePlaylist(id: string): boolean { try { const list=this.getAllPlaylists().filter(p=>p.id!==id); this.savePlaylists(list); return true;} catch {return false;} }
 
-  async getAllAlbums(): Promise<PhotoAlbum[]> { 
-    try {
-      const response = await fetch('/api/albums');
-      if (!response.ok) throw new Error('Failed to fetch albums');
-      const data = await response.json();
-      
-      // Map database fields to service interface
-      return (data.albums || []).map((album: any) => ({
-        id: album.id,
-        title: album.album_title || '',
-        description: album.album_description || '',
-        coverImage: album.cover_image_path || '',
-        category: 'Lifestyle', // Default category since it's not in DB
-        photos: (album.photos || []).map((photo: any) => ({
-          id: photo.id,
-          src: photo.image_path,
-          alt: album.album_title, // Use album title as default alt
-          caption: photo.photo_caption || '',
-          order: photo.photo_order || 0
-        })),
-        date: album.album_date || '',
-        isFeatured: false, // Default since it's not in DB
-        order: album.album_order || 0,
-        createdAt: new Date(album.created_at),
-        updatedAt: new Date(album.updated_at)
-      }));
-    } catch (error) {
-      console.error('Error fetching albums:', error);
-      // Fallback to localStorage for development
-      try { 
-        const s = typeof localStorage !== 'undefined' ? localStorage.getItem(this.ALBUMS_KEY) : null; 
-        return s ? JSON.parse(s) : []; 
-      } catch { 
-        return []; 
-      }
-    }
-  }
-  async getDisplayAlbums(limit=6): Promise<PhotoAlbum[]> { const albums = await this.getAllAlbums(); return albums.sort((a,b)=>a.order-b.order).slice(0,limit); }
-  
-  async addAlbum(albumData: Omit<PhotoAlbum,'id'|'createdAt'|'updatedAt'>): Promise<boolean> { 
-    try {
-      const response = await fetch('/api/albums', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(albumData)
-      });
-      
-      if (!response.ok) throw new Error('Failed to create album');
-      return true;
-    } catch (error) {
-      console.error('Error adding album:', error);
-      return false;
-    }
-  }
-  
-  async updateAlbum(id: string, updates: Partial<PhotoAlbum>): Promise<boolean> { 
-    try {
-      const response = await fetch(`/api/albums/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      
-      if (!response.ok) throw new Error('Failed to update album');
-      return true;
-    } catch (error) {
-      console.error('Error updating album:', error);
-      return false;
-    }
-  }
-  
-  async deleteAlbum(id: string): Promise<boolean> { 
-    try {
-      const response = await fetch(`/api/albums/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete album');
-      return true;
-    } catch (error) {
-      console.error('Error deleting album:', error);
-      return false;
-    }
-  }
-  async addPhotoToAlbum(albumId: string, photo: Omit<Photo,'id'>): Promise<boolean> { 
-    try { 
-      const albums = await this.getAllAlbums(); 
-      const i = albums.findIndex(a => a.id === albumId); 
-      if(i === -1) return false; 
-      const newPhoto: Photo = { ...photo, id: Date.now().toString() }; 
-      albums[i].photos.push(newPhoto); 
-      albums[i].updatedAt = new Date(); 
-      this.saveAlbums(albums); 
-      return true;
-    } catch {
-      return false;
-    } 
-  }
-  async removePhotoFromAlbum(albumId: string, photoId: string): Promise<boolean> { 
-    try { 
-      const albums = await this.getAllAlbums(); 
-      const i = albums.findIndex(a => a.id === albumId); 
-      if(i === -1) return false; 
-      albums[i].photos = albums[i].photos.filter(p => p.id !== photoId); 
-      albums[i].updatedAt = new Date(); 
-      this.saveAlbums(albums); 
-      return true;
-    } catch {
-      return false;
-    } 
-  }
-  async exportData(): Promise<string> { 
-    const storedVlogs = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null; 
+  async exportData(): Promise<string> {
+    const storedVlogs = typeof localStorage !== 'undefined' ? localStorage.getItem(this.VLOGS_KEY) : null;
     const vlogs = storedVlogs ? JSON.parse(storedVlogs) : this.getDefaultVlogs();
-    const albums = await this.getAllAlbums();
-    return JSON.stringify({ vlogs, albums }, null, 2); 
+    return JSON.stringify({ vlogs }, null, 2);
   }
-  importData(json: string): boolean { try { const d=JSON.parse(json); if(d.vlogs) this.saveVlogs(d.vlogs); if(d.albums) this.saveAlbums(d.albums); return true;} catch {return false;} }
-  async getStats() { const v=await this.getAllVlogs(); const a=await this.getAllAlbums(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.isFeatured).length, totalAlbums: a.length, totalPhotos: a.reduce((s,al)=>s+al.photos.length,0), categories: a.reduce((m,al)=>{(m as any)[al.category]=(m as any)[al.category] ? (m as any)[al.category]+1 : 1; return m; }, {} as Record<string, number>) } }
+  importData(json: string): boolean { try { const d=JSON.parse(json); if(d.vlogs) this.saveVlogs(d.vlogs); return true;} catch {return false;} }
+  async getStats() { const v=await this.getAllVlogs(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.isFeatured).length } }
 
   private saveVlogs(v: VlogVideo[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.VLOGS_KEY, JSON.stringify(v)); }
-  private saveAlbums(a: PhotoAlbum[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(a)); }
-  private savePlaylists(p: SpotifyPlaylist[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.PLAYLISTS_KEY, JSON.stringify(p)); }
 
   private getDefaultVlogs(): VlogVideo[] { 
     // No default videos - all videos should be user-inputted through the admin dashboard
     return []; 
   }
 
-  private getDefaultAlbums(): PhotoAlbum[] { return [
-    { id:'1', title:'Morning Rituals', description:'Start your day with intention', coverImage:'/img1.JPEG', category:'Lifestyle', photos:[{id:'1',src:'/img1.JPEG',alt:'Morning coffee ritual',caption:'Coffee time',order:1},{id:'2',src:'/img2.JPG',alt:'Kitchen workspace',caption:'Preparing breakfast',order:2}], date:'2024-01-15', isFeatured:true, order:1, createdAt:new Date(), updatedAt:new Date() },
-    { id:'2', title:'Desert Adventures', description:'Exploring Arizona landscapes', coverImage:'/img3.jpg', category:'Travel', photos:[{id:'3',src:'/img3.jpg',alt:'Desert sunset',caption:'Golden hour',order:1}], date:'2024-01-10', isFeatured:false, order:2, createdAt:new Date(), updatedAt:new Date() },
-    { id:'3', title:'Healthy Creations', description:'Plant-based meal prep', coverImage:'/img4.JPG', category:'Food', photos:[{id:'4',src:'/img4.JPG',alt:'Smoothie bowl creation',caption:'Berry bowl',order:1},{id:'5',src:'/img5.JPG',alt:'Yoga session',caption:'Mindful movement',order:2}], date:'2024-01-08', isFeatured:false, order:3, createdAt:new Date(), updatedAt:new Date() },
-    { id:'4', title:'Wellness Journey', description:'Mind, body, and soul care', coverImage:'/img6.jpg', category:'Wellness', photos:[{id:'6',src:'/img6.jpg',alt:'Grocery shopping',caption:'Fresh ingredients',order:1},{id:'7',src:'/img7.JPG',alt:'Recipe testing',caption:'Kitchen experiments',order:2}], date:'2024-01-05', isFeatured:false, order:4, createdAt:new Date(), updatedAt:new Date() },
-    { id:'5', title:'Home Sweet Home', description:'Creating beautiful spaces', coverImage:'/test_1.JPG', category:'Lifestyle', photos:[{id:'8',src:'/test_1.JPG',alt:'Nature walk',caption:'Outdoor time',order:1}], date:'2024-01-03', isFeatured:false, order:5, createdAt:new Date(), updatedAt:new Date() },
-    { id:'6', title:'Fitness & Movement', description:'Staying active and energized', coverImage:'/test_1.JPG', category:'Fitness', photos:[{id:'9',src:'/test_1.JPG',alt:'Meal prep session',caption:'Weekly prep',order:1},{id:'10',src:'/test_1.JPG',alt:'Reading time',caption:'Learning moments',order:2}], date:'2024-01-01', isFeatured:false, order:6, createdAt:new Date(), updatedAt:new Date() }
-  ]; }
 
-  private getDefaultPlaylists(): SpotifyPlaylist[] { return [
-    { id:'1', name:'Switching Timezones', mood:'Chill Vibes', color:'#2D2D2D', spotifyUrl:'https://open.spotify.com/playlist/4i1BwxDwkjbJNGvhnhEH5P', order:1, isActive:true, createdAt:new Date(), updatedAt:new Date() },
-    { id:'2', name:'Soulmates', mood:'Energy Boost', color:'#E91429', spotifyUrl:'https://open.spotify.com/playlist/4Bp1HuaVuGrjJRz10hWfkf', order:2, isActive:true, createdAt:new Date(), updatedAt:new Date() },
-    { id:'3', name:'Ready 4 Summer', mood:'Feel Good', color:'#1E3A8A', spotifyUrl:'https://open.spotify.com/playlist/7uZas1QudcmrU21IUtwd5Q', order:3, isActive:true, createdAt:new Date(), updatedAt:new Date() }
-  ]; }
 
   // YouTube utility methods
   extractYouTubeId(url: string): string | null {

@@ -18,7 +18,9 @@ import StorefrontProductModal from '../components/modals/StorefrontProductModal'
 import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
-import vlogService, { type VlogVideo, type PhotoAlbum, type SpotifyPlaylist, type VlogCarouselType } from '../lib/services/vlogService';
+import vlogService, { type VlogVideo, type VlogCarouselType } from '../lib/services/vlogService';
+import playlistService, { type SpotifyPlaylist } from '../lib/services/playlistService';
+import albumService, { type PhotoAlbum } from '../lib/services/albumService';
 import healingService, { type HealingVideo } from '../lib/services/healingService';
 import storefrontService from '../lib/services/storefrontService';
 import type { StorefrontProduct } from '../lib/services/storefrontService';
@@ -411,15 +413,15 @@ const AdminContent: React.FC = () => {
   const handleSaveAlbum = async (albumData: Omit<PhotoAlbum, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       if (editingAlbum) {
-        const success = await vlogService.updateAlbum(editingAlbum.id, albumData);
+        const success = await albumService.updateAlbum(editingAlbum.id, albumData);
         if (!success) throw new Error('Failed to update album');
       } else {
-        const success = await vlogService.addAlbum(albumData);
+        const success = await albumService.addAlbum(albumData);
         if (!success) throw new Error('Failed to create album');
       }
-      
+
       // Reload albums and stats
-      const allAlbums = await vlogService.getAllAlbums();
+      const allAlbums = await albumService.getAllAlbums();
       setPhotoAlbums(allAlbums);
       const vlogStatsData = await vlogService.getStats();
       setVlogStats(vlogStatsData);
@@ -435,19 +437,19 @@ const AdminContent: React.FC = () => {
   const handleSavePlaylist = async (playlistData: Omit<SpotifyPlaylist, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       if (editingPlaylist) {
-        const success = await vlogService.updatePlaylist(editingPlaylist.id, playlistData);
+        const success = await playlistService.updatePlaylist(editingPlaylist.id, playlistData);
         if (!success) throw new Error('Failed to update playlist');
       } else {
-        const success = await vlogService.addPlaylist(playlistData);
+        const success = await playlistService.addPlaylist(playlistData);
         if (!success) throw new Error('Failed to create playlist');
       }
-      
+
       // Reload playlists and stats
-      const allPlaylists = await vlogService.getAllPlaylists();
+      const allPlaylists = await playlistService.getAllPlaylists();
       setSpotifyPlaylists(allPlaylists);
       setSpotifyStats({
         totalPlaylists: allPlaylists.length,
-        activePlaylists: allPlaylists.filter(p => p.isActive).length
+        activePlaylists: allPlaylists.filter(p => p.is_active).length
       });
 
       setEditingPlaylist(null);
@@ -736,7 +738,7 @@ const AdminContent: React.FC = () => {
       const vlogsList = await vlogService.getAllVlogs();
       setVlogs(vlogsList);
 
-      const albumsList = await vlogService.getAllAlbums();
+      const albumsList = await albumService.getAllAlbums();
       setPhotoAlbums(albumsList);
 
       const healingProductsList = await healingService.getAllProducts();
@@ -745,11 +747,11 @@ const AdminContent: React.FC = () => {
       const healingVideosList = await healingService.getAllVideos();
       setHealingVideos(healingVideosList);
 
-      const playlists = await vlogService.getAllPlaylists();
+      const playlists = await playlistService.getAllPlaylists();
       setSpotifyPlaylists(playlists);
       setSpotifyStats({
         totalPlaylists: playlists.length,
-        activePlaylists: playlists.filter(p => p.isActive).length
+        activePlaylists: playlists.filter(p => p.is_active).length
       });
 
       // Load home content
@@ -2116,9 +2118,9 @@ const AdminContent: React.FC = () => {
                             onClick={async () => {
                               if (confirm('Are you sure you want to delete this album?')) {
                                 try {
-                                  const success = await vlogService.deleteAlbum(album.id);
+                                  const success = await albumService.deleteAlbum(album.id);
                                   if (success) {
-                                    const albumsList = await vlogService.getAllAlbums();
+                                    const albumsList = await albumService.getAllAlbums();
                                     setPhotoAlbums(albumsList);
                                     const vlogStatsData = await vlogService.getStats();
                                     setVlogStats(vlogStatsData);
@@ -2277,13 +2279,13 @@ const AdminContent: React.FC = () => {
                                 <button
                                   onClick={async () => {
                                     if (confirm('Are you sure you want to delete this playlist?')) {
-                                      const success = await vlogService.deletePlaylist(playlist.id);
+                                      const success = await playlistService.deletePlaylist(playlist.id);
                                       if (success) {
-                                        const allPlaylists = await vlogService.getAllPlaylists();
+                                        const allPlaylists = await playlistService.getAllPlaylists();
                                         setSpotifyPlaylists(allPlaylists);
                                         setSpotifyStats({
                                           totalPlaylists: allPlaylists.length,
-                                          activePlaylists: allPlaylists.filter(p => p.isActive).length
+                                          activePlaylists: allPlaylists.filter(p => p.is_active).length
                                         });
                                         toast.success('Playlist deleted successfully!');
                                       } else {
