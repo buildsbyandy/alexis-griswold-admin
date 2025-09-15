@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FaTimes, FaSave, FaImage, FaPlus, FaTrash, FaUpload } from 'react-icons/fa';
-import type { PhotoAlbum, Photo } from '../../lib/services/vlogService';
+import type { PhotoAlbum, Photo } from '../../lib/services/albumService';
 import ImageUpload from '../admin/ImageUpload';
 import toast from 'react-hot-toast';
 

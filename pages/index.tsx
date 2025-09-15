@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
@@ -63,6 +63,14 @@ const AdminContent: React.FC = () => {
   
   // Recipe hero videos state
   const [recipeHeroVideos, setRecipeHeroVideos] = useState<any[]>([]);
+  const [showAddHeroVideo, setShowAddHeroVideo] = useState(false);
+  const [newHeroVideo, setNewHeroVideo] = useState({
+    youtube_url: '',
+    video_title: '',
+    video_description: '',
+    video_order: 0,
+    video_thumbnail_url: ''
+  });
   const [isLoadingRecipeContent, setIsLoadingRecipeContent] = useState(false);
   const [isSavingRecipeContent, setIsSavingRecipeContent] = useState(false);
   const [vlogs, setVlogs] = useState<VlogVideo[]>([]);
@@ -353,6 +361,45 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  const handleCreateHeroVideo = async () => {
+    try {
+      const { youtube_url, video_title, video_description, video_order, video_thumbnail_url } = newHeroVideo;
+      if (!youtube_url.trim()) {
+        toast.error('YouTube URL is required');
+        return;
+      }
+      if (!video_title.trim()) {
+        toast.error('Video title is required');
+        return;
+      }
+
+      const response = await fetch('/api/recipes/hero-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          youtube_url,
+          video_title,
+          video_description: video_description || null,
+          video_order: typeof video_order === 'number' ? video_order : 0,
+          video_thumbnail_url: video_thumbnail_url || null
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create hero video' }));
+        throw new Error(err.error || 'Failed to create hero video');
+      }
+
+      setShowAddHeroVideo(false);
+      setNewHeroVideo({ youtube_url: '', video_title: '', video_description: '', video_order: 0, video_thumbnail_url: '' });
+      await loadRecipeHeroVideos();
+      toast.success('Hero video added');
+    } catch (error) {
+      console.error('Create hero video error:', error);
+      toast.error('Failed to add hero video');
+    }
+  };
+
   // Vlog save functionality
   const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -400,7 +447,12 @@ const AdminContent: React.FC = () => {
       setVlogs(vlogsList);
       
       const vlogStatsData = await vlogService.getStats();
-      setVlogStats(vlogStatsData);
+      setVlogStats(prev => ({
+        totalVlogs: vlogStatsData.totalVlogs,
+        featuredVlogs: vlogStatsData.featuredVlogs,
+        totalAlbums: prev.totalAlbums,
+        totalPhotos: prev.totalPhotos,
+      }));
 
       setIsAddingVlog(false);
       setEditingVlog(null);
@@ -424,7 +476,12 @@ const AdminContent: React.FC = () => {
       const allAlbums = await albumService.getAllAlbums();
       setPhotoAlbums(allAlbums);
       const vlogStatsData = await vlogService.getStats();
-      setVlogStats(vlogStatsData);
+      setVlogStats(prev => ({
+        totalVlogs: vlogStatsData.totalVlogs,
+        featuredVlogs: vlogStatsData.featuredVlogs,
+        totalAlbums: prev.totalAlbums,
+        totalPhotos: prev.totalPhotos,
+      }));
 
       setEditingAlbum(null);
       setShowAlbumModal(false);
@@ -703,7 +760,7 @@ const AdminContent: React.FC = () => {
   };
 
   // Load data function - moved outside useEffect so it can be called from other places
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const recipeStats = await recipeService.getRecipeStats();
       setStats(recipeStats);
@@ -733,7 +790,12 @@ const AdminContent: React.FC = () => {
       }
 
       const vlogStatsData = await vlogService.getStats();
-      setVlogStats(vlogStatsData);
+      setVlogStats(prev => ({
+        totalVlogs: vlogStatsData.totalVlogs,
+        featuredVlogs: vlogStatsData.featuredVlogs,
+        totalAlbums: prev.totalAlbums,
+        totalPhotos: prev.totalPhotos,
+      }));
 
       const vlogsList = await vlogService.getAllVlogs();
       setVlogs(vlogsList);
@@ -793,12 +855,12 @@ const AdminContent: React.FC = () => {
       console.error('Error loading dashboard data:', error);
       toast.error('Failed to load dashboard data');
     }
-  };
+  }, []);
 
   // Load data on component mount
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Handle escape key for image modal
   useEffect(() => {
@@ -1595,6 +1657,7 @@ const AdminContent: React.FC = () => {
 
             {/* Hero Videos Tab */}
             {recipeActiveTab === 'hero-videos' && (
+              <>
               <div className="space-y-6">
                 {/* YouTube Reels Carousel Manager */}
                 <div className="p-6 bg-white rounded-lg shadow-md">
@@ -1608,7 +1671,7 @@ const AdminContent: React.FC = () => {
                     </div>
                     <button 
                       className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
-                      // onClick={() => setShowAddHeroVideo(true)}
+                      onClick={() => setShowAddHeroVideo(true)}
                     >
                       <FaPlus className="mr-2" />
                       Add Video
@@ -1623,9 +1686,11 @@ const AdminContent: React.FC = () => {
                           <div className="flex items-center gap-4">
                             <div className="flex-shrink-0 w-24 h-16 bg-gray-200 rounded overflow-hidden">
                               {video.video_thumbnail_url ? (
-                                <img 
-                                  src={video.video_thumbnail_url} 
+                                <Image
+                                  src={video.video_thumbnail_url}
                                   alt={video.video_title || 'Video thumbnail'}
+                                  width={96}
+                                  height={64}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
@@ -1677,7 +1742,7 @@ const AdminContent: React.FC = () => {
                         <p className="text-gray-500 mb-4">Add YouTube Reels or Shorts to display in the hero carousel</p>
                         <button 
                           className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
-                          // onClick={() => setShowAddHeroVideo(true)}
+                          onClick={() => setShowAddHeroVideo(true)}
                         >
                           <FaPlus className="mr-2" />
                           Add Your First Video
@@ -1722,12 +1787,14 @@ const AdminContent: React.FC = () => {
                         .slice(0, 3)
                         .map(recipe => (
                           <div key={recipe.id} className="text-center p-4 border border-gray-200 rounded-lg">
-                            <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden">
+                            <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden relative">
                               {recipe.imageUrl ? (
-                                <img 
-                                  src={recipe.imageUrl} 
+                                <Image
+                                  src={recipe.imageUrl}
                                   alt={recipe.title}
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, 33vw"
+                                  className="object-cover"
                                 />
                               ) : (
                                 <FaUtensils className="text-gray-400 text-2xl" />
@@ -1753,6 +1820,84 @@ const AdminContent: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Add Hero Video Modal */}
+              {showAddHeroVideo ? (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black bg-opacity-50">
+                  <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-[#F5F3F0]">
+                      <h3 className="text-lg font-semibold text-[#383B26]">Add Hero Video</h3>
+                      <button onClick={() => setShowAddHeroVideo(false)} className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded">
+                        <FaTimes />
+                      </button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
+                        The YouTube Reels carousel is optimized for vertical, phone-friendly videos (Shorts). Landscape videos are accepted, but wide dimensions may be cropped within the carousel.
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
+                        <input
+                          type="text"
+                          value={newHeroVideo.youtube_url}
+                          onChange={(e) => setNewHeroVideo(v => ({ ...v, youtube_url: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[#383B26] mb-1">Title *</label>
+                        <input
+                          type="text"
+                          value={newHeroVideo.video_title}
+                          onChange={(e) => setNewHeroVideo(v => ({ ...v, video_title: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                          placeholder="Short descriptive title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[#383B26] mb-1">Description</label>
+                        <textarea
+                          value={newHeroVideo.video_description}
+                          onChange={(e) => setNewHeroVideo(v => ({ ...v, video_description: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                          placeholder="Optional description..."
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-[#383B26] mb-1">Order</label>
+                          <input
+                            type="number"
+                            value={newHeroVideo.video_order}
+                            onChange={(e) => setNewHeroVideo(v => ({ ...v, video_order: parseInt(e.target.value || '0', 10) }))}
+                            className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                            min={0}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[#383B26] mb-1">Thumbnail URL</label>
+                          <input
+                            type="text"
+                            value={newHeroVideo.video_thumbnail_url}
+                            onChange={(e) => setNewHeroVideo(v => ({ ...v, video_thumbnail_url: e.target.value }))}
+                            className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                            placeholder="Optional; auto-generated if empty"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50">
+                      <button onClick={() => setShowAddHeroVideo(false)} className="px-4 py-2 text-[#383B26] bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+                      <button onClick={handleCreateHeroVideo} className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
+                        <FaSave className="mr-2" />
+                        Save Video
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              </>
             )}
           </div>
         )}
@@ -2027,7 +2172,12 @@ const AdminContent: React.FC = () => {
                                 setVlogs(vlogsList);
                                 
                                 const vlogStatsData = await vlogService.getStats();
-                                setVlogStats(vlogStatsData);
+                                setVlogStats(prev => ({
+                                  totalVlogs: vlogStatsData.totalVlogs,
+                                  featuredVlogs: vlogStatsData.featuredVlogs,
+                                  totalAlbums: prev.totalAlbums,
+                                  totalPhotos: prev.totalPhotos,
+                                }));
                                 
                                 toast.success('Vlog deleted successfully');
                               } else {
@@ -2123,7 +2273,12 @@ const AdminContent: React.FC = () => {
                                     const albumsList = await albumService.getAllAlbums();
                                     setPhotoAlbums(albumsList);
                                     const vlogStatsData = await vlogService.getStats();
-                                    setVlogStats(vlogStatsData);
+                                    setVlogStats(prev => ({
+                                      totalVlogs: vlogStatsData.totalVlogs,
+                                      featuredVlogs: vlogStatsData.featuredVlogs,
+                                      totalAlbums: prev.totalAlbums,
+                                      totalPhotos: prev.totalPhotos,
+                                    }));
                                     toast.success('Album deleted successfully!');
                                   } else {
                                     throw new Error('Failed to delete album');
@@ -2233,14 +2388,14 @@ const AdminContent: React.FC = () => {
                           <div className="relative">
                             <div 
                               className="relative flex flex-col items-center justify-center h-32 text-white"
-                              style={{ backgroundColor: playlist.color }}
+                              style={{ backgroundColor: playlist.theme_color || '#2D2D2D' }}
                             >
                               <FaMusic className="mb-2 text-3xl opacity-70" />
                               <div className="px-2 text-center">
                                 <p className="text-sm font-medium">{playlist.name}</p>
-                                <p className="text-xs opacity-80">Mood: {playlist.mood}</p>
+                                <p className="text-xs opacity-80">Order: {playlist.display_order}</p>
                               </div>
-                              {!playlist.isActive && (
+                              {!playlist.is_active && (
                                 <div className="absolute top-2 right-2">
                                   <span className="px-2 py-1 text-xs text-white bg-gray-500 rounded">
                                     Hidden
@@ -2254,13 +2409,13 @@ const AdminContent: React.FC = () => {
                           <div className="p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-gray-600">Order: {playlist.order}</p>
+                                <p className="text-sm text-gray-600">Order: {playlist.display_order}</p>
                                 <a 
-                                  href={playlist.spotifyUrl} 
+                                  href={playlist.spotify_url} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
                                   className="text-xs text-[#B8A692] hover:text-[#A0956C] truncate block max-w-32"
-                                  title={playlist.spotifyUrl}
+                                  title={playlist.spotify_url}
                                 >
                                   View on Spotify
                                 </a>
