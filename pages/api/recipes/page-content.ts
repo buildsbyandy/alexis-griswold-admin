@@ -3,6 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
+import type { Database } from '@/types/supabase.generated'
+
+type PageContentRow = Database['public']['Tables']['recipes_page_content']['Row']
+type PageContentInsert = Database['public']['Tables']['recipes_page_content']['Insert']
+type PageContentUpdate = Database['public']['Tables']['recipes_page_content']['Update']
 
 export const config = { runtime: 'nodejs' }
 
@@ -41,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
       }
       
-      return res.status(200).json({ content: data })
+      return res.status(200).json({ content: data as PageContentRow })
     } catch (error) {
       console.error('Error in recipe page content API:', error)
       return res.status(500).json({ error: 'Internal server error' })
@@ -132,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         result = data
       }
       
-      return res.status(200).json({ content: result })
+      return res.status(200).json({ content: result as PageContentRow })
     } catch (error) {
       console.error('Error saving recipe page content:', error)
       return res.status(500).json({ error: 'Internal server error' })

@@ -2,25 +2,22 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
-import supabaseAdmin from '@/lib/supabase'
+import type { Database } from '@/types/supabase.generated'
+import { 
+  getRecipeHeroVideos,
+  createRecipeHeroVideo,
+  type RecipeHeroVideoRow,
+  type RecipeHeroVideoInsert
+} from '../../../lib/services/recipeHeroService'
+import { youtubeService } from '../../../lib/services/youtubeService'
 
 export const config = { runtime: 'nodejs' }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      // Get all recipe hero videos ordered by video_order
-      const { data, error } = await supabaseAdmin
-        .from('recipe_hero_videos')
-        .select('*')
-        .order('video_order', { ascending: true })
-      
-      if (error) {
-        console.error('Error fetching recipe hero videos:', error)
-        return res.status(500).json({ error: 'Failed to fetch recipe hero videos' })
-      }
-      
-      return res.status(200).json({ videos: data || [] })
+      const videos = await getRecipeHeroVideos()
+      return res.status(200).json({ videos: videos as RecipeHeroVideoRow[] })
     } catch (error) {
       console.error('Error in recipe hero videos API:', error)
       return res.status(500).json({ error: 'Internal server error' })
@@ -43,48 +40,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         video_thumbnail_url,
         video_type,
         is_active
-      } = req.body
+      } = req.body as Partial<RecipeHeroVideoInsert>
 
       if (!youtube_url) {
         return res.status(400).json({ error: 'YouTube URL is required' })
       }
+      if (!video_title) {
+        return res.status(400).json({ error: 'Video title is required' })
+      }
 
-      // Validate YouTube URL format
-      const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|shorts\/)|youtu\.be\/)[\w\-]+/
-      if (!youtubeRegex.test(youtube_url)) {
+      // Validate using shared YouTube service
+      if (!youtubeService.isValidYouTubeUrl(youtube_url)) {
         return res.status(400).json({ error: 'Invalid YouTube URL format' })
       }
 
-      // Extract video ID for thumbnail if not provided
-      let thumbnailUrl = video_thumbnail_url
-      if (!thumbnailUrl) {
-        const videoIdMatch = youtube_url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^&\n?#]+)/)
-        if (videoIdMatch) {
-          const videoId = videoIdMatch[1]
-          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      // Default order to 0 if not provided
+      const normalizedOrder = typeof video_order === 'number' ? video_order : 0
+
+      // Pull metadata from YouTube (title/thumbnail/duration) when available
+      let resolvedTitle = video_title
+      let thumbnailUrl = video_thumbnail_url ?? null
+      let derivedType: string | null = null
+      try {
+        const meta = await youtubeService.getVideoDataFromUrl(youtube_url)
+        if (meta) {
+          if (!resolvedTitle?.trim()) resolvedTitle = meta.title
+          if (!thumbnailUrl) thumbnailUrl = meta.thumbnailUrl
+          // Heuristic: treat as short if URL uses /shorts/ or duration <= 75s
+          const isShortUrl = /\/shorts\//.test(youtube_url)
+          const mmss = meta.duration.split(':').map(Number)
+          const seconds = mmss.length === 2 ? mmss[0] * 60 + mmss[1] : (mmss[0] || 0)
+          derivedType = (isShortUrl || seconds <= 75) ? 'short' : 'video'
         }
-      }
+      } catch {}
 
-      const { data, error } = await supabaseAdmin
-        .from('recipe_hero_videos')
-        .insert({
-          youtube_url,
-          video_title: video_title || null,
-          video_description: video_description || null,
-          video_order: video_order || 1,
-          video_thumbnail_url: thumbnailUrl,
-          video_type: video_type || 'reel',
-          is_active: is_active !== undefined ? is_active : true
-        })
-        .select('*')
-        .single()
-
-      if (error) {
-        console.error('Error creating recipe hero video:', error)
-        return res.status(500).json({ error: 'Failed to create recipe hero video' })
-      }
+      const created = await createRecipeHeroVideo({
+        youtube_url,
+        video_title: resolvedTitle,
+        video_description: video_description ?? null,
+        video_order: normalizedOrder,
+        video_thumbnail_url: thumbnailUrl,
+        video_type: video_type ?? derivedType ?? 'reel',
+        is_active: is_active ?? true
+      })
       
-      return res.status(201).json({ video: data })
+      return res.status(201).json({ video: created as RecipeHeroVideoRow })
     } catch (error) {
       console.error('Error creating recipe hero video:', error)
       return res.status(500).json({ error: 'Internal server error' })
