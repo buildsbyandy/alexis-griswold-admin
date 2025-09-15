@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { FaTimes, FaSave, FaHeartbeat } from 'react-icons/fa';
 import FileUpload from '../ui/FileUpload';
+import SecureImage from '../admin/SecureImage';
+import { parseSupabaseUrl } from '@/util/imageUrl';
 import toast from 'react-hot-toast';
 
 export interface HealingProduct {
@@ -146,7 +147,27 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {formData.imageUrl ? (
                   <div className="relative">
-                    <Image src={formData.imageUrl} alt="Product" className="w-full h-48 object-cover rounded" width={400} height={192} />
+                    {(() => {
+                      const parsedUrl = parseSupabaseUrl(formData.imageUrl)
+                      if (parsedUrl) {
+                        return (
+                          <SecureImage
+                            bucket={parsedUrl.bucket}
+                            path={parsedUrl.path}
+                            alt="Product"
+                            width={400}
+                            height={192}
+                            className="w-full h-48 object-cover rounded"
+                          />
+                        )
+                      } else {
+                        return (
+                          <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
+                            <span className="text-gray-400">Invalid image URL</span>
+                          </div>
+                        )
+                      }
+                    })()}
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                       <FileUpload
                         accept="image/*"

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { FaTimes, FaSave, FaStore, FaPlus, FaTrash } from 'react-icons/fa';
 import type { StorefrontProduct as ServiceStorefrontProduct } from '../../lib/services/storefrontService';
 import type { StorefrontProductFormInput, StorefrontProductFormData, StorefrontCategoryOption } from '../../lib/types/storefront';
 import { StorefrontProductFormSchema } from '../../lib/types/storefront';
 import { slugify, parsePrice } from '../../lib/utils/storefront';
+import SecureImage from '../admin/SecureImage';
+import { parseSupabaseUrl } from '@/util/imageUrl';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 
@@ -259,7 +260,27 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {formData.product_image_path ? (
                   <div className="relative">
-                    <Image src={formData.product_image_path} alt="Product" width={800} height={192} className="w-full h-48 object-cover rounded" />
+                    {(() => {
+                      const parsedUrl = parseSupabaseUrl(formData.product_image_path)
+                      if (parsedUrl) {
+                        return (
+                          <SecureImage
+                            bucket={parsedUrl.bucket}
+                            path={parsedUrl.path}
+                            alt="Product"
+                            width={800}
+                            height={192}
+                            className="w-full h-48 object-cover rounded"
+                          />
+                        )
+                      } else {
+                        return (
+                          <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
+                            <span className="text-gray-400">Invalid product image URL</span>
+                          </div>
+                        )
+                      }
+                    })()}
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                       <FileUpload
                         accept="image/*"

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { FaTimes, FaSave, FaImage, FaPlus, FaTrash, FaUpload } from 'react-icons/fa';
 import type { PhotoAlbum, Photo } from '../../lib/services/albumService';
 import ImageUpload from '../admin/ImageUpload';
+import SecureImage from '../admin/SecureImage';
+import { parseSupabaseUrl } from '@/util/imageUrl';
 import toast from 'react-hot-toast';
 
 interface PhotoAlbumModalProps {
@@ -237,13 +238,27 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {formData.photos.map((photo) => (
                     <div key={photo.id} className="flex items-center p-3 border border-gray-200 rounded-md">
-                      <Image
-                        src={photo.src}
-                        alt={photo.alt}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 object-cover rounded mr-3"
-                      />
+{(() => {
+                        const parsedUrl = parseSupabaseUrl(photo.src)
+                        if (parsedUrl) {
+                          return (
+                            <SecureImage
+                              bucket={parsedUrl.bucket}
+                              path={parsedUrl.path}
+                              alt={photo.alt}
+                              width={64}
+                              height={64}
+                              className="w-16 h-16 object-cover rounded mr-3"
+                            />
+                          )
+                        } else {
+                          return (
+                            <div className="w-16 h-16 bg-gray-200 rounded mr-3 flex items-center justify-center">
+                              <span className="text-gray-400 text-xs">Invalid</span>
+                            </div>
+                          )
+                        }
+                      })()}
                       <div className="flex-1">
                         <p className="font-medium text-sm">{photo.alt}</p>
                         {photo.caption && <p className="text-xs text-gray-600">{photo.caption}</p>}

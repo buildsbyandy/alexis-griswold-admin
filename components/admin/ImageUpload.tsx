@@ -5,12 +5,12 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react'
-import Image from 'next/image'
 import { PhotoIcon, XMarkIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
-import { imageUrl } from '@/util/imageUrl'
+import SecureImage from './SecureImage'
+import { parseSupabaseUrl } from '@/util/imageUrl'
 
 interface ImageUploadProps {
   /** Current image URLs */
@@ -361,13 +361,30 @@ export default function ImageUpload({
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden"
               >
-                <Image
-                  src={url}
-                  alt={`Upload ${index + 1}`}
-                  className="w-full h-full object-cover"
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                />
+{(() => {
+                  const parsedUrl = parseSupabaseUrl(url)
+                  if (parsedUrl) {
+                    return (
+                      <SecureImage
+                        bucket={parsedUrl.bucket}
+                        path={parsedUrl.path}
+                        alt={`Upload ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        onError={() => {
+                          toast.error(`Failed to load image ${index + 1}`)
+                        }}
+                      />
+                    )
+                  } else {
+                    return (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400 text-sm">Invalid URL</span>
+                      </div>
+                    )
+                  }
+                })()}
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
                   <button
                     type="button"
