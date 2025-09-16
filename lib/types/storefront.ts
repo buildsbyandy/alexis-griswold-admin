@@ -1,91 +1,84 @@
-import { z } from 'zod';
+import type { Database } from '@/types/supabase.generated';
 
-// Schema-aligned types that match CURRENT_SCHEMA.md exactly
+// Supabase table type exports for type safety
+export type StorefrontProductRow = Database['public']['Tables']['storefront_products']['Row'];
+export type StorefrontProductInsert = Database['public']['Tables']['storefront_products']['Insert'];
+export type StorefrontProductUpdate = Database['public']['Tables']['storefront_products']['Update'];
 
-export const StorefrontStatusSchema = z.enum(['draft', 'published', 'archived']);
-export type StorefrontStatus = z.infer<typeof StorefrontStatusSchema>;
+export type StorefrontCategoryRow = Database['public']['Tables']['storefront_categories']['Row'];
+export type StorefrontCategoryInsert = Database['public']['Tables']['storefront_categories']['Insert'];
+export type StorefrontCategoryUpdate = Database['public']['Tables']['storefront_categories']['Update'];
 
-export const StorefrontCategorySchema = z.enum(['Food', 'Healing', 'Home', 'Personal Care']);
-export type StorefrontCategory = z.infer<typeof StorefrontCategorySchema>;
+export type StorefrontFavoriteRow = Database['public']['Tables']['storefront_favorites']['Row'];
+export type StorefrontFavoriteInsert = Database['public']['Tables']['storefront_favorites']['Insert'];
+export type StorefrontFavoriteUpdate = Database['public']['Tables']['storefront_favorites']['Update'];
 
-// Schema-correct StorefrontProduct type matching database columns exactly
-export interface StorefrontProduct {
-  id: string;
-  product_title: string;
-  slug: string;
-  category_name: StorefrontCategory;
-  status: StorefrontStatus;
-  sortWeight: number;
-  amazon_url: string;
-  price: number | null;
-  product_image_path: string;
-  noteShort: string | null;
-  noteLong: string | null;
-  tags: string[];
-  isAlexisPick: boolean;
-  is_favorite: boolean;
-  showInFavorites: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// Enum types
+export type ContentStatus = Database['public']['Enums']['content_status'];
 
-// Zod validation schema for product form input
-export const StorefrontProductFormSchema = z.object({
-  product_title: z.string().min(2, 'Product title must be at least 2 characters').max(120, 'Title too long (max 120)'),
-  slug: z.string().optional(),
-  category_name: StorefrontCategorySchema,
-  status: StorefrontStatusSchema.default('draft'),
-  sortWeight: z.number().int().min(0).default(0),
-  amazon_url: z.string().url('Must be a valid HTTPS URL').refine((url) => url.startsWith('https://'), {
-    message: 'Amazon URL must start with https://'
-  }),
-  price: z.union([z.string(), z.number(), z.null()]).optional().transform((val) => {
-    if (!val || (typeof val === 'string' && val.trim() === '')) return null;
-    const num = Number(val);
-    return isFinite(num) ? num : null;
-  }),
-  product_image_path: z.string().min(1, 'Product image is required'),
-  noteShort: z.string().optional().nullable(),
-  noteLong: z.string().optional().nullable(),
-  tags: z.array(z.string()).default([]),
-  isAlexisPick: z.boolean().default(false),
-  is_favorite: z.boolean().default(false),
-  showInFavorites: z.boolean().default(false),
-});
-
-export type StorefrontProductFormInput = z.input<typeof StorefrontProductFormSchema>;
-export type StorefrontProductFormData = z.infer<typeof StorefrontProductFormSchema>;
-
-// Database insert/update payload type
-export interface StorefrontProductPayload {
-  product_title: string;
-  slug: string;
-  category_name: StorefrontCategory;
-  status: StorefrontStatus;
-  sortWeight: number;
-  amazon_url: string;
-  price: number | null;
-  product_image_path: string;
-  noteShort: string | null;
-  noteLong: string | null;
-  tags: string[];
-  isAlexisPick: boolean;
-  is_favorite: boolean;
-  showInFavorites: boolean;
-}
-
-// Stats interface
+// Stats interface for dashboard
 export interface StorefrontStats {
   total: number;
-  byStatus: Record<StorefrontStatus, number>;
+  byStatus: Record<ContentStatus, number>;
   byCategory: Record<string, number>;
   favorites: number;
+  topClicked: number;
 }
 
-// Category type for the select dropdown
-export interface StorefrontCategoryOption {
-  category_name: string;
-  category_description: string | null;
-  category_image_path: string | null;
-  is_featured: boolean;
+// Search/filter interfaces
+export interface StorefrontFilters {
+  category_slug?: string;
+  status?: ContentStatus;
+  is_alexis_pick?: boolean;
+  is_favorite?: boolean;
+  show_in_favorites?: boolean;
+}
+
+export interface StorefrontSearchOptions {
+  query?: string;
+  filters?: StorefrontFilters;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'created_at' | 'product_title' | 'click_count' | 'clicks_30d' | 'sort_weight';
+  sortOrder?: 'asc' | 'desc';
+}
+
+// Form data interface for UI components - matches exact schema fields
+export interface StorefrontProductFormData {
+  product_title: string;           // Product Title
+  slug?: string;                   // Auto-generated from product_title if not provided
+  category_slug?: string;          // Category dropdown saves slug
+  status: ContentStatus;           // draft/published/archived
+  sort_weight?: number;            // Sort Weight
+  amazon_url: string;              // Amazon URL (required)
+  price?: number;                  // Price (optional)
+  image_path?: string;             // Product Image path
+  image_alt?: string;              // Image alt text (prefer snake_case field)
+  description?: string;            // Short description
+  tags?: string[];                 // Tags array
+  is_alexis_pick?: boolean;        // Alexis' Pick toggle
+  is_favorite?: boolean;           // Favorite toggle
+  show_in_favorites?: boolean;     // Show in Favorites toggle
+}
+
+// Form data interface for categories
+export interface StorefrontCategoryFormData {
+  category_name: string;           // Category Name
+  slug: string;                    // Category slug
+  category_description?: string;   // Description
+  category_image_path?: string;    // Category Image
+  is_featured?: boolean;           // Featured toggle
+  is_visible?: boolean;            // Visible toggle
+  sort_order?: number;             // Sort order
+}
+
+// Form data interface for favorites
+export interface StorefrontFavoriteFormData {
+  product_title: string;           // Title
+  product_image_path?: string;     // Image path
+  favorite_order?: number;         // Order
+  tags?: string[];                 // Tags array
+  amazon_url: string;              // Amazon URL
+  product_description?: string;    // Description
+  status: ContentStatus;           // Status
 }

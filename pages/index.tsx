@@ -23,8 +23,7 @@ import playlistService, { type SpotifyPlaylist } from '../lib/services/playlistS
 import albumService, { type PhotoAlbum } from '../lib/services/albumService';
 import healingService, { type HealingVideo } from '../lib/services/healingService';
 import storefrontService from '../lib/services/storefrontService';
-import type { StorefrontProduct } from '../lib/services/storefrontService';
-import { type StorefrontProductFormData, type StorefrontCategoryOption } from '../lib/types/storefront';
+import type { StorefrontProductRow, StorefrontProductFormData, StorefrontCategoryRow } from '../lib/types/storefront';
 import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
 
 type AdminTab = 'home' | 'vlogs' | 'recipes' | 'healing' | 'storefront';
@@ -95,20 +94,20 @@ const AdminContent: React.FC = () => {
   const [healingVideos, setHealingVideos] = useState<HealingVideo[]>([]);
   const [editingHealingVideo, setEditingHealingVideo] = useState<HealingVideo | null>(null);
   const [showHealingVideoModal, setShowHealingVideoModal] = useState(false);
-  const [sfProducts, setSfProducts] = useState<StorefrontProduct[]>([]);
-  const [editingSfProduct, setEditingSfProduct] = useState<StorefrontProduct | null>(null);
+  const [sfProducts, setSfProducts] = useState<StorefrontProductRow[]>([]);
+  const [editingSfProduct, setEditingSfProduct] = useState<StorefrontProductRow | null>(null);
   const [isAddingSfProduct, setIsAddingSfProduct] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('all');
   const [stats, setStats] = useState({ total: 0, byFolder: {}, beginners: 0, recipeOfWeek: 0 });
-  const [sfItems, setSfItems] = useState<StorefrontProduct[]>([]);
-  const [sfEditing, setSfEditing] = useState<StorefrontProduct | null>(null);
+  const [sfItems, setSfItems] = useState<StorefrontProductRow[]>([]);
+  const [sfEditing, setSfEditing] = useState<StorefrontProductRow | null>(null);
   const [sfIsAdding, setSfIsAdding] = useState(false);
   const [sfSearch, setSfSearch] = useState('');
   const [sfCategory, setSfCategory] = useState<string>('all');
   const [sfStatus, setSfStatus] = useState<string>('all');
   const [sfStats, setSfStats] = useState({ total: 0, byStatus: { draft: 0, published: 0, archived: 0 }, byCategory: {}, favorites: 0 });
-  const [sfCategories, setSfCategories] = useState<StorefrontCategoryOption[]>([]);
+  const [sfCategories, setSfCategories] = useState<StorefrontCategoryRow[]>([]);
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
@@ -612,18 +611,18 @@ const AdminContent: React.FC = () => {
         const apiData = {
           product_title: productData.product_title,
           slug: productData.slug,
-          category_name: productData.category_name,
+          category_slug: productData.category_slug,
           amazon_url: productData.amazon_url,
           price: productData.price,
-          product_image_path: productData.product_image_path,
-          noteShort: productData.noteShort,
-          noteLong: productData.noteLong,
+          image_path: productData.image_path,
+          image_alt: productData.image_alt,
+          description: productData.description,
           tags: productData.tags,
-          isAlexisPick: productData.isAlexisPick,
+          is_alexis_pick: productData.is_alexis_pick,
           is_favorite: productData.is_favorite,
-          showInFavorites: productData.showInFavorites,
+          show_in_favorites: productData.show_in_favorites,
           status: productData.status,
-          sortWeight: productData.sortWeight,
+          sort_weight: productData.sort_weight,
         };
         
         const response = await fetch(`/api/storefront/${sfEditing.id}`, {
@@ -640,18 +639,18 @@ const AdminContent: React.FC = () => {
         const apiData = {
           product_title: productData.product_title,
           slug: productData.slug || productData.product_title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          category_name: productData.category_name,
+          category_slug: productData.category_slug,
           amazon_url: productData.amazon_url,
           price: productData.price,
-          product_image_path: productData.product_image_path,
-          noteShort: productData.noteShort,
-          noteLong: productData.noteLong,
+          image_path: productData.image_path,
+          image_alt: productData.image_alt,
+          description: productData.description,
           tags: productData.tags,
-          isAlexisPick: productData.isAlexisPick,
+          is_alexis_pick: productData.is_alexis_pick,
           is_favorite: productData.is_favorite,
-          showInFavorites: productData.showInFavorites,
+          show_in_favorites: productData.show_in_favorites,
           status: productData.status,
-          sortWeight: productData.sortWeight,
+          sort_weight: productData.sort_weight,
         };
         
         const response = await fetch('/api/storefront', {
@@ -666,11 +665,11 @@ const AdminContent: React.FC = () => {
       }
       
       // Reload products and stats
-      const productsList = await storefrontService.getAll();
+      const productsList = await storefrontService.get_storefront_products();
       setSfProducts(productsList);
       setSfItems(productsList);
 
-      const storefrontStats = await storefrontService.getStats();
+      const storefrontStats = await storefrontService.get_storefront_stats();
       setSfStats(storefrontStats);
 
       setSfIsAdding(false);
@@ -772,10 +771,10 @@ const AdminContent: React.FC = () => {
       await loadRecipePageContent();
       await loadRecipeHeroVideos();
 
-      const storefrontStats = await storefrontService.getStats();
+      const storefrontStats = await storefrontService.get_storefront_stats();
       setSfStats(storefrontStats);
 
-      const storefrontItems = await storefrontService.getAll();
+      const storefrontItems = await storefrontService.get_storefront_products();
       setSfItems(storefrontItems);
 
       // Load storefront categories
@@ -3039,28 +3038,24 @@ const AdminContent: React.FC = () => {
                   <button
                     onClick={() => {
                       const now = new Date().toISOString();
-                      const draft: StorefrontProduct = {
+                      const draft: StorefrontProductRow = {
                         id: 'tmp_' + Date.now(),
-                        title: '',
+                        product_title: '',
                         slug: '',
-                        category: 'food',
-                        amazonUrl: '',
-                        image: '',
-                        imageAlt: '',
-                        noteShort: '',
-                        noteLong: '',
+                        category_slug: '',
+                        amazon_url: '',
+                        image_path: '',
+                        image_alt: '',
                         description: '',
-                        price: undefined,
+                        price: null,
                         tags: [],
-                        isAlexisPick: false,
-                        isFavorite: false,
-                        showInFavorites: false,
+                        is_alexis_pick: false,
+                        is_favorite: false,
+                        show_in_favorites: false,
                         status: 'draft',
-                        sortWeight: 0,
-                        usedIn: [],
-                        pairsWith: [],
-                        createdAt: now,
-                        updatedAt: now,
+                        sort_weight: 0,
+                        created_at: now,
+                        updated_at: now,
                       };
                       setSfEditing(draft);
                       setSfIsAdding(true);
@@ -3100,10 +3095,10 @@ const AdminContent: React.FC = () => {
                           try {
                             const text = await file.text();
                             storefrontService.import(text);
-                            const products = await storefrontService.getAll();
+                            const products = await storefrontService.get_storefront_products();
                             setSfProducts(products);
                             setSfItems(products);
-                            const stats = await storefrontService.getStats();
+                            const stats = await storefrontService.get_storefront_stats();
                             setSfStats(stats);
                             toast.success('Products imported!');
                           } catch (error) {
@@ -3158,10 +3153,10 @@ const AdminContent: React.FC = () => {
               {sfItems.length > 0 ? (
                 sfItems
                   .filter(product => {
-                    const matchesCategory = sfCategory === 'all' || product.category === sfCategory;
+                    const matchesCategory = sfCategory === 'all' || product.category_slug === sfCategory;
                     const matchesStatus = sfStatus === 'all' || product.status === sfStatus;
                     const matchesSearch = sfSearch === '' || 
-                      product.title.toLowerCase().includes(sfSearch.toLowerCase()) ||
+                      product.product_title.toLowerCase().includes(sfSearch.toLowerCase()) ||
                       (product.tags && product.tags.some(tag => tag.toLowerCase().includes(sfSearch.toLowerCase())));
                     return matchesCategory && matchesStatus && matchesSearch;
                   })
@@ -3170,10 +3165,10 @@ const AdminContent: React.FC = () => {
                       <div className="flex items-start gap-4">
                         {/* Product Image */}
                         <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg">
-                          {(product.image || product.imageUrl) ? (
+                          {product.image_path ? (
                             <Image 
-                              src={(product.image || product.imageUrl) || '/placeholder.jpg'} 
-                              alt={product.title} 
+                              src={product.image_path || '/placeholder.jpg'} 
+                              alt={product.product_title} 
                               className="object-cover w-full h-full" 
                               fill
                               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -3190,17 +3185,17 @@ const AdminContent: React.FC = () => {
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.title}</h3>
-                                {product.showInFavorites && (
+                                <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.product_title}</h3>
+                                {product.show_in_favorites && (
                                   <span className="px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full">⭐ Favorite</span>
                                 )}
-                                {product.isAlexisPick && (
+                                {product.is_alexis_pick && (
                                   <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis&apos; Pick</span>
                                 )}
                               </div>
                               
                               <div className="flex items-center gap-4 text-sm text-[#8F907E] mb-2">
-                                <span className="bg-[#E3D4C2] px-2 py-1 rounded-full capitalize">{product.category.replace('-', ' ')}</span>
+                                <span className="bg-[#E3D4C2] px-2 py-1 rounded-full capitalize">{product.category_slug?.replace('-', ' ')}</span>
                                 <span className={`px-2 py-1 rounded-full ${
                                   product.status === 'published' ? 'bg-green-100 text-green-800' :
                                   product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
@@ -3216,7 +3211,7 @@ const AdminContent: React.FC = () => {
                               </div>
                               
                               <p className="mb-2 text-sm text-gray-600 line-clamp-2">
-                                {product.noteShort || product.description || 'No description'}
+                                {product.description || 'No description'}
                               </p>
                               
                               {product.tags && product.tags.length > 0 && (
@@ -3243,13 +3238,13 @@ const AdminContent: React.FC = () => {
                               </button>
                               <button
                                 onClick={async () => {
-                                  if (confirm(`Delete "${product.title}"?`)) {
+                                  if (confirm(`Delete "${product.product_title}"?`)) {
                                     try {
-                                      await storefrontService.delete(product.id);
-                                      const products = await storefrontService.getAll();
+                                      await storefrontService.delete_storefront_product(product.id);
+                                      const products = await storefrontService.get_storefront_products();
                                       setSfProducts(products);
                                       setSfItems(products);
-                                      const stats = await storefrontService.getStats();
+                                      const stats = await storefrontService.get_storefront_stats();
                                       setSfStats(stats);
                                       toast.success('Product deleted');
                                     } catch (error) {

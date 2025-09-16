@@ -1,304 +1,476 @@
-export type StorefrontStatus = 'draft' | 'published' | 'archived';
-
-export interface StorefrontProduct {
-  id: string;
-  title: string;
-  slug: string;
-  category: 'food' | 'healing' | 'home' | 'personal-care';
-  amazonUrl: string;
-  image: string;
-  imageUrl?: string;
-  imageAlt: string;
-  noteShort: string;
-  noteLong?: string;
-  description?: string;
-  price?: number;
-  tags: string[];
-  isAlexisPick: boolean;
-  isFavorite?: boolean;
-  showInFavorites: boolean;
-  status: StorefrontStatus;
-  sortWeight: number;
-  usedIn: { type: 'recipe' | 'video'; slug: string; title?: string }[];
-  pairsWith: string[];
-  createdAt: string;
-  updatedAt: string;
-  clicks30d?: number;
-}
-
-interface StorefrontStats {
-  total: number;
-  byStatus: Record<StorefrontStatus, number>;
-  byCategory: Record<string, number>;
-  favorites: number;
-}
+import type {
+  StorefrontProductRow,
+  StorefrontProductInsert,
+  StorefrontProductUpdate,
+  StorefrontCategoryRow,
+  StorefrontCategoryInsert,
+  StorefrontCategoryUpdate,
+  StorefrontFavoriteRow,
+  StorefrontFavoriteInsert,
+  StorefrontFavoriteUpdate,
+  StorefrontStats,
+  StorefrontFilters,
+  StorefrontSearchOptions,
+  StorefrontProductFormData,
+  StorefrontCategoryFormData,
+  StorefrontFavoriteFormData,
+  ContentStatus
+} from '@/lib/types/storefront';
 
 class StorefrontService {
-  private readonly STORAGE_KEY = 'adminStorefrontProducts';
-  async getAll(): Promise<StorefrontProduct[]> { 
+  // Products
+  async get_storefront_products(options?: StorefrontSearchOptions): Promise<StorefrontProductRow[]> {
     try {
-      const response = await fetch('/api/storefront');
-      if (!response.ok) throw new Error('Failed to fetch storefront products');
+      const params = new URLSearchParams();
+      if (options?.query) params.append('query', options.query);
+      if (options?.filters?.category_slug) params.append('category_slug', options.filters.category_slug);
+      if (options?.filters?.status) params.append('status', options.filters.status);
+      if (options?.filters?.is_alexis_pick !== undefined) params.append('is_alexis_pick', String(options.filters.is_alexis_pick));
+      if (options?.filters?.is_favorite !== undefined) params.append('is_favorite', String(options.filters.is_favorite));
+      if (options?.filters?.show_in_favorites !== undefined) params.append('show_in_favorites', String(options.filters.show_in_favorites));
+      if (options?.limit) params.append('limit', String(options.limit));
+      if (options?.offset) params.append('offset', String(options.offset));
+      if (options?.sortBy) params.append('sortBy', options.sortBy);
+      if (options?.sortOrder) params.append('sortOrder', options.sortOrder);
+
+      const url = `/api/storefront${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch storefront products: ${response.statusText}`);
+      }
+
       const data = await response.json();
-      // Map database fields to service interface
-      return (data.products || []).map((p: any) => ({
-        id: p.id,
-        title: p.product_title || '',
-        slug: p.slug || '',
-        category: this.mapCategoryFromDB(p.category_name) as any,
-        amazonUrl: p.amazon_url || '',
-        image: p.product_image_path || '',
-        imageAlt: p.imageAlt || p.product_title || '',
-        noteShort: p.noteShort || p.product_description || '',
-        noteLong: p.noteLong || '',
-        tags: Array.isArray(p.tags) ? p.tags : [],
-        isAlexisPick: p.isAlexisPick || false,
-        showInFavorites: p.showInFavorites || false,
-        status: p.status as any || 'draft',
-        sortWeight: p.sortWeight || 0,
-        usedIn: p.usedIn || [],
-        pairsWith: Array.isArray(p.pairsWith) ? p.pairsWith : [],
-        createdAt: p.created_at,
-        updatedAt: p.updated_at,
-        clicks30d: p.clicks30d || 0
-      }));
+      return data.products || [];
     } catch (error) {
       console.error('Error fetching storefront products:', error);
-      // Fallback to localStorage for development
-      const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-      if(!raw) return []; 
-      try { 
-        const p: StorefrontProduct[] = JSON.parse(raw); 
-        return Array.isArray(p) ? p : []; 
-      } catch { 
-        return []; 
-      }
+      throw error;
     }
   }
-  async getPublished(): Promise<StorefrontProduct[]> { const all = await this.getAll(); return all.filter(p=>p.status==='published'); }
-  async getFavorites(): Promise<StorefrontProduct[]> { const published = await this.getPublished(); return published.filter(p=>p.showInFavorites).sort((a,b)=>(a.sortWeight??0)-(b.sortWeight??0)); }
-  async getByCategory(category: StorefrontProduct['category'], opts?: { includeDraft?: boolean }): Promise<StorefrontProduct[]> { const all = await this.getAll(); const list=all.filter(p=>p.category===category && (opts?.includeDraft ? p.status!=='archived' : p.status==='published')).sort((a,b)=>(a.sortWeight??0)-(b.sortWeight??0)); return list; }
-  async findBySlug(slug: string): Promise<StorefrontProduct | undefined> { const all = await this.getAll(); return all.find(p=>p.slug===slug); }
-  validateRequired(p: Partial<StorefrontProduct>) { const e: Record<string,string>={}; if(!p.title||!(p.title+'').trim()) e.title='Title is required'; if(!p.category) e.category='Category is required'; if(!p.amazonUrl||!(p.amazonUrl+'').trim()) e.amazonUrl='Amazon URL is required'; if(!p.image||!(p.image+'').trim()) e.image='Image is required'; if(!p.imageAlt||!(p.imageAlt+'').trim()) e.imageAlt='Image alt text is required'; if(!p.noteShort||!(p.noteShort+'').trim()) e.noteShort='Short note is required'; if(p.title&&(p.title+'').length>120) e.title='Title is too long (max 120)'; if(p.slug&&(p.slug+'').length>140) e.slug='Slug is too long (max 140)'; if(p.noteShort&&(p.noteShort+'').length>280) e.noteShort='Short note is too long (max 280)'; return e; }
-  async add(input: Omit<StorefrontProduct,'id'|'createdAt'|'updatedAt'|'slug'> & { slug?: string }): Promise<StorefrontProduct> { 
-    const now = new Date().toISOString(); 
-    const partial: Partial<StorefrontProduct> = {...input, slug: input.slug || this.slugify(input.title)}; 
-    const errors = this.validateRequired(partial); 
-    if(Object.keys(errors).length) throw Object.assign(new Error('Validation failed'),{errors}); 
-    
+
+  async get_storefront_product_by_id(id: string): Promise<StorefrontProductRow | null> {
     try {
-      // Try API first
+      const response = await fetch(`/api/storefront/${id}`);
+
+      if (response.status === 404) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch storefront product: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.product;
+    } catch (error) {
+      console.error('Error fetching storefront product by ID:', error);
+      throw error;
+    }
+  }
+
+  async create_storefront_product(input: StorefrontProductFormData): Promise<StorefrontProductRow> {
+    try {
+      // Convert form data to database format
+      const dbPayload: StorefrontProductInsert = {
+        product_title: input.product_title,
+        slug: input.slug || this.generate_slug(input.product_title),
+        category_slug: input.category_slug || null,
+        status: input.status || 'draft',
+        sort_weight: input.sort_weight || null,
+        amazon_url: input.amazon_url,
+        price: input.price || null,
+        image_path: input.image_path || null,
+        image_alt: input.image_alt || null,
+        description: input.description || null,
+        tags: input.tags || null,
+        is_alexis_pick: input.is_alexis_pick || null,
+        is_favorite: input.is_favorite || null,
+        show_in_favorites: input.show_in_favorites || null,
+        // Initialize tracking fields
+        click_count: null,
+        clicks_30d: null,
+        is_top_clicked: null,
+        deleted_at: null,
+        // Legacy camelCase fields set to null (will be removed from schema eventually)
+        imageAlt: null,
+        pairsWith: null,
+        usedIn: null
+      };
+
       const response = await fetch('/api/storefront', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_title: partial.title,
-          slug: partial.slug,
-          category_name: this.mapCategoryToDB(partial.category as any),
-          amazon_url: partial.amazonUrl,
-          product_image_path: partial.image,
-          imageAlt: partial.imageAlt,
-          product_description: partial.noteShort,
-          noteLong: partial.noteLong,
-          price: partial.price,
-          tags: partial.tags || [],
-          isAlexisPick: !!partial.isAlexisPick,
-          showInFavorites: !!partial.showInFavorites,
-          status: partial.status || 'draft',
-          sortWeight: typeof partial.sortWeight==='number' ? partial.sortWeight : this.nextSortWeightForCategory(partial.category as any),
-          usedIn: partial.usedIn || [],
-          pairsWith: partial.pairsWith || []
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dbPayload),
       });
-      
-      if (response.ok) {
-        const result = await response.json();
-        return this.mapFromDB(result.product);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to create storefront product: ${response.statusText}`);
       }
+
+      const data = await response.json();
+      return data.product;
     } catch (error) {
-      console.error('API create failed, using localStorage fallback:', error);
+      console.error('Error creating storefront product:', error);
+      throw error;
     }
-    
-    // Fallback to localStorage
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    const products = raw ? JSON.parse(raw) : [];
-    
-    const uniqueSlug=this.ensureUniqueSlug(partial.slug!); 
-    const product: StorefrontProduct = { 
-      ...(partial as StorefrontProduct), 
-      id:this.generateId(), 
-      slug:uniqueSlug, 
-      tags: partial.tags || [], 
-      isAlexisPick: !!partial.isAlexisPick, 
-      showInFavorites: !!partial.showInFavorites, 
-      status: partial.status || 'draft', 
-      sortWeight: typeof partial.sortWeight==='number' ? partial.sortWeight : this.nextSortWeightForCategory(partial.category as any), 
-      usedIn: partial.usedIn || [], 
-      pairsWith: partial.pairsWith || [], 
-      createdAt: now, 
-      updatedAt: now 
-    }; 
-    products.push(product); 
-    this.save(products); 
-    return product; 
   }
-  async update(id: string, updates: Partial<StorefrontProduct>): Promise<StorefrontProduct> { 
+
+  async update_storefront_product(id: string, input: Partial<StorefrontProductFormData>): Promise<StorefrontProductRow> {
     try {
-      // Try API first
+      // Convert form data to database format, only including defined fields
+      const dbPayload: StorefrontProductUpdate = {};
+
+      if (input.product_title !== undefined) dbPayload.product_title = input.product_title;
+      if (input.slug !== undefined) dbPayload.slug = input.slug;
+      if (input.category_slug !== undefined) dbPayload.category_slug = input.category_slug;
+      if (input.status !== undefined) dbPayload.status = input.status;
+      if (input.sort_weight !== undefined) dbPayload.sort_weight = input.sort_weight;
+      if (input.amazon_url !== undefined) dbPayload.amazon_url = input.amazon_url;
+      if (input.price !== undefined) dbPayload.price = input.price;
+      if (input.image_path !== undefined) dbPayload.image_path = input.image_path;
+      if (input.image_alt !== undefined) dbPayload.image_alt = input.image_alt;
+      if (input.description !== undefined) dbPayload.description = input.description;
+      if (input.tags !== undefined) dbPayload.tags = input.tags;
+      if (input.is_alexis_pick !== undefined) dbPayload.is_alexis_pick = input.is_alexis_pick;
+      if (input.is_favorite !== undefined) dbPayload.is_favorite = input.is_favorite;
+      if (input.show_in_favorites !== undefined) dbPayload.show_in_favorites = input.show_in_favorites;
+
       const response = await fetch(`/api/storefront/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_title: updates.title,
-          slug: updates.slug,
-          category_name: updates.category ? this.mapCategoryToDB(updates.category) : undefined,
-          amazon_url: updates.amazonUrl,
-          product_image_path: updates.image,
-          imageAlt: updates.imageAlt,
-          product_description: updates.noteShort,
-          noteLong: updates.noteLong,
-          price: updates.price,
-          tags: updates.tags,
-          isAlexisPick: updates.isAlexisPick,
-          showInFavorites: updates.showInFavorites,
-          status: updates.status,
-          sortWeight: updates.sortWeight,
-          usedIn: updates.usedIn,
-          pairsWith: updates.pairsWith
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dbPayload),
       });
-      
-      if (response.ok) {
-        const result = await response.json();
-        return this.mapFromDB(result.product);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to update storefront product: ${response.statusText}`);
       }
+
+      const data = await response.json();
+      return data.product;
     } catch (error) {
-      console.error('API update failed, using localStorage fallback:', error);
+      console.error('Error updating storefront product:', error);
+      throw error;
     }
-    
-    // Fallback to localStorage
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    const products = raw ? JSON.parse(raw) : [];
-    const idx=products.findIndex((p: any)=>p.id===id); 
-    if(idx===-1) throw new Error('Product not found'); 
-    const prev=products[idx]; 
-    const merged={...prev,...updates} as StorefrontProduct; 
-    if(updates.slug && updates.slug!==prev.slug) merged.slug=this.ensureUniqueSlug(this.slugify(updates.slug)); 
-    if(updates.category && updates.category!==prev.category && updates.sortWeight==null) merged.sortWeight=this.nextSortWeightForCategory(updates.category as any); 
-    const errors=this.validateRequired(merged); 
-    if(Object.keys(errors).length) throw Object.assign(new Error('Validation failed'),{errors}); 
-    merged.updatedAt=new Date().toISOString(); 
-    products[idx]=merged; 
-    this.save(products); 
-    return merged; 
   }
-  async archive(id: string): Promise<StorefrontProduct> { return this.update(id,{ status:'archived' }); }
-  async delete(id: string): Promise<boolean> { 
+
+  async delete_storefront_product(id: string): Promise<void> {
     try {
-      // Try API first
       const response = await fetch(`/api/storefront/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
-      
-      if (response.ok) {
-        return true;
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to delete storefront product: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('API delete failed, using localStorage fallback:', error);
+      console.error('Error deleting storefront product:', error);
+      throw error;
     }
-    
-    // Fallback to localStorage
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    const next = raw ? JSON.parse(raw).filter((p: any)=>p.id!==id) : [];
-    this.save(next); 
-    return true;
   }
-  reorderWithinCategory(category: StorefrontProduct['category'], orderedIds: string[]): void { 
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    const all = raw ? JSON.parse(raw) : [];
-    const inCat=all.filter((p: any)=>p.category===category); 
-    const idToIndex=new Map<string,number>(); 
-    orderedIds.forEach((id,i)=>idToIndex.set(id,i)); 
-    const base=Math.min(...inCat.map((p: any)=>p.sortWeight||0),0); 
-    for(const p of all){ 
-      if(p.category!==category) continue; 
-      const idx=idToIndex.get(p.id); 
-      if(idx==null) continue; 
-      p.sortWeight=base+idx; 
-      p.updatedAt=new Date().toISOString(); 
-    } 
-    this.save(all); 
+
+  // Categories
+  async get_storefront_categories(): Promise<StorefrontCategoryRow[]> {
+    try {
+      const response = await fetch('/api/storefront/categories');
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch storefront categories: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.categories || [];
+    } catch (error) {
+      console.error('Error fetching storefront categories:', error);
+      throw error;
+    }
   }
-  export(): string { 
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    return JSON.stringify(raw ? JSON.parse(raw) : [], null, 2); 
+
+  async create_storefront_category(input: StorefrontCategoryFormData): Promise<StorefrontCategoryRow> {
+    try {
+      const dbPayload: StorefrontCategoryInsert = {
+        category_name: input.category_name,
+        slug: input.slug,
+        category_description: input.category_description || null,
+        category_image_path: input.category_image_path || null,
+        is_featured: input.is_featured || null,
+        is_visible: input.is_visible || null,
+        sort_order: input.sort_order || null
+      };
+
+      const response = await fetch('/api/storefront/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dbPayload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to create storefront category: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.category;
+    } catch (error) {
+      console.error('Error creating storefront category:', error);
+      throw error;
+    }
   }
-  import(jsonData: string): void { let arr: unknown; try { arr=JSON.parse(jsonData); } catch { throw new Error('Invalid JSON'); } if(!Array.isArray(arr)) throw new Error('Expected an array of products'); const validated: StorefrontProduct[]=[]; for (const item of arr){ const p=item as Partial<StorefrontProduct>; const errors=this.validateRequired(p); if(Object.keys(errors).length) throw Object.assign(new Error('Validation failed'),{errors,item:p}); const id=p.id||this.generateId(); const createdAt=p.createdAt||new Date().toISOString(); const updatedAt=p.updatedAt||createdAt; validated.push({ id: id as string, title: p.title!, slug: this.ensureUniqueSlug(this.slugify(p.slug || p.title!)), category: p.category as any, amazonUrl: p.amazonUrl!, image: p.image!, imageAlt: p.imageAlt!, noteShort: p.noteShort!, noteLong: p.noteLong, tags: p.tags || [], isAlexisPick: !!p.isAlexisPick, showInFavorites: !!p.showInFavorites, status: (p.status as StorefrontStatus) || 'draft', sortWeight: typeof p.sortWeight==='number' ? p.sortWeight : this.nextSortWeightForCategory(p.category as any), usedIn: p.usedIn || [], pairsWith: p.pairsWith || [], createdAt, updatedAt, clicks30d: p.clicks30d || 0 }); } this.save(validated); }
-  async getStats(): Promise<StorefrontStats> { const all=await this.getAll(); const byStatus: StorefrontStats['byStatus']={ draft:0,published:0,archived:0 }; const byCategory: Record<string,number>={}; let favorites=0; for(const p of all){ byStatus[p.status]=(byStatus[p.status]||0)+1; byCategory[p.category]=(byCategory[p.category]||0)+1; if(p.showInFavorites && p.status==='published') favorites++; } return { total: all.length, byStatus, byCategory, favorites }; }
-  private save(list: StorefrontProduct[]) { if (typeof localStorage==='undefined') return; localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list)); }
-  private generateId() { return 'sf_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
-  slugify(input: string) { return (input||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)+/g,''); }
-  private mapCategoryFromDB(dbCategory: string): string {
-    // Map database category names to service category names
-    const mapping: Record<string, string> = {
-      'Food': 'food',
-      'Healing': 'healing', 
-      'Home': 'home',
-      'Personal Care': 'personal-care'
-    };
-    return mapping[dbCategory] || 'home';
+
+  async update_storefront_category(id: string, input: Partial<StorefrontCategoryFormData>): Promise<StorefrontCategoryRow> {
+    try {
+      const dbPayload: StorefrontCategoryUpdate = {};
+
+      if (input.category_name !== undefined) dbPayload.category_name = input.category_name;
+      if (input.slug !== undefined) dbPayload.slug = input.slug;
+      if (input.category_description !== undefined) dbPayload.category_description = input.category_description;
+      if (input.category_image_path !== undefined) dbPayload.category_image_path = input.category_image_path;
+      if (input.is_featured !== undefined) dbPayload.is_featured = input.is_featured;
+      if (input.is_visible !== undefined) dbPayload.is_visible = input.is_visible;
+      if (input.sort_order !== undefined) dbPayload.sort_order = input.sort_order;
+
+      const response = await fetch('/api/storefront/categories', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, ...dbPayload }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to update storefront category: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.category;
+    } catch (error) {
+      console.error('Error updating storefront category:', error);
+      throw error;
+    }
   }
-  private mapCategoryToDB(category: string): string {
-    // Map service category names to database category names
-    const mapping: Record<string, string> = {
-      'food': 'Food',
-      'healing': 'Healing',
-      'home': 'Home',
-      'personal-care': 'Personal Care'
-    };
-    return mapping[category] || 'Home';
+
+  async delete_storefront_category(id: string): Promise<void> {
+    try {
+      const response = await fetch(`/api/storefront/categories?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to delete storefront category: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting storefront category:', error);
+      throw error;
+    }
   }
-  private mapFromDB(dbProduct: any): StorefrontProduct {
+
+  // Favorites
+  async get_storefront_favorites(): Promise<StorefrontFavoriteRow[]> {
+    try {
+      const response = await fetch('/api/storefront/favorites');
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch storefront favorites: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.favorites || [];
+    } catch (error) {
+      console.error('Error fetching storefront favorites:', error);
+      throw error;
+    }
+  }
+
+  async create_storefront_favorite(input: StorefrontFavoriteFormData): Promise<StorefrontFavoriteRow> {
+    try {
+      const dbPayload: StorefrontFavoriteInsert = {
+        product_title: input.product_title,
+        amazon_url: input.amazon_url,
+        product_image_path: input.product_image_path || null,
+        favorite_order: input.favorite_order || null,
+        tags: input.tags || null,
+        product_description: input.product_description || null,
+        status: input.status || 'draft',
+        category_pill: null,
+        click_count: null
+      };
+
+      const response = await fetch('/api/storefront/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dbPayload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Failed to create storefront favorite: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.favorite;
+    } catch (error) {
+      console.error('Error creating storefront favorite:', error);
+      throw error;
+    }
+  }
+
+  // Stats and utilities
+  async get_storefront_stats(): Promise<StorefrontStats> {
+    try {
+      const products = await this.get_storefront_products();
+
+      const stats: StorefrontStats = {
+        total: products.length,
+        byStatus: {
+          draft: 0,
+          published: 0,
+          archived: 0,
+        },
+        byCategory: {},
+        favorites: 0,
+        topClicked: 0,
+      };
+
+      for (const product of products) {
+        // Count by status
+        if (product.status) {
+          stats.byStatus[product.status as ContentStatus] = (stats.byStatus[product.status as ContentStatus] || 0) + 1;
+        }
+
+        // Count by category
+        if (product.category_slug) {
+          stats.byCategory[product.category_slug] = (stats.byCategory[product.category_slug] || 0) + 1;
+        }
+
+        // Count favorites
+        if (product.show_in_favorites && product.status === 'published') {
+          stats.favorites++;
+        }
+
+        // Count top clicked
+        if (product.is_top_clicked) {
+          stats.topClicked++;
+        }
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('Error calculating storefront stats:', error);
+      throw error;
+    }
+  }
+
+  // Utility functions
+  generate_slug(product_title: string): string {
+    return product_title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  validate_product_data(data: StorefrontProductFormData): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!data.product_title || data.product_title.trim().length === 0) {
+      errors.push('Product title is required');
+    }
+
+    if (!data.amazon_url || data.amazon_url.trim().length === 0) {
+      errors.push('Amazon URL is required');
+    } else if (!data.amazon_url.startsWith('https://')) {
+      errors.push('Amazon URL must start with https://');
+    }
+
+    if (data.price && (typeof data.price !== 'number' || data.price < 0)) {
+      errors.push('Price must be a positive number');
+    }
+
+    if (data.product_title && data.product_title.length > 255) {
+      errors.push('Product title is too long (max 255 characters)');
+    }
+
+    if (data.description && data.description.length > 1000) {
+      errors.push('Description is too long (max 1000 characters)');
+    }
+
     return {
-      id: dbProduct.id,
-      title: dbProduct.product_title || '',
-      slug: dbProduct.slug || '',
-      category: this.mapCategoryFromDB(dbProduct.category_name) as any,
-      amazonUrl: dbProduct.amazon_url || '',
-      image: dbProduct.product_image_path || '',
-      imageUrl: dbProduct.product_image_path,
-      imageAlt: dbProduct.imageAlt || dbProduct.product_title || '',
-      noteShort: dbProduct.noteShort || dbProduct.product_description || '',
-      noteLong: dbProduct.noteLong || '',
-      description: dbProduct.product_description,
-      price: dbProduct.price,
-      tags: Array.isArray(dbProduct.tags) ? dbProduct.tags : [],
-      isAlexisPick: dbProduct.isAlexisPick || false,
-      isFavorite: dbProduct.showInFavorites || false,
-      showInFavorites: dbProduct.showInFavorites || false,
-      status: dbProduct.status as any || 'draft',
-      sortWeight: dbProduct.sortWeight || 0,
-      usedIn: dbProduct.usedIn || [],
-      pairsWith: Array.isArray(dbProduct.pairsWith) ? dbProduct.pairsWith : [],
-      createdAt: dbProduct.created_at,
-      updatedAt: dbProduct.updated_at,
-      clicks30d: dbProduct.clicks30d || 0
+      valid: errors.length === 0,
+      errors,
     };
   }
-  private ensureUniqueSlug(base: string): string { 
-    // Use localStorage for slug generation for now
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    const all = raw ? JSON.parse(raw) : [];
-    let slug=base; let i=1; const existing=new Set(all.map((p: any)=>p.slug)); while(existing.has(slug)){ slug=`${base}-${i++}`; } return slug; 
+
+  validate_category_data(data: StorefrontCategoryFormData): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!data.category_name || data.category_name.trim().length === 0) {
+      errors.push('Category name is required');
+    }
+
+    if (!data.slug || data.slug.trim().length === 0) {
+      errors.push('Category slug is required');
+    }
+
+    if (data.category_name && data.category_name.length > 100) {
+      errors.push('Category name is too long (max 100 characters)');
+    }
+
+    if (data.slug && data.slug.length > 100) {
+      errors.push('Category slug is too long (max 100 characters)');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   }
-  private nextSortWeightForCategory(category: StorefrontProduct['category']): number { 
-    // Use localStorage for sort weight calculation for now
-    const raw = typeof localStorage!=='undefined' ? localStorage.getItem(this.STORAGE_KEY):null; 
-    const all = raw ? JSON.parse(raw).filter((p: any)=>p.category===category) : [];
-    if(!all.length) return 0; return Math.max(...all.map((p: any)=>p.sortWeight||0))+1; 
+
+  // Convert database row to form data for editing
+  product_row_to_form_data(product: StorefrontProductRow): StorefrontProductFormData {
+    return {
+      product_title: product.product_title,
+      slug: product.slug || undefined,
+      category_slug: product.category_slug || undefined,
+      status: product.status,
+      sort_weight: product.sort_weight || undefined,
+      amazon_url: product.amazon_url,
+      price: product.price || undefined,
+      image_path: product.image_path || undefined,
+      image_alt: product.image_alt || undefined,
+      description: product.description || undefined,
+      tags: product.tags || undefined,
+      is_alexis_pick: product.is_alexis_pick || undefined,
+      is_favorite: product.is_favorite || undefined,
+      show_in_favorites: product.show_in_favorites || undefined,
+    };
+  }
+
+  category_row_to_form_data(category: StorefrontCategoryRow): StorefrontCategoryFormData {
+    return {
+      category_name: category.category_name,
+      slug: category.slug,
+      category_description: category.category_description || undefined,
+      category_image_path: category.category_image_path || undefined,
+      is_featured: category.is_featured || undefined,
+      is_visible: category.is_visible || undefined,
+      sort_order: category.sort_order || undefined,
+    };
   }
 }
 
 export const storefrontService = new StorefrontService();
 export default storefrontService;
-

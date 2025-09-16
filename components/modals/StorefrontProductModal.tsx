@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaStore, FaPlus, FaTrash } from 'react-icons/fa';
-import type { StorefrontProduct as ServiceStorefrontProduct } from '../../lib/services/storefrontService';
-import type { StorefrontProductFormInput, StorefrontProductFormData, StorefrontCategoryOption } from '../../lib/types/storefront';
-import { StorefrontProductFormSchema } from '../../lib/types/storefront';
+import type { StorefrontProductRow, StorefrontProductFormData, StorefrontCategoryRow } from '../../lib/types/storefront';
 import { slugify, parsePrice } from '../../lib/utils/storefront';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
@@ -12,69 +10,64 @@ import toast from 'react-hot-toast';
 interface StorefrontProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product?: ServiceStorefrontProduct | null;
+  product?: StorefrontProductRow | null;
   onSave: (product: StorefrontProductFormData) => Promise<void>;
-  categories?: StorefrontCategoryOption[];
+  categories?: StorefrontCategoryRow[];
 }
 
 const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen, onClose, product, onSave, categories = [] }) => {
-  const [formData, setFormData] = useState<StorefrontProductFormInput>({
+  const [formData, setFormData] = useState<StorefrontProductFormData>({
     product_title: '',
     slug: '',
-    category_name: 'Food',
+    category_slug: '',
     amazon_url: '',
-    price: '',
-    product_image_path: '',
-    noteShort: '',
-    noteLong: '',
+    price: 0,
+    image_path: '',
+    description: '',
     tags: [],
-    isAlexisPick: false,
+    is_alexis_pick: false,
     is_favorite: false,
-    showInFavorites: false,
+    show_in_favorites: false,
     status: 'draft',
-    sortWeight: 0,
+    sort_weight: 0,
   });
 
   const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     if (product) {
-      // Map from service StorefrontProduct to form input
+      // Map from StorefrontProductRow to form data
       setFormData({
-        product_title: product.title,
-        slug: product.slug,
-        category_name: product.category === 'food' ? 'Food' : 
-                      product.category === 'healing' ? 'Healing' : 
-                      product.category === 'home' ? 'Home' : 'Personal Care',
-        amazon_url: product.amazonUrl,
-        price: product.price?.toString() || '',
-        product_image_path: product.image,
-        noteShort: product.noteShort || '',
-        noteLong: product.noteLong || '',
+        product_title: product.product_title || '',
+        slug: product.slug || '',
+        category_slug: product.category_slug || '',
+        amazon_url: product.amazon_url || '',
+        price: product.price || 0,
+        image_path: product.image_path || '',
+        description: product.description || '',
         tags: product.tags || [],
-        isAlexisPick: product.isAlexisPick,
-        is_favorite: product.isFavorite || false,
-        showInFavorites: product.showInFavorites,
-        status: product.status,
-        sortWeight: product.sortWeight,
+        is_alexis_pick: product.is_alexis_pick ?? false,
+        is_favorite: product.is_favorite ?? false,
+        show_in_favorites: product.show_in_favorites ?? false,
+        status: product.status || 'draft',
+        sort_weight: product.sort_weight || 0,
       });
     } else {
       // Reset form for new product
       setFormData({
         product_title: '',
         slug: '',
-        category_name: 'Food',
+        category_slug: '',
         amazon_url: '',
-        price: '',
-        product_image_path: '',
-        noteShort: '',
-        noteLong: '',
+        price: 0,
+        image_path: '',
+        description: '',
         tags: [],
-        isAlexisPick: false,
+        is_alexis_pick: false,
         is_favorite: false,
-        showInFavorites: false,
+        show_in_favorites: false,
         status: 'draft',
-        sortWeight: 0,
+        sort_weight: 0,
       });
     }
   }, [product]);
@@ -117,10 +110,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
         slug: formData.slug || slugify(formData.product_title),
       };
       
-      // Validate with Zod schema
-      const validatedData = StorefrontProductFormSchema.parse(finalFormData);
-      
-      await onSave(validatedData);
+      await onSave(finalFormData);
       onClose();
       toast.success(`Product ${product ? 'updated' : 'created'} successfully!`);
     } catch (error: any) {
@@ -184,23 +174,24 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
                 <select
-                  value={formData.category_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category_name: e.target.value as any }))}
+                  value={formData.category_slug}
+                  onChange={(e) => setFormData(prev => ({ ...prev, category_slug: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
+                  <option value="">Select Category</option>
                   {categories.length > 0 ? (
                     categories.map((cat) => (
-                      <option key={cat.category_name} value={cat.category_name}>
+                      <option key={cat.slug} value={cat.slug}>
                         {cat.category_name}
                       </option>
                     ))
                   ) : (
                     // Fallback to hardcoded options if categories not loaded
                     <>
-                      <option value="Food">Food</option>
-                      <option value="Healing">Healing</option>
-                      <option value="Home">Home</option>
-                      <option value="Personal Care">Personal Care</option>
+                      <option value="food">Food</option>
+                      <option value="healing">Healing</option>
+                      <option value="home">Home</option>
+                      <option value="personal-care">Personal Care</option>
                     </>
                   )}
                 </select>
@@ -221,8 +212,8 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Sort Weight</label>
                 <input
                   type="number"
-                  value={formData.sortWeight}
-                  onChange={(e) => setFormData(prev => ({ ...prev, sortWeight: parseInt(e.target.value) || 0 }))}
+                  value={formData.sort_weight}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sort_weight: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
               </div>
@@ -248,7 +239,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   type="number"
                   step="0.01"
                   value={formData.price || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
               </div>
@@ -258,10 +249,10 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-3">Product Image</label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {formData.product_image_path ? (
+                {formData.image_path ? (
                   <div className="relative">
                     {(() => {
-                      const parsedUrl = parseSupabaseUrl(formData.product_image_path)
+                      const parsedUrl = parseSupabaseUrl(formData.image_path)
                       if (parsedUrl) {
                         return (
                           <SecureImage
@@ -285,7 +276,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
+                        onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
                         Change Image
@@ -298,7 +289,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
-                      onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
+                      onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
                       className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                     >
                       Upload Product Image
@@ -308,26 +299,15 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               </div>
             </div>
 
-            {/* Product Notes */}
+            {/* Product Description */}
             <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Short Note *</label>
-              <input
-                type="text"
-                value={formData.noteShort || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, noteShort: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Brief description shown in product cards"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Long Note</label>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">Description *</label>
               <textarea
-                value={formData.noteLong || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, noteLong: e.target.value }))}
+                value={formData.description || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Detailed description"
+                placeholder="Product description"
+                required
               />
             </div>
 
@@ -371,12 +351,12 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             </div>
 
             {/* Product Settings */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.isAlexisPick}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isAlexisPick: e.target.checked }))}
+                  checked={formData.is_alexis_pick}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_alexis_pick: e.target.checked }))}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Alexis&apos; Pick</span>
@@ -393,8 +373,8 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.showInFavorites}
-                  onChange={(e) => setFormData(prev => ({ ...prev, showInFavorites: e.target.checked }))}
+                  checked={formData.show_in_favorites}
+                  onChange={(e) => setFormData(prev => ({ ...prev, show_in_favorites: e.target.checked }))}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Show in Favorites</span>
