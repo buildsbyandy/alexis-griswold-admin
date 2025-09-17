@@ -100,9 +100,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Manage video history (max 3 items)
     let videoHistory: VideoHistoryItem[] = []
     if (currentData?.video_history) {
-      videoHistory = Array.isArray(currentData.video_history) 
-        ? currentData.video_history 
-        : JSON.parse(currentData.video_history)
+      if (Array.isArray(currentData.video_history)) {
+        videoHistory = currentData.video_history
+      } else if (typeof currentData.video_history === 'string') {
+        videoHistory = JSON.parse(currentData.video_history)
+      } else {
+        videoHistory = []
+      }
     }
     
     // Add current video to history if it's different from new video
@@ -176,9 +180,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Remove from video history
     let videoHistory: VideoHistoryItem[] = []
     if (currentData.video_history) {
-      videoHistory = Array.isArray(currentData.video_history) 
-        ? currentData.video_history 
-        : JSON.parse(currentData.video_history)
+      if (Array.isArray(currentData.video_history)) {
+        videoHistory = currentData.video_history
+      } else if (typeof currentData.video_history === 'string') {
+        videoHistory = JSON.parse(currentData.video_history)
+      } else {
+        videoHistory = []
+      }
       
       videoHistory = videoHistory.filter(item => item.path !== videoPath)
     }
