@@ -89,7 +89,8 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     const submitData = {
       ...formData,
       thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl),
-      duration: '' // Duration will be auto-populated by YouTube API
+      duration: '', // Duration will be auto-populated by YouTube API
+      youtubeId: null // Will be auto-populated by YouTube API
     };
 
     try {

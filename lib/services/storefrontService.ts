@@ -5,19 +5,88 @@ import type {
   StorefrontCategoryRow,
   StorefrontCategoryInsert,
   StorefrontCategoryUpdate,
-  StorefrontFavoriteRow,
-  StorefrontFavoriteInsert,
-  StorefrontFavoriteUpdate,
   StorefrontStats,
   StorefrontFilters,
   StorefrontSearchOptions,
   StorefrontProductFormData,
   StorefrontCategoryFormData,
-  StorefrontFavoriteFormData,
   ContentStatus
 } from '@/lib/types/storefront';
+import { listStorefrontItems } from '../services/carouselService';
 
 class StorefrontService {
+  // Carousel items (favorites, top-picks)
+  async list_favorites(): Promise<Array<{ id: string; ref_id: string; product_title: string | null; image_path: string | null; amazon_url: string | null }>> {
+    const res = await listStorefrontItems('favorites')
+    if (res.error) throw new Error(res.error)
+    return (res.data || []).map(i => ({ id: i.id, ref_id: i.ref_id || '', product_title: i.product_title, image_path: i.image_path, amazon_url: i.amazon_url }))
+  }
+
+  async list_top_picks(): Promise<Array<{ id: string; ref_id: string; order_index: number | null; product_title: string | null; image_path: string | null; amazon_url: string | null }>> {
+    const res = await listStorefrontItems('top-picks')
+    if (res.error) throw new Error(res.error)
+    return (res.data || []).map(i => ({ id: i.id, ref_id: i.ref_id || '', order_index: i.order_index ?? 0, product_title: i.product_title, image_path: i.image_path, amazon_url: i.amazon_url }))
+  }
+
+  // --- Storefront item mutations (Favorites, Top Picks) ---
+  private async fetchItemForProduct(slug: 'favorites' | 'top-picks', productId: string): Promise<{ id: string } | null> {
+    const res = await fetch(`/api/storefront/items?slug=${slug}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    const item = (data.items as Array<{ id: string; ref_id: string }> | undefined)?.find(i => i.ref_id === productId)
+    return item ? { id: item.id } : null
+  }
+
+  async set_favorite(productId: string, on: boolean): Promise<boolean> {
+    const existing = await this.fetchItemForProduct('favorites', productId)
+    if (on) {
+      if (existing) return true
+      const res = await fetch('/api/storefront/items', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, slug: 'favorites' })
+      })
+      return res.ok
+    } else {
+      if (!existing) return true
+      const res = await fetch(`/api/storefront/items/${existing.id}`, { method: 'DELETE' })
+      return res.ok
+    }
+  }
+
+  async set_top_pick(productId: string, on: boolean, orderIndex?: number): Promise<boolean> {
+    const existing = await this.fetchItemForProduct('top-picks', productId)
+    if (on) {
+      if (!existing) {
+        const res = await fetch('/api/storefront/items', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId, slug: 'top-picks', order_index: orderIndex ?? 0 })
+        })
+        return res.ok
+      }
+      if (orderIndex !== undefined) {
+        const res = await fetch(`/api/storefront/items/${existing.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_index: orderIndex })
+        })
+        return res.ok
+      }
+      return true
+    } else {
+      if (!existing) return true
+      const res = await fetch(`/api/storefront/items/${existing.id}`, { method: 'DELETE' })
+      return res.ok
+    }
+  }
+
+  async update_top_pick_order(productId: string, orderIndex: number): Promise<boolean> {
+    const existing = await this.fetchItemForProduct('top-picks', productId)
+    if (!existing) return false
+    const res = await fetch(`/api/storefront/items/${existing.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_index: orderIndex })
+    })
+    return res.ok
+  }
   // Products
   async get_storefront_products(options?: StorefrontSearchOptions): Promise<StorefrontProductRow[]> {
     try {
@@ -25,9 +94,7 @@ class StorefrontService {
       if (options?.query) params.append('query', options.query);
       if (options?.filters?.category_slug) params.append('category_slug', options.filters.category_slug);
       if (options?.filters?.status) params.append('status', options.filters.status);
-      if (options?.filters?.is_alexis_pick !== undefined) params.append('is_alexis_pick', String(options.filters.is_alexis_pick));
-      if (options?.filters?.is_favorite !== undefined) params.append('is_favorite', String(options.filters.is_favorite));
-      if (options?.filters?.show_in_favorites !== undefined) params.append('show_in_favorites', String(options.filters.show_in_favorites));
+      // Legacy favorite toggles deprecated in favor of carousel items; filters ignored here
       if (options?.limit) params.append('limit', String(options.limit));
       if (options?.offset) params.append('offset', String(options.offset));
       if (options?.sortBy) params.append('sortBy', options.sortBy);
@@ -76,16 +143,15 @@ class StorefrontService {
         slug: input.slug || this.generate_slug(input.product_title),
         category_slug: input.category_slug || null,
         status: input.status || 'draft',
-        sort_weight: input.sort_weight || null,
+        // sort_weight: Removed - now handled by carousel order_index
         amazon_url: input.amazon_url,
         price: input.price || null,
         image_path: input.image_path || null,
         image_alt: input.image_alt || null,
         description: input.description || null,
         tags: input.tags || null,
-        is_alexis_pick: input.is_alexis_pick || null,
-        is_favorite: input.is_favorite || null,
-        show_in_favorites: input.show_in_favorites || null,
+        // is_alexis_pick: Removed - now handled by carousel system
+        // is_favorite: Removed - now handled by carousel system
         // Initialize tracking fields
         click_count: null,
         clicks_30d: null,
@@ -127,16 +193,15 @@ class StorefrontService {
       if (input.slug !== undefined) dbPayload.slug = input.slug;
       if (input.category_slug !== undefined) dbPayload.category_slug = input.category_slug;
       if (input.status !== undefined) dbPayload.status = input.status;
-      if (input.sort_weight !== undefined) dbPayload.sort_weight = input.sort_weight;
+      // if (input.sort_weight !== undefined) dbPayload.sort_weight = input.sort_weight; // Handled by carousel
       if (input.amazon_url !== undefined) dbPayload.amazon_url = input.amazon_url;
       if (input.price !== undefined) dbPayload.price = input.price;
       if (input.image_path !== undefined) dbPayload.image_path = input.image_path;
       if (input.image_alt !== undefined) dbPayload.image_alt = input.image_alt;
       if (input.description !== undefined) dbPayload.description = input.description;
       if (input.tags !== undefined) dbPayload.tags = input.tags;
-      if (input.is_alexis_pick !== undefined) dbPayload.is_alexis_pick = input.is_alexis_pick;
-      if (input.is_favorite !== undefined) dbPayload.is_favorite = input.is_favorite;
-      if (input.show_in_favorites !== undefined) dbPayload.show_in_favorites = input.show_in_favorites;
+      // if (input.is_alexis_pick !== undefined) dbPayload.is_alexis_pick = input.is_alexis_pick; // Handled by carousel
+      // if (input.is_favorite !== undefined) dbPayload.is_favorite = input.is_favorite; // Handled by carousel
 
       const response = await fetch(`/api/storefront/${id}`, {
         method: 'PUT',
@@ -274,57 +339,6 @@ class StorefrontService {
     }
   }
 
-  // Favorites
-  async get_storefront_favorites(): Promise<StorefrontFavoriteRow[]> {
-    try {
-      const response = await fetch('/api/storefront/favorites');
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch storefront favorites: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.favorites || [];
-    } catch (error) {
-      console.error('Error fetching storefront favorites:', error);
-      throw error;
-    }
-  }
-
-  async create_storefront_favorite(input: StorefrontFavoriteFormData): Promise<StorefrontFavoriteRow> {
-    try {
-      const dbPayload: StorefrontFavoriteInsert = {
-        product_title: input.product_title,
-        amazon_url: input.amazon_url,
-        product_image_path: input.product_image_path || null,
-        favorite_order: input.favorite_order || null,
-        tags: input.tags || null,
-        product_description: input.product_description || null,
-        status: input.status || 'draft',
-        category_pill: null,
-        click_count: null
-      };
-
-      const response = await fetch('/api/storefront/favorites', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dbPayload),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => null);
-        throw new Error(error?.error || `Failed to create storefront favorite: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.favorite;
-    } catch (error) {
-      console.error('Error creating storefront favorite:', error);
-      throw error;
-    }
-  }
 
   // Stats and utilities
   async get_storefront_stats(): Promise<StorefrontStats> {
@@ -355,14 +369,10 @@ class StorefrontService {
         }
 
         // Count favorites
-        if (product.show_in_favorites && product.status === 'published') {
-          stats.favorites++;
-        }
+        // Favorites count now requires items endpoint; keep zero here
 
         // Count top clicked
-        if (product.is_top_clicked) {
-          stats.topClicked++;
-        }
+        // Leave topClicked aggregation unchanged
       }
 
       return stats;
@@ -446,16 +456,15 @@ class StorefrontService {
       slug: product.slug || undefined,
       category_slug: product.category_slug || undefined,
       status: product.status,
-      sort_weight: product.sort_weight || undefined,
+      sort_weight: undefined, // Handled by carousel order_index
       amazon_url: product.amazon_url,
       price: product.price || undefined,
       image_path: product.image_path || undefined,
       image_alt: product.image_alt || undefined,
       description: product.description || undefined,
       tags: product.tags || undefined,
-      is_alexis_pick: product.is_alexis_pick || undefined,
-      is_favorite: product.is_favorite || undefined,
-      show_in_favorites: product.show_in_favorites || undefined,
+      is_alexis_pick: undefined, // Handled by carousel system
+      is_favorite: undefined,    // Handled by carousel system
     };
   }
 

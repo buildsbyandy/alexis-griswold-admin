@@ -620,7 +620,6 @@ const AdminContent: React.FC = () => {
           tags: productData.tags,
           is_alexis_pick: productData.is_alexis_pick,
           is_favorite: productData.is_favorite,
-          show_in_favorites: productData.show_in_favorites,
           status: productData.status,
           sort_weight: productData.sort_weight,
         };
@@ -648,7 +647,6 @@ const AdminContent: React.FC = () => {
           tags: productData.tags,
           is_alexis_pick: productData.is_alexis_pick,
           is_favorite: productData.is_favorite,
-          show_in_favorites: productData.show_in_favorites,
           status: productData.status,
           sort_weight: productData.sort_weight,
         };
@@ -687,7 +685,7 @@ const AdminContent: React.FC = () => {
       setHealingHeroData(prev => ({
         ...prev,
         featuredVideoId: video.youtubeId || video.id,
-        featuredVideoTitle: video.title,
+        featuredVideoTitle: video.video_title,
         featuredVideoDate: new Date().toISOString().split('T')[0]
       }));
       
@@ -704,9 +702,9 @@ const AdminContent: React.FC = () => {
       setVlogHeroData(prev => ({
         ...prev,
         featuredVideoId: video.youtubeId || video.id,
-        featuredVideoTitle: video.title,
+        featuredVideoTitle: video.video_title,
         featuredVideoDate: video.publishedAt || new Date().toISOString().split('T')[0],
-        featuredVideoThumbnail: video.thumbnailUrl
+        featuredVideoThumbnail: `https://img.youtube.com/vi/${video.youtube_id}/maxresdefault.jpg`
       }));
       
       toast.success('Featured video updated successfully!');
@@ -2767,8 +2765,8 @@ const AdminContent: React.FC = () => {
                           <div key={video.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative">
                               <Image
-                                src={video.thumbnailUrl}
-                                alt={video.title}
+                                src={`https://img.youtube.com/vi/${video.youtube_id}/maxresdefault.jpg`}
+                                alt={video.video_title}
                                 className="object-cover w-full h-32"
                                 width={400}
                                 height={128}
@@ -2776,14 +2774,14 @@ const AdminContent: React.FC = () => {
                               <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
                                 <FaVideo className="text-2xl text-white" />
                               </div>
-                              {video.duration && (
+                              {null && (
                                 <div className="absolute px-2 py-1 text-xs text-white bg-black bg-opacity-75 rounded bottom-2 right-2">
-                                  {video.duration}
+                                  {null}
                                 </div>
                               )}
                             </div>
                             <div className="p-3">
-                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.title}</h4>
+                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.video_title}</h4>
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => {
@@ -2847,8 +2845,8 @@ const AdminContent: React.FC = () => {
                           <div key={video.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative">
                               <Image
-                                src={video.thumbnailUrl}
-                                alt={video.title}
+                                src={`https://img.youtube.com/vi/${video.youtube_id}/maxresdefault.jpg`}
+                                alt={video.video_title}
                                 className="object-cover w-full h-32"
                                 width={400}
                                 height={128}
@@ -2856,14 +2854,14 @@ const AdminContent: React.FC = () => {
                               <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
                                 <FaVideo className="text-2xl text-white" />
                               </div>
-                              {video.duration && (
+                              {null && (
                                 <div className="absolute px-2 py-1 text-xs text-white bg-black bg-opacity-75 rounded bottom-2 right-2">
-                                  {video.duration}
+                                  {null}
                                 </div>
                               )}
                             </div>
                             <div className="p-3">
-                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.title}</h4>
+                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.video_title}</h4>
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => {
@@ -3051,7 +3049,6 @@ const AdminContent: React.FC = () => {
                         tags: [],
                         is_alexis_pick: false,
                         is_favorite: false,
-                        show_in_favorites: false,
                         status: 'draft',
                         sort_weight: 0,
                         created_at: now,
@@ -3186,9 +3183,7 @@ const AdminContent: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.product_title}</h3>
-                                {product.show_in_favorites && (
-                                  <span className="px-2 py-1 text-xs text-yellow-800 bg-yellow-100 rounded-full">⭐ Favorite</span>
-                                )}
+                                
                                 {product.is_alexis_pick && (
                                   <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis&apos; Pick</span>
                                 )}

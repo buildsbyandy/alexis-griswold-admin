@@ -68,7 +68,7 @@ const FeaturedVideoSelectorModal = <T extends HealingVideo | VlogVideo>({
                       {thumbnailUrl && thumbnailUrl.length > 0 ? (
                         <Image
                           src={thumbnailUrl}
-                          alt={video.title}
+                          alt={'title' in video ? video.title : video.video_title}
                           className="w-full h-full object-cover"
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -90,10 +90,10 @@ const FeaturedVideoSelectorModal = <T extends HealingVideo | VlogVideo>({
                       <h3 className={`font-medium text-sm line-clamp-2 ${
                         isSelected ? 'text-[#B8A692]' : 'text-gray-800'
                       }`}>
-                        {video.title}
+                        {'title' in video ? video.title : video.video_title}
                       </h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        Duration: {video.duration}
+                        Duration: {'duration' in video ? video.duration : 'N/A'}
                       </p>
                       {isSelected && (
                         <div className="mt-2">

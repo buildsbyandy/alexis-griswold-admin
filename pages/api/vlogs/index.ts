@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
 import { youtubeService } from '../../../lib/services/youtubeService'
+import { listViewItems, findCarouselByPageSlug, createCarousel, createCarouselItem } from '../../../lib/services/carouselService'
 import type { Database } from '@/types/supabase.generated'
 
 type VlogRow = Database['public']['Tables']['vlogs']['Row']
@@ -14,13 +15,33 @@ export const config = { runtime: 'nodejs' }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    const { data, error } = await supabaseAdmin
+    // Fetch vlogs and enrich with carousel assignment from v_carousel_items
+    const { data: vlogRows, error: vlogError } = await supabaseAdmin
       .from('vlogs')
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (error) return res.status(500).json({ error: 'Failed to fetch vlogs' })
-    return res.status(200).json({ vlogs: data as VlogRow[] })
+    if (vlogError) return res.status(500).json({ error: 'Failed to fetch vlogs' })
+
+    const itemsRes = await listViewItems('vlogs')
+    if (itemsRes.error) return res.status(500).json({ error: itemsRes.error })
+    const itemByRef = new Map<string, typeof itemsRes.data[number]>()
+    for (const it of itemsRes.data || []) {
+      if (it?.ref_id) itemByRef.set(it.ref_id, it)
+    }
+
+    const result = (vlogRows as VlogRow[]).map((v) => {
+      const it = itemByRef.get(v.id)
+      const carouselSlug = it?.carousel_slug || null
+      const display_order = it?.order_index ?? 0
+      return {
+        ...v,
+        carousel: carouselSlug === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel',
+        display_order,
+      }
+    })
+
+    return res.status(200).json({ vlogs: result })
   }
 
   if (req.method === 'POST') {
@@ -29,7 +50,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!email || !isAdminEmail(email)) return res.status(401).json({ error: 'Unauthorized' })
     
     try {
-      const { youtube_url, carousel, title: customTitle, description: customDescription, is_featured, display_order } = req.body
+      const { youtube_url, carousel, title: customTitle, description: customDescription, is_featured, display_order } = req.body as {
+        youtube_url?: string
+        carousel?: 'main-channel' | 'ag-vlogs'
+        title?: string
+        description?: string
+        is_featured?: boolean
+        display_order?: number
+      }
 
       // Validate required fields
       if (!youtube_url) {
@@ -59,17 +87,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         thumbnail_url: youtubeData.thumbnailUrl,
         published_at: youtubeData.publishedAt,
         duration: youtubeData.duration,
-        carousel: carousel,
         is_featured: is_featured || false,
-        display_order: display_order || 0
       }
-      
-      const { data, error } = await supabaseAdmin
+
+      const { data: createdVlog, error } = await supabaseAdmin
         .from('vlogs')
         .insert(vlogData)
         .select('*')
         .single()
-      
+
       if (error) {
         console.error('Database error creating vlog:', error)
         return res.status(500).json({ 
@@ -77,9 +103,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           details: error.message 
         })
       }
-      
+
+      // Ensure carousel exists
+      const slug = carousel === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel'
+      let car = await findCarouselByPageSlug('vlogs', slug)
+      if (car.error) return res.status(500).json({ error: car.error })
+      if (!car.data) {
+        const created = await createCarousel({ page: 'vlogs', slug, is_active: true })
+        if (created.error) return res.status(500).json({ error: created.error })
+        car = { data: created.data }
+      }
+
+      // Create carousel item referencing vlog
+      const order_index = typeof display_order === 'number' ? display_order : 0
+      const caption = createdVlog.title || null
+      const itemRes = await createCarouselItem({
+        carousel_id: car.data!.id,
+        kind: 'video',
+        order_index,
+        ref_id: createdVlog.id,
+        caption,
+        is_active: true,
+      })
+      if (itemRes.error) return res.status(500).json({ error: itemRes.error })
+
       return res.status(201).json({
-        vlog: data as VlogRow,
+        vlog: { ...createdVlog, carousel: slug, display_order: order_index } as VlogRow,
         message: 'Vlog created successfully with YouTube metadata'
       })
       

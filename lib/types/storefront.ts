@@ -9,9 +9,6 @@ export type StorefrontCategoryRow = Database['public']['Tables']['storefront_cat
 export type StorefrontCategoryInsert = Database['public']['Tables']['storefront_categories']['Insert'];
 export type StorefrontCategoryUpdate = Database['public']['Tables']['storefront_categories']['Update'];
 
-export type StorefrontFavoriteRow = Database['public']['Tables']['storefront_favorites']['Row'];
-export type StorefrontFavoriteInsert = Database['public']['Tables']['storefront_favorites']['Insert'];
-export type StorefrontFavoriteUpdate = Database['public']['Tables']['storefront_favorites']['Update'];
 
 // Enum types
 export type ContentStatus = Database['public']['Enums']['content_status'];
@@ -31,7 +28,6 @@ export interface StorefrontFilters {
   status?: ContentStatus;
   is_alexis_pick?: boolean;
   is_favorite?: boolean;
-  show_in_favorites?: boolean;
 }
 
 export interface StorefrontSearchOptions {
@@ -49,7 +45,7 @@ export interface StorefrontProductFormData {
   slug?: string;                   // Auto-generated from product_title if not provided
   category_slug?: string;          // Category dropdown saves slug
   status: ContentStatus;           // draft/published/archived
-  sort_weight?: number;            // Sort Weight
+  sort_weight?: number;            // Display Order (Top Picks)
   amazon_url: string;              // Amazon URL (required)
   price?: number;                  // Price (optional)
   image_path?: string;             // Product Image path
@@ -58,7 +54,6 @@ export interface StorefrontProductFormData {
   tags?: string[];                 // Tags array
   is_alexis_pick?: boolean;        // Alexis' Pick toggle
   is_favorite?: boolean;           // Favorite toggle
-  show_in_favorites?: boolean;     // Show in Favorites toggle
 }
 
 // Form data interface for categories
@@ -72,13 +67,3 @@ export interface StorefrontCategoryFormData {
   sort_order?: number;             // Sort order
 }
 
-// Form data interface for favorites
-export interface StorefrontFavoriteFormData {
-  product_title: string;           // Title
-  product_image_path?: string;     // Image path
-  favorite_order?: number;         // Order
-  tags?: string[];                 // Tags array
-  amazon_url: string;              // Amazon URL
-  product_description?: string;    // Description
-  status: ContentStatus;           // Status
-}

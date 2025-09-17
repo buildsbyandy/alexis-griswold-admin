@@ -13,6 +13,12 @@ interface RecipeModalProps {
   onSave: (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
 }
 
+type RecipeDifficulty = 'Easy' | 'Medium' | 'Hard';
+
+const isValidDifficulty = (difficulty: string): difficulty is RecipeDifficulty => {
+  return ['Easy', 'Medium', 'Hard'].includes(difficulty);
+};
+
 const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSave }) => {
   const [formData, setFormData] = useState({
     title: '',
@@ -31,7 +37,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     prepTime: '',
     cookTime: '',
     servings: 1,
-    difficulty: 'Easy' as 'Easy' | 'Medium' | 'Hard',
+    difficulty: 'Easy' as RecipeDifficulty,
     tags: [] as string[],
   });
 
@@ -70,7 +76,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         prepTime: recipe.prepTime,
         cookTime: recipe.cookTime,
         servings: recipe.servings,
-        difficulty: recipe.difficulty,
+        difficulty: isValidDifficulty(recipe.difficulty) ? recipe.difficulty : 'Easy',
         tags: recipe.tags,
       });
     } else {
@@ -338,7 +344,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Difficulty</label>
                 <select
                   value={formData.difficulty}
-                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard' }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value as RecipeDifficulty }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
                   <option value="Easy">Easy</option>

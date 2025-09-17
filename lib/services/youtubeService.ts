@@ -1,11 +1,24 @@
+/**
+ * REFACTORED: YouTube service with proper error handling and snake_case alignment
+ * - Converted all interfaces and methods to snake_case
+ * - Standardized return format: { data, error }
+ * - Added proper TypeScript types and error handling
+ * - Removed API key dependency for basic operations
+ */
+
 export interface YouTubeVideoData {
-  id: string;
+  video_id: string;
   title: string;
   description: string;
-  thumbnailUrl: string;
-  publishedAt: string;
+  thumbnail_url: string;
+  published_at: string;
   duration: string;
-  channelTitle: string;
+  channel_title: string;
+}
+
+export interface YouTubeServiceResponse<T> {
+  data?: T;
+  error?: string;
 }
 
 class YouTubeService {
@@ -14,42 +27,59 @@ class YouTubeService {
 
   constructor() {
     this.API_KEY = process.env.NEXT_YOUTUBE_API_KEY || '';
-    if (!this.API_KEY) {
-      console.warn('YouTube API key not found. Video metadata extraction will not work.');
-    }
   }
 
   /**
    * Extract YouTube video ID from various URL formats
    */
-  extractVideoId(url: string): string | null {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
-      /youtu\.be\/([^&\n?#]+)/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        return match[1];
+  extract_video_id(url: string): YouTubeServiceResponse<string> {
+    try {
+      if (!url || typeof url !== 'string') {
+        return { error: 'Invalid URL provided' };
       }
+
+      const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([^&\n?#]+)/,
+        /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
+        /youtu\.be\/([^&\n?#]+)/,
+        /youtube\.com\/embed\/([^&\n?#]+)/,
+        /youtube\.com\/v\/([^&\n?#]+)/,
+      ];
+
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+          const videoId = match[1];
+          // Validate video ID format (11 characters, alphanumeric + dash/underscore)
+          if (/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+            return { data: videoId };
+          }
+        }
+      }
+
+      return { error: 'Could not extract valid YouTube video ID from URL' };
+    } catch (error) {
+      console.error('Error extracting YouTube video ID:', error);
+      return { error: 'Failed to parse YouTube URL' };
     }
-    return null;
   }
 
   /**
    * Validate if a URL is a valid YouTube URL
    */
-  isValidYouTubeUrl(url: string): boolean {
-    return this.extractVideoId(url) !== null;
+  validate_youtube_url(url: string): YouTubeServiceResponse<boolean> {
+    const result = this.extract_video_id(url);
+    if (result.error) {
+      return { error: result.error };
+    }
+    return { data: true };
   }
 
   /**
    * Convert ISO 8601 duration to readable format (e.g., PT4M13S -> 4:13)
    */
-  private formatDuration(isoDuration: string): string {
-    const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+  private format_duration(iso_duration: string): string {
+    const match = iso_duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
     if (!match) return '0:00';
 
     const hours = parseInt(match[1]?.replace('H', '') || '0');
@@ -64,24 +94,9 @@ class YouTubeService {
   }
 
   /**
-   * Format view count to readable format (e.g., 1234567 -> 1.2M)
+   * Get the best thumbnail URL from YouTube API response
    */
-  private formatViewCount(viewCount: string): string {
-    const num = parseInt(viewCount);
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-    } else {
-      return num.toString();
-    }
-  }
-
-  /**
-   * Get the best thumbnail URL (prioritize reliable sizes)
-   */
-  private getBestThumbnail(thumbnails: any): string {
-    // Prioritize high quality but reliable thumbnail sizes
+  private get_best_thumbnail(thumbnails: any): string {
     if (thumbnails.high) {
       return thumbnails.high.url;
     } else if (thumbnails.medium) {
@@ -97,70 +112,198 @@ class YouTubeService {
   }
 
   /**
+   * Generate YouTube thumbnail URL directly from video ID (fallback method)
+   */
+  generate_thumbnail_url(video_id: string, quality: 'default' | 'hqdefault' | 'maxresdefault' = 'hqdefault'): YouTubeServiceResponse<string> {
+    try {
+      if (!video_id || !/^[a-zA-Z0-9_-]{11}$/.test(video_id)) {
+        return { error: 'Invalid YouTube video ID' };
+      }
+
+      const thumbnail_url = `https://img.youtube.com/vi/${video_id}/${quality}.jpg`;
+      return { data: thumbnail_url };
+    } catch (error) {
+      console.error('Error generating thumbnail URL:', error);
+      return { error: 'Failed to generate thumbnail URL' };
+    }
+  }
+
+  /**
+   * Format YouTube URL consistently
+   */
+  format_youtube_url(video_id: string): YouTubeServiceResponse<string> {
+    try {
+      if (!video_id || !/^[a-zA-Z0-9_-]{11}$/.test(video_id)) {
+        return { error: 'Invalid YouTube video ID' };
+      }
+
+      return { data: `https://www.youtube.com/watch?v=${video_id}` };
+    } catch (error) {
+      console.error('Error formatting YouTube URL:', error);
+      return { error: 'Failed to format YouTube URL' };
+    }
+  }
+
+  /**
+   * Get YouTube embed URL from video ID
+   */
+  get_embed_url(video_id: string, autoplay: boolean = false): YouTubeServiceResponse<string> {
+    try {
+      if (!video_id || !/^[a-zA-Z0-9_-]{11}$/.test(video_id)) {
+        return { error: 'Invalid YouTube video ID' };
+      }
+
+      const params = new URLSearchParams();
+      if (autoplay) {
+        params.append('autoplay', '1');
+      }
+
+      const queryString = params.toString();
+      const embed_url = `https://www.youtube.com/embed/${video_id}${queryString ? `?${queryString}` : ''}`;
+
+      return { data: embed_url };
+    } catch (error) {
+      console.error('Error generating embed URL:', error);
+      return { error: 'Failed to generate embed URL' };
+    }
+  }
+
+  /**
    * Fetch video metadata from YouTube API
    */
-  async getVideoData(videoId: string): Promise<YouTubeVideoData | null> {
-    if (!this.API_KEY) {
-      throw new Error('YouTube API key not configured');
-    }
-
+  async get_video_data(video_id: string): Promise<YouTubeServiceResponse<YouTubeVideoData>> {
     try {
-      const url = `${this.BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${this.API_KEY}`;
+      if (!this.API_KEY) {
+        return { error: 'YouTube API key not configured' };
+      }
+
+      if (!video_id || !/^[a-zA-Z0-9_-]{11}$/.test(video_id)) {
+        return { error: 'Invalid YouTube video ID' };
+      }
+
+      const url = `${this.BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${video_id}&key=${this.API_KEY}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
-        throw new Error(`YouTube API error: ${response.status} ${response.statusText}`);
+        return { error: `YouTube API error: ${response.status} ${response.statusText}` };
       }
 
-      const data = await response.json();
-      
-      if (!data.items || data.items.length === 0) {
-        return null; // Video not found
+      const responseData = await response.json();
+
+      if (!responseData.items || responseData.items.length === 0) {
+        return { error: 'Video not found' };
       }
 
-      const video = data.items[0];
+      const video = responseData.items[0];
       const snippet = video.snippet;
       const contentDetails = video.contentDetails;
-      const statistics = video.statistics;
 
-      return {
-        id: videoId,
+      const video_data: YouTubeVideoData = {
+        video_id,
         title: snippet.title,
         description: snippet.description,
-        thumbnailUrl: this.getBestThumbnail(snippet.thumbnails),
-        publishedAt: new Date(snippet.publishedAt).toISOString().split('T')[0], // Format as YYYY-MM-DD
-        duration: this.formatDuration(contentDetails.duration),
-        channelTitle: snippet.channelTitle
+        thumbnail_url: this.get_best_thumbnail(snippet.thumbnails),
+        published_at: new Date(snippet.publishedAt).toISOString().split('T')[0], // Format as YYYY-MM-DD
+        duration: this.format_duration(contentDetails.duration),
+        channel_title: snippet.channelTitle
       };
+
+      return { data: video_data };
     } catch (error) {
       console.error('Error fetching YouTube video data:', error);
-      throw error;
+      return { error: 'Failed to fetch video data from YouTube API' };
     }
   }
 
   /**
    * Get video data from YouTube URL
    */
-  async getVideoDataFromUrl(url: string): Promise<YouTubeVideoData | null> {
-    const videoId = this.extractVideoId(url);
-    if (!videoId) {
-      throw new Error('Invalid YouTube URL');
+  async get_video_data_from_url(url: string): Promise<YouTubeServiceResponse<YouTubeVideoData>> {
+    try {
+      const videoIdResult = this.extract_video_id(url);
+      if (videoIdResult.error) {
+        return { error: videoIdResult.error };
+      }
+
+      return this.get_video_data(videoIdResult.data!);
+    } catch (error) {
+      console.error('Error getting video data from URL:', error);
+      return { error: 'Failed to process YouTube URL' };
     }
-    return this.getVideoData(videoId);
   }
 
   /**
-   * Generate thumbnail URL directly from video ID (fallback method)
+   * Legacy method support (deprecated - use get_video_data_from_url instead)
+   * @deprecated Use get_video_data_from_url instead
    */
-  generateThumbnailUrl(videoId: string): string {
-    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  async getVideoDataFromUrl(url: string): Promise<YouTubeServiceResponse<YouTubeVideoData>> {
+    return this.get_video_data_from_url(url)
   }
 
   /**
-   * Format YouTube URL consistently
+   * Extract basic video metadata without API (for fallback)
    */
-  formatYouTubeUrl(videoId: string): string {
-    return `https://www.youtube.com/watch?v=${videoId}`;
+  extract_basic_metadata(url: string): YouTubeServiceResponse<Partial<YouTubeVideoData>> {
+    try {
+      const videoIdResult = this.extract_video_id(url);
+      if (videoIdResult.error) {
+        return { error: videoIdResult.error };
+      }
+
+      const video_id = videoIdResult.data!;
+      const thumbnailResult = this.generate_thumbnail_url(video_id);
+
+      return {
+        data: {
+          video_id,
+          thumbnail_url: thumbnailResult.data || '',
+          title: '', // Would need YouTube API to get actual title
+          description: '', // Would need YouTube API to get actual description
+          published_at: '',
+          duration: '',
+          channel_title: '',
+        }
+      };
+    } catch (error) {
+      console.error('Error extracting video metadata:', error);
+      return { error: 'Failed to extract video metadata' };
+    }
+  }
+
+  /**
+   * Legacy method support (deprecated - use snake_case methods)
+   * @deprecated Use extract_video_id instead
+   */
+  extractVideoId(url: string): string | null {
+    const result = this.extract_video_id(url);
+    return result.data || null;
+  }
+
+  /**
+   * Legacy method support (deprecated - use validate_youtube_url instead)
+   * @deprecated Use validate_youtube_url instead
+   */
+  isValidYouTubeUrl(url: string): boolean {
+    const result = this.validate_youtube_url(url);
+    return !!result.data;
+  }
+
+  /**
+   * Legacy method support (deprecated - use generate_thumbnail_url instead)
+   * @deprecated Use generate_thumbnail_url instead
+   */
+  generateThumbnailUrl(video_id: string): string {
+    const result = this.generate_thumbnail_url(video_id);
+    return result.data || '';
+  }
+
+  /**
+   * Legacy method support (deprecated - use format_youtube_url instead)
+   * @deprecated Use format_youtube_url instead
+   */
+  formatYouTubeUrl(video_id: string): string {
+    const result = this.format_youtube_url(video_id);
+    return result.data || '';
   }
 }
 

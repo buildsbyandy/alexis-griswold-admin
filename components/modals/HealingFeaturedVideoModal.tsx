@@ -3,23 +3,24 @@ import Image from 'next/image';
 import { FaTimes, FaSave, FaVideo, FaYoutube } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
+// Using snake_case to match database schema
 export interface HealingFeaturedVideo {
   id: string;
   title: string;
   description: string;
-  videoUrl: string;
-  thumbnailUrl: string;
+  video_url: string;
+  thumbnail_url: string;
   duration: string;
-  publishedAt: string;
-  isActive: boolean;
-  updatedAt: Date;
+  published_at: string;
+  is_active: boolean;
+  updated_at: Date;
 }
 
 interface HealingFeaturedVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentVideo?: HealingFeaturedVideo | null;
-  onSave: (video: Omit<HealingFeaturedVideo, 'id' | 'updatedAt'>) => Promise<void>;
+  onSave: (video: Omit<HealingFeaturedVideo, 'id' | 'updated_at'>) => Promise<void>;
 }
 
 const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({ 
@@ -31,11 +32,11 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    videoUrl: '',
-    thumbnailUrl: '',
+    video_url: '',
+    thumbnail_url: '',
     duration: '',
-    publishedAt: '',
-    isActive: true,
+    published_at: '',
+    is_active: true,
   });
 
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -45,22 +46,22 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
       setFormData({
         title: currentVideo.title,
         description: currentVideo.description,
-        videoUrl: currentVideo.videoUrl,
-        thumbnailUrl: currentVideo.thumbnailUrl,
+        video_url: currentVideo.video_url,
+        thumbnail_url: currentVideo.thumbnail_url,
         duration: currentVideo.duration,
-        publishedAt: currentVideo.publishedAt,
-        isActive: currentVideo.isActive,
+        published_at: currentVideo.published_at,
+        is_active: currentVideo.is_active,
       });
     } else {
       // Reset form for new video
       setFormData({
         title: '',
         description: '',
-        videoUrl: '',
-        thumbnailUrl: '',
+        video_url: '',
+        thumbnail_url: '',
         duration: '',
-        publishedAt: new Date().toISOString().split('T')[0],
-        isActive: true,
+        published_at: new Date().toISOString().split('T')[0],
+        is_active: true,
       });
     }
   }, [currentVideo]);
@@ -73,12 +74,12 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
 
   // Auto-generate thumbnail from YouTube URL
   const handleVideoUrlChange = (url: string) => {
-    setFormData(prev => ({ ...prev, videoUrl: url }));
-    
+    setFormData(prev => ({ ...prev, video_url: url }));
+
     const videoId = getYouTubeVideoId(url);
     if (videoId) {
-      const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-      setFormData(prev => ({ ...prev, thumbnailUrl }));
+      const thumbnail_url = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      setFormData(prev => ({ ...prev, thumbnail_url }));
     }
   };
 
@@ -90,13 +91,13 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
       return;
     }
 
-    if (!formData.videoUrl.trim()) {
+    if (!formData.video_url.trim()) {
       toast.error('Video URL is required');
       return;
     }
 
     // Validate YouTube URL
-    if (!getYouTubeVideoId(formData.videoUrl)) {
+    if (!getYouTubeVideoId(formData.video_url)) {
       toast.error('Please enter a valid YouTube URL');
       return;
     }
@@ -112,7 +113,7 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
 
   if (!isOpen) return null;
 
-  const videoId = getYouTubeVideoId(formData.videoUrl);
+  const videoId = getYouTubeVideoId(formData.video_url);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -142,7 +143,7 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
               </label>
               <input
                 type="url"
-                value={formData.videoUrl}
+                value={formData.video_url}
                 onChange={(e) => handleVideoUrlChange(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
@@ -178,7 +179,7 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
                     />
                   ) : (
                     <Image
-                      src={formData.thumbnailUrl}
+                      src={formData.thumbnail_url}
                       alt="Video thumbnail"
                       className="w-full h-auto"
                       width={480}
@@ -231,8 +232,8 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
               <label className="block text-sm font-medium text-[#383B26] mb-1">Published Date</label>
               <input
                 type="date"
-                value={formData.publishedAt}
-                onChange={(e) => setFormData(prev => ({ ...prev, publishedAt: e.target.value }))}
+                value={formData.published_at}
+                onChange={(e) => setFormData(prev => ({ ...prev, published_at: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
               />
             </div>
@@ -243,8 +244,8 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
                 <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
                     className="mr-3 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
                   />
                   <div>

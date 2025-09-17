@@ -6,6 +6,7 @@ import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
+import storefrontService from '../../lib/services/storefrontService';
 
 interface StorefrontProductModalProps {
   isOpen: boolean;
@@ -27,9 +28,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
     tags: [],
     is_alexis_pick: false,
     is_favorite: false,
-    show_in_favorites: false,
     status: 'draft',
-    sort_weight: 0,
   });
 
   const [newTag, setNewTag] = useState('');
@@ -46,11 +45,9 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
         image_path: product.image_path || '',
         description: product.description || '',
         tags: product.tags || [],
-        is_alexis_pick: product.is_alexis_pick ?? false,
-        is_favorite: product.is_favorite ?? false,
-        show_in_favorites: product.show_in_favorites ?? false,
+        is_alexis_pick: false, // Will be loaded from carousel system
+        is_favorite: false,    // Will be loaded from carousel system
         status: product.status || 'draft',
-        sort_weight: product.sort_weight || 0,
       });
     } else {
       // Reset form for new product
@@ -65,9 +62,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
         tags: [],
         is_alexis_pick: false,
         is_favorite: false,
-        show_in_favorites: false,
         status: 'draft',
-        sort_weight: 0,
       });
     }
   }, [product]);
@@ -208,15 +203,31 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   <option value="archived">Archived</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Sort Weight</label>
-                <input
-                  type="number"
-                  value={formData.sort_weight}
-                  onChange={(e) => setFormData(prev => ({ ...prev, sort_weight: parseInt(e.target.value) || 0 }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                />
-              </div>
+              {formData.is_alexis_pick && (
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
+                  <input
+                    type="number"
+                    value={formData.sort_weight ?? ''}
+                    onChange={async (e) => {
+                      const raw = e.target.value;
+                      const next = raw === '' ? undefined : (parseInt(raw, 10) || 0);
+                      setFormData(prev => ({ ...prev, sort_weight: next }));
+                      if (product?.id && formData.is_alexis_pick && next !== undefined) {
+                        try {
+                          const ok = await storefrontService.update_top_pick_order(product.id, next);
+                          if (!ok) throw new Error('Failed');
+                          toast.success('Top Pick order updated');
+                        } catch {
+                          toast.error('Failed to update Top Pick order');
+                        }
+                      }
+                    }}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  />
+                  <p className="text-xs text-gray-600 mt-1">Lower numbers appear first in the Top Picks section. Leave blank to auto-place.</p>
+                </div>
+              )}
             </div>
 
             {/* Amazon URL & Price */}
@@ -356,7 +367,23 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 <input
                   type="checkbox"
                   checked={formData.is_alexis_pick}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_alexis_pick: e.target.checked }))}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({ ...prev, is_alexis_pick: checked }));
+                    if (!product?.id) return;
+                    try {
+                      const ok = await storefrontService.set_top_pick(
+                        product.id,
+                        checked,
+                        checked ? (formData.sort_weight ?? undefined) : undefined
+                      );
+                      if (!ok) throw new Error('Failed');
+                      toast.success(checked ? "Added to Top Picks" : "Removed from Top Picks");
+                    } catch {
+                      toast.error('Failed to update Top Picks');
+                    }
+                  }}
+                  disabled={!product?.id}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Alexis&apos; Pick</span>
@@ -365,20 +392,24 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 <input
                   type="checkbox"
                   checked={formData.is_favorite}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_favorite: e.target.checked }))}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({ ...prev, is_favorite: checked }));
+                    if (!product?.id) return;
+                    try {
+                      const ok = await storefrontService.set_favorite(product.id, checked);
+                      if (!ok) throw new Error('Failed');
+                      toast.success(checked ? 'Added to Favorites' : 'Removed from Favorites');
+                    } catch {
+                      toast.error('Failed to update Favorites');
+                    }
+                  }}
+                  disabled={!product?.id}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Favorite</span>
               </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.show_in_favorites}
-                  onChange={(e) => setFormData(prev => ({ ...prev, show_in_favorites: e.target.checked }))}
-                  className="mr-2"
-                />
-                <span className="text-sm text-[#383B26]">Show in Favorites</span>
-              </label>
+              
             </div>
           </div>
 

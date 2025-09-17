@@ -1,389 +1,412 @@
-// Service for managing healing section content
-import type { HealingProduct } from '../../components/modals/HealingProductModal';
-import type { CarouselHeader } from '../../components/modals/CarouselHeaderModal';
-import type { HealingFeaturedVideo } from '../../components/modals/HealingFeaturedVideoModal';
+/**
+ * REFACTORED: Healing service with unified carousel schema
+ * - Uses existing healing carousel API endpoints
+ * - Clean interface without direct Supabase access
+ * - Maintains backward compatibility with existing UI contracts
+ */
 
-export type HealingCarouselType = 'part1' | 'part2';
+import type { Database } from '@/types/supabase.generated';
+
+// Supabase table types for products and page content
+export type HealingProductRow = Database['public']['Tables']['healing_products']['Row'];
+export type HealingProductInsert = Database['public']['Tables']['healing_products']['Insert'];
+export type HealingProductUpdate = Database['public']['Tables']['healing_products']['Update'];
+
+export type HealingPageContentRow = Database['public']['Tables']['healing_page_content']['Row'];
+export type HealingPageContentInsert = Database['public']['Tables']['healing_page_content']['Insert'];
+export type HealingPageContentUpdate = Database['public']['Tables']['healing_page_content']['Update'];
+
+export type ContentStatus = Database['public']['Enums']['content_status'];
+
+// Unified carousel types
+export type HealingPart = 'part1' | 'part2';
+
+export interface HealingHeaderDTO {
+  type: HealingPart;
+  title: string;
+  description: string;
+  is_active?: boolean;
+}
 
 export interface HealingVideo {
   id: string;
-  title: string;
-  description: string;
-  youtubeUrl: string;
-  youtubeId?: string;
-  thumbnailUrl: string;
-  duration: string;
-  carousel: HealingCarouselType;
-  order: number;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  carousel_id?: string | null;
+  youtube_url: string;
+  youtube_id: string | null;
+  video_title: string;
+  video_description: string | null;
+  video_order: number;
+  created_at?: string;
+  updated_at?: string;
+  // UI normalized fields
+  carousel?: 'part1' | 'part2';
+  isActive?: boolean;
+  order?: number;
+}
+
+// Service response type
+export interface HealingServiceResponse<T> {
+  data?: T;
+  error?: string;
+}
+
+// Legacy type aliases for backward compatibility
+export type HealingCarouselType = 'part1' | 'part2';
+export type HealingCarouselVideoRow = HealingVideo;
+
+async function json<T>(res: Response): Promise<T> {
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 class HealingService {
-  // Healing Products
-  async getAllProducts(): Promise<HealingProduct[]> {
-    try {
-      const response = await fetch('/api/healing/products');
-      if (!response.ok) throw new Error('Failed to fetch healing products');
-      const data = await response.json();
-      
-      // Map database fields to service interface
-      return (data.products || []).map((p: any) => ({
-        id: p.id,
-        name: p.product_title,
-        purpose: p.product_purpose || '',
-        howToUse: p.how_to_use || '',
-        imageUrl: p.product_image_path || '',
-        amazonUrl: p.product_link || '',
-        isActive: p.is_active || false,
-        order: p.product_order || 0,
-        createdAt: new Date(p.created_at),
-        updatedAt: new Date(p.updated_at)
-      }));
-    } catch (error) {
-      console.error('Error fetching healing products:', error);
-      return [];
-    }
-  }
-
-  async addProduct(product: Omit<HealingProduct, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
-    try {
-      const response = await fetch('/api/healing/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product)
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('Error adding healing product:', error);
-      return false;
-    }
-  }
-
-  async updateProduct(id: string, product: Partial<HealingProduct>): Promise<boolean> {
-    try {
-      const response = await fetch(`/api/healing/products/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product)
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('Error updating healing product:', error);
-      return false;
-    }
-  }
-
-  async deleteProduct(id: string): Promise<boolean> {
-    try {
-      const response = await fetch(`/api/healing/products/${id}`, {
-        method: 'DELETE'
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('Error deleting healing product:', error);
-      return false;
-    }
-  }
-
-  // Carousel Headers
-  async getCarouselHeaders(): Promise<CarouselHeader[]> {
+  // Carousel headers
+  async getHeaders(): Promise<HealingServiceResponse<Array<{ type: HealingPart; title: string; description: string; is_active: boolean }>>> {
     try {
       const response = await fetch('/api/healing/carousel-headers');
-      if (!response.ok) throw new Error('Failed to fetch carousel headers');
-      const data = await response.json();
-      
-      // Map database fields to service interface
-      return (data.headers || []).map((h: any) => ({
-        id: h.id,
-        title: h.header || '',
-        description: h.subtitle || '',
-        type: h.carousel_number === 1 ? 'part1' : 'part2',
-        isActive: true, // Always active from database perspective
-        updatedAt: new Date(h.updated_at)
-      }));
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to fetch headers' };
+      return { data: result.data || [] };
     } catch (error) {
-      console.error('Error fetching carousel headers:', error);
-      return [];
+      return { error: 'Failed to fetch carousel headers' };
     }
   }
 
-  async updateCarouselHeader(header: Omit<CarouselHeader, 'id' | 'updatedAt'>): Promise<boolean> {
+  async updateHeader(input: HealingHeaderDTO): Promise<HealingServiceResponse<boolean>> {
     try {
       const response = await fetch('/api/healing/carousel-headers', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(header)
+        body: JSON.stringify({
+          type: input.type,
+          title: input.title,
+          description: input.description,
+          is_active: input.is_active ?? true,
+        })
       });
-      return response.ok;
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to update header' };
+      return { data: true };
     } catch (error) {
-      console.error('Error updating carousel header:', error);
-      return false;
+      return { error: 'Failed to update carousel header' };
     }
   }
 
-  // Featured Video
-  async getFeaturedVideo(): Promise<HealingFeaturedVideo | null> {
+  // Carousel videos
+  async listVideos(): Promise<HealingServiceResponse<HealingVideo[]>> {
     try {
-      const response = await fetch('/api/healing/featured-video');
-      if (!response.ok) throw new Error('Failed to fetch featured video');
-      const data = await response.json();
-      
-      if (!data.video) return null;
-      
-      const v = data.video;
-      return {
-        id: v.id,
-        title: v.hero_video_title || '',
-        description: v.hero_video_subtitle || '',
-        videoUrl: v.hero_video_youtube_url || '',
-        thumbnailUrl: this.getYouTubeThumbnail(v.hero_video_youtube_url) || '',
-        duration: '', // Not stored in database
-        publishedAt: v.hero_video_date || '',
-        isActive: true,
-        updatedAt: new Date(v.updated_at)
-      };
+      const response = await fetch('/api/healing/carousel-videos');
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to fetch videos' };
+      return { data: result.data || [] };
     } catch (error) {
-      console.error('Error fetching featured video:', error);
-      return null;
+      return { error: 'Failed to fetch carousel videos' };
     }
   }
 
-  async updateFeaturedVideo(video: Omit<HealingFeaturedVideo, 'id' | 'updatedAt'>): Promise<boolean> {
+  async createVideo(payload: {
+    type: HealingPart;
+    youtube_url: string;
+    video_title?: string;
+    video_description?: string;
+    video_order?: number;
+  }): Promise<HealingServiceResponse<HealingVideo>> {
     try {
-      const response = await fetch('/api/healing/featured-video', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(video)
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('Error updating featured video:', error);
-      return false;
-    }
-  }
-
-  // Video Carousels - Using existing carousel system
-  async getAllVideos(): Promise<HealingVideo[]> {
-    try {
-      // Fetch healing carousels and their videos
-      const response = await fetch('/api/healing/carousels');
-      if (!response.ok) throw new Error('Failed to fetch healing carousels');
-      const data = await response.json();
-      
-      // Map carousel videos to healing video interface
-      const allVideos: HealingVideo[] = [];
-      
-      for (const carousel of data.carousels || []) {
-        const carouselType = carousel.carousel_number === 1 ? 'part1' : 'part2';
-        
-        for (const video of carousel.videos || []) {
-          allVideos.push({
-            id: video.id,
-            title: video.video_title || '',
-            description: video.video_description || '',
-            youtubeUrl: video.youtube_url || '',
-            youtubeId: this.extractYouTubeId(video.youtube_url || '') || undefined,
-            thumbnailUrl: this.getYouTubeThumbnail(video.youtube_url) || '',
-            duration: '', // Not stored in carousel_videos table
-            carousel: carouselType,
-            order: video.video_order || 0,
-            isActive: true, // All carousel videos are considered active
-            createdAt: new Date(video.created_at),
-            updatedAt: new Date(video.updated_at)
-          });
-        }
-      }
-      
-      return allVideos;
-    } catch (error) {
-      console.error('Error fetching healing videos:', error);
-      // Fallback to localStorage for development
-      return this.getDefaultVideos();
-    }
-  }
-
-  async getVideosByCarousel(carousel: HealingCarouselType): Promise<HealingVideo[]> {
-    const allVideos = await this.getAllVideos();
-    return allVideos
-      .filter(v => v.carousel === carousel && v.isActive)
-      .sort((a, b) => a.order - b.order);
-  }
-
-  async addVideo(video: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
-    try {
-      // Validate and process YouTube URL
-      if (!this.validateYouTubeUrl(video.youtubeUrl)) {
-        throw new Error('Invalid YouTube URL');
-      }
-
-      const youtubeId = this.extractYouTubeId(video.youtubeUrl);
-      if (!youtubeId) {
-        throw new Error('Could not extract YouTube ID from URL');
-      }
-
-      // Convert carousel type to carousel number
-      const carouselNumber = video.carousel === 'part1' ? 1 : 2;
-
+      const carousel_number = payload.type === 'part1' ? 1 : 2;
       const response = await fetch('/api/healing/carousel-videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          page_type: 'healing',
-          carousel_number: carouselNumber,
-          youtube_url: video.youtubeUrl,
-          video_title: video.title,
-          video_description: video.description,
-          video_order: video.order
-        })
+          carousel_number,
+          youtube_url: payload.youtube_url,
+          video_title: payload.video_title,
+          video_description: payload.video_description,
+          video_order: payload.video_order || 1,
+        }),
       });
-
-      return response.ok;
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to create video' };
+      return { data: result.data };
     } catch (error) {
-      console.error('Error adding healing video:', error);
-      return false;
+      return { error: 'Failed to create carousel video' };
     }
   }
 
-  async updateVideo(id: string, video: Partial<HealingVideo>): Promise<boolean> {
+  async updateVideo(id: string, patch: Partial<{ youtube_url: string; video_order: number; type: HealingPart }>): Promise<HealingServiceResponse<boolean>> {
     try {
-      const updateData: any = {};
-      
-      if (video.title !== undefined) updateData.video_title = video.title;
-      if (video.description !== undefined) updateData.video_description = video.description;
-      if (video.order !== undefined) updateData.video_order = video.order;
-
-      // Handle YouTube URL updates
-      if (video.youtubeUrl !== undefined) {
-        if (!this.validateYouTubeUrl(video.youtubeUrl)) {
-          throw new Error('Invalid YouTube URL');
-        }
-        updateData.youtube_url = video.youtubeUrl;
-      }
-
-      // Handle carousel changes (requires moving to different carousel)
-      if (video.carousel !== undefined) {
-        const carouselNumber = video.carousel === 'part1' ? 1 : 2;
-        updateData.carousel_number = carouselNumber;
-      }
+      const updatePayload: any = {};
+      if (patch.youtube_url) updatePayload.youtube_url = patch.youtube_url;
+      if (patch.video_order) updatePayload.video_order = patch.video_order;
+      if (patch.type) updatePayload.carousel_number = patch.type === 'part1' ? 1 : 2;
 
       const response = await fetch(`/api/healing/carousel-videos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(updatePayload),
       });
-
-      return response.ok;
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to update video' };
+      return { data: true };
     } catch (error) {
-      console.error('Error updating healing video:', error);
-      return false;
+      return { error: 'Failed to update carousel video' };
     }
   }
 
-  async deleteVideo(id: string): Promise<boolean> {
+  async deleteVideo(id: string): Promise<HealingServiceResponse<boolean>> {
     try {
       const response = await fetch(`/api/healing/carousel-videos/${id}`, {
         method: 'DELETE'
       });
-      return response.ok;
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to delete video' };
+      return { data: true };
     } catch (error) {
-      console.error('Error deleting healing video:', error);
-      return false;
+      return { error: 'Failed to delete carousel video' };
     }
   }
 
-  // Default videos for development/fallback
-  private getDefaultVideos(): HealingVideo[] {
-    return [
-      {
-        id: '1',
-        title: 'Candida Cleanse Introduction',
-        description: 'Understanding the candida cleansing process and what to expect',
-        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        youtubeId: 'dQw4w9WgXcQ',
-        thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-        duration: '12:45',
-        carousel: 'part1',
-        order: 1,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: '2',
-        title: 'Anti-Candida Diet Plan',
-        description: 'Foods to eat and avoid during your candida cleanse',
-        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        youtubeId: 'dQw4w9WgXcQ',
-        thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-        duration: '8:30',
-        carousel: 'part1',
-        order: 2,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: '3',
-        title: 'Gut Microbiome Restoration',
-        description: 'How to rebuild healthy gut bacteria after cleansing',
-        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        youtubeId: 'dQw4w9WgXcQ',
-        thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-        duration: '10:20',
-        carousel: 'part2',
-        order: 1,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: '4',
-        title: 'Probiotic Foods Guide',
-        description: 'Essential probiotic foods for gut health recovery',
-        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        youtubeId: 'dQw4w9WgXcQ',
-        thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-        duration: '14:20',
-        carousel: 'part2',
-        order: 2,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+  // Legacy method for backward compatibility
+  async updateCarouselHeader(input: { type: 'part1' | 'part2'; title: string; description: string; is_active?: boolean }): Promise<boolean> {
+    const result = await this.updateHeader(input);
+    return !result.error;
+  }
+  // Products
+  async get_healing_products(): Promise<HealingServiceResponse<HealingProductRow[]>> {
+    try {
+      const response = await fetch('/api/healing/products');
+      if (!response.ok) {
+        return { error: `Failed to fetch healing products: ${response.statusText}` };
       }
-    ];
-  }
-
-  // YouTube utility methods
-  private validateYouTubeUrl(url: string): boolean {
-    const youTubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)[\w\-]{11}/;
-    return youTubeRegex.test(url);
-  }
-
-  private extractYouTubeId(url: string): string | null {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /youtube\.com\/watch\?.*v=([^&\n?#]+)/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
+      const data = await response.json();
+      return { data: data.data || [] };
+    } catch (error) {
+      console.error('Error fetching healing products:', error);
+      return { error: 'Failed to fetch healing products' };
     }
-    return null;
   }
 
-  // Helper method to extract YouTube thumbnail
-  private getYouTubeThumbnail(url: string): string | null {
-    if (!url) return null;
-    const videoId = this.getYouTubeVideoId(url);
-    return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+  async get_healing_product_by_id(id: string): Promise<HealingServiceResponse<HealingProductRow | null>> {
+    try {
+      const response = await fetch(`/api/healing/products/${id}`);
+      if (response.status === 404) {
+        return { data: null };
+      }
+      if (!response.ok) {
+        return { error: `Failed to fetch healing product: ${response.statusText}` };
+      }
+      const data = await response.json();
+      return { data: data.data };
+    } catch (error) {
+      console.error('Error fetching healing product:', error);
+      return { error: 'Failed to fetch healing product' };
+    }
   }
 
-  private getYouTubeVideoId(url: string): string | null {
-    const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-    return match ? match[1] : null;
+  async create_healing_product(input: HealingProductInsert): Promise<HealingServiceResponse<HealingProductRow>> {
+    try {
+      const response = await fetch('/api/healing/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_title: input.product_title,
+          product_purpose: input.product_purpose || null,
+          how_to_use: input.how_to_use || null,
+          product_image_path: input.product_image_path || null,
+          amazon_url: input.amazon_url || null,
+          is_active: input.is_active || null,
+          product_order: input.product_order || null,
+          status: input.status || 'draft'
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        return { error: error?.error || 'Failed to create healing product' };
+      }
+
+      const data = await response.json();
+      return { data: data.data };
+    } catch (error) {
+      console.error('Error creating healing product:', error);
+      return { error: 'Failed to create healing product' };
+    }
+  }
+
+  async update_healing_product(id: string, input: HealingProductUpdate): Promise<HealingServiceResponse<HealingProductRow>> {
+    try {
+      const response = await fetch(`/api/healing/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input)
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        return { error: error?.error || 'Failed to update healing product' };
+      }
+
+      const data = await response.json();
+      return { data: data.data };
+    } catch (error) {
+      console.error('Error updating healing product:', error);
+      return { error: 'Failed to update healing product' };
+    }
+  }
+
+  async delete_healing_product(id: string): Promise<HealingServiceResponse<void>> {
+    try {
+      const response = await fetch(`/api/healing/products/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        return { error: error?.error || 'Failed to delete healing product' };
+      }
+
+      return { data: undefined };
+    } catch (error) {
+      console.error('Error deleting healing product:', error);
+      return { error: 'Failed to delete healing product' };
+    }
+  }
+
+
+  // Featured video (healing_page_content)
+  async get_featured_video(): Promise<HealingServiceResponse<HealingPageContentRow | null>> {
+    try {
+      const response = await fetch('/api/healing/featured-video');
+      if (response.status === 404) {
+        return { data: null };
+      }
+      if (!response.ok) {
+        return { error: `Failed to fetch featured video: ${response.statusText}` };
+      }
+      const data = await response.json();
+      return { data: data.data };
+    } catch (error) {
+      console.error('Error fetching featured video:', error);
+      return { error: 'Failed to fetch featured video' };
+    }
+  }
+
+  async upsert_featured_video(input: {
+    hero_video_title?: string;
+    hero_video_subtitle?: string;
+    hero_video_date?: string;
+    hero_video_youtube_url?: string;
+  }): Promise<HealingServiceResponse<HealingPageContentRow>> {
+    try {
+      const response = await fetch('/api/healing/featured-video', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hero_video_title: input.hero_video_title || null,
+          hero_video_subtitle: input.hero_video_subtitle || null,
+          hero_video_date: input.hero_video_date || null,
+          hero_video_youtube_url: input.hero_video_youtube_url || null
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        return { error: error?.error || 'Failed to update featured video' };
+      }
+
+      const data = await response.json();
+      return { data: data.data };
+    } catch (error) {
+      console.error('Error updating featured video:', error);
+      return { error: 'Failed to update featured video' };
+    }
+  }
+
+  // Legacy method support for existing code
+  async getHealingProducts(): Promise<HealingProductRow[]> {
+    const result = await this.get_healing_products();
+    if (result.error) throw new Error(result.error);
+    return result.data || [];
+  }
+
+  async getHealingProductById(id: string): Promise<HealingProductRow | null> {
+    const result = await this.get_healing_product_by_id(id);
+    if (result.error) throw new Error(result.error);
+    return result.data || null;
+  }
+
+  async createHealingProduct(input: HealingProductInsert): Promise<HealingProductRow> {
+    const result = await this.create_healing_product(input);
+    if (result.error) throw new Error(result.error);
+    return result.data!;
+  }
+
+  async updateHealingProduct(id: string, input: HealingProductUpdate): Promise<HealingProductRow> {
+    const result = await this.update_healing_product(id, input);
+    if (result.error) throw new Error(result.error);
+    return result.data!;
+  }
+
+  async deleteHealingProduct(id: string): Promise<void> {
+    const result = await this.delete_healing_product(id);
+    if (result.error) throw new Error(result.error);
+  }
+
+  async getHealingCarouselVideos(): Promise<HealingVideo[]> {
+    const result = await this.listVideos();
+    if (result.error) throw new Error(result.error);
+    return result.data || [];
+  }
+
+  async createHealingCarouselVideo(input: { carousel_number: number; youtube_url: string; video_title: string; video_description?: string; video_order?: number }): Promise<HealingVideo> {
+    const type: HealingPart = input.carousel_number === 1 ? 'part1' : 'part2';
+    const result = await this.createVideo({
+      type,
+      youtube_url: input.youtube_url,
+      video_title: input.video_title,
+      video_description: input.video_description,
+      video_order: input.video_order
+    });
+    if (result.error) throw new Error(result.error);
+    return result.data!;
+  }
+
+  async updateHealingCarouselVideo(id: string, input: { carousel_number?: number; youtube_url?: string; video_order?: number }): Promise<HealingVideo> {
+    const patch: Partial<{ youtube_url: string; video_order: number; type: HealingPart }> = {};
+    if (input.youtube_url) patch.youtube_url = input.youtube_url;
+    if (input.video_order) patch.video_order = input.video_order;
+    if (input.carousel_number) patch.type = input.carousel_number === 1 ? 'part1' : 'part2';
+
+    const result = await this.updateVideo(id, patch);
+    if (result.error) throw new Error(result.error);
+
+    // Return updated video from list
+    const videos = await this.listVideos();
+    if (videos.error) throw new Error(videos.error);
+    const updated = (videos.data || []).find(v => v.id === id);
+    if (!updated) throw new Error('Updated video not found');
+    return updated;
+  }
+
+  async deleteHealingCarouselVideo(id: string): Promise<void> {
+    const result = await this.deleteVideo(id);
+    if (result.error) throw new Error(result.error);
+  }
+
+  // Additional legacy methods
+  async getAllProducts(): Promise<HealingProductRow[]> {
+    return this.getHealingProducts();
+  }
+
+  async getAllVideos(): Promise<HealingVideo[]> {
+    return this.getHealingCarouselVideos();
+  }
+
+  async deleteVideo(id: string): Promise<void> {
+    return this.deleteHealingCarouselVideo(id);
+  }
+
+  async deleteProduct(id: string): Promise<void> {
+    return this.deleteHealingProduct(id);
   }
 }
 

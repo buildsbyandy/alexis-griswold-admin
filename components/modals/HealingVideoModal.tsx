@@ -1,101 +1,96 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaVideo } from 'react-icons/fa';
 import type { HealingVideo, HealingCarouselType } from '../../lib/services/healingService';
+import { healingService } from '../../lib/services/healingService';
 import toast from 'react-hot-toast';
 
 interface HealingVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   video?: HealingVideo | null;
-  onSave: (video: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onSave: (video: HealingVideo) => Promise<void>;
+  carouselNumber?: number;
 }
 
-const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, video, onSave }) => {
+const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
+  isOpen,
+  onClose,
+  video,
+  onSave,
+  carouselNumber: propCarouselNumber
+}) => {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    youtubeUrl: '',
-    thumbnailUrl: '',
-    duration: '',
-    views: '',
-    carousel: 'part1' as HealingCarouselType,
-    order: 0,
-    isActive: true
+    youtube_url: '',
+    video_title: '',
+    video_description: '',
+    video_order: 1,
   });
+
+  const [carouselNumber, setCarouselNumber] = useState(1);
 
   useEffect(() => {
     if (video) {
       setFormData({
-        title: video.title,
-        description: video.description,
-        youtubeUrl: video.youtubeUrl,
-        thumbnailUrl: video.thumbnailUrl,
-        duration: video.duration,
-        views: '',
-        carousel: video.carousel,
-        order: video.order,
-        isActive: video.isActive
+        youtube_url: video.youtube_url || '',
+        video_title: video.video_title || '',
+        video_description: video.video_description || '',
+        video_order: video.video_order || 1,
       });
     } else {
       // Reset form for new video
       setFormData({
-        title: '',
-        description: '',
-        youtubeUrl: '',
-        thumbnailUrl: '',
-        duration: '',
-        views: '',
-        carousel: 'part1',
-        order: 0,
-        isActive: true
+        youtube_url: '',
+        video_title: '',
+        video_description: '',
+        video_order: 1,
       });
     }
-  }, [video]);
 
-  // Extract YouTube video ID from URL
-  const extractYouTubeId = (url: string): string | null => {
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-  };
-
-  // Get YouTube thumbnail URL
-  const getYouTubeThumbnail = (url: string): string => {
-    const videoId = extractYouTubeId(url);
-    return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
-  };
+    if (propCarouselNumber) {
+      setCarouselNumber(propCarouselNumber);
+    }
+  }, [video, propCarouselNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.title.trim()) {
+
+    if (!formData.video_title.trim()) {
       toast.error('Video title is required');
       return;
     }
 
-    if (!formData.youtubeUrl.trim()) {
+    if (!formData.youtube_url.trim()) {
       toast.error('YouTube URL is required');
       return;
     }
 
     // Validate YouTube URL format
-    const youTubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)[\w\-]{11}/;
-    if (!youTubeRegex.test(formData.youtubeUrl)) {
+    const youTubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)/;
+    if (!youTubeRegex.test(formData.youtube_url)) {
       toast.error('Please enter a valid YouTube URL');
       return;
     }
 
-    // Auto-extract YouTube thumbnail if no custom thumbnail provided
-    const submitData = {
-      ...formData,
-      thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl)
-    };
-
     try {
-      await onSave(submitData);
+      if (video?.id) {
+        // Update existing video
+        const updatedVideo = await healingService.updateHealingCarouselVideo(video.id, {
+          ...formData,
+          carousel_number: carouselNumber
+        });
+        await onSave(updatedVideo);
+      } else {
+        // Create new video
+        const newVideo = await healingService.createHealingCarouselVideo({
+          ...formData,
+          carousel_number: carouselNumber
+        });
+        await onSave(newVideo);
+      }
       onClose();
       toast.success(`Video ${video ? 'updated' : 'created'} successfully!`);
     } catch (error) {
+      console.error('Error saving video:', error);
       toast.error(`Failed to ${video ? 'update' : 'create'} video`);
     }
   };
@@ -128,109 +123,66 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({ isOpen, onClose, 
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Video Title *</label>
                 <input
                   type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  value={formData.video_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_title: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="e.g., Day 1: Starting Your Candida Cleanse Journey"
                   required
                 />
                 <p className="text-xs text-gray-600 mt-1">Clear, descriptive title for this healing video</p>
               </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
                 <input
                   type="url"
-                  value={formData.youtubeUrl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, youtubeUrl: e.target.value }))}
+                  value={formData.youtube_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, youtube_url: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="https://www.youtube.com/watch?v=..."
                   required
                 />
                 <p className="text-xs text-[#8F907E] mt-1">Paste any YouTube video URL. Thumbnail will be auto-generated.</p>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel *</label>
                 <select
-                  value={formData.carousel}
-                  onChange={(e) => setFormData(prev => ({ ...prev, carousel: e.target.value as HealingCarouselType }))}
+                  value={carouselNumber}
+                  onChange={(e) => setCarouselNumber(parseInt(e.target.value))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   required
                 >
-                  <option value="part1">Gut Healing Part 1: Candida Cleanse</option>
-                  <option value="part2">Gut Healing Part 2: Rebuild & Repair</option>
+                  <option value={1}>Gut Healing Part 1: Candida Cleanse</option>
+                  <option value={2}>Gut Healing Part 2: Rebuild & Repair</option>
                 </select>
                 <p className="text-xs text-[#8F907E] mt-1">Choose which carousel this video belongs to.</p>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
+                  value={formData.video_order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_order: parseInt(e.target.value) || 1 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  min="0"
-                  placeholder="0"
+                  min="1"
+                  max="5"
+                  placeholder="1"
                 />
-                <p className="text-xs text-gray-600 mt-1">Lower numbers appear first in the carousel</p>
+                <p className="text-xs text-gray-600 mt-1">Order in the carousel (1-5)</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Duration</label>
-                <input
-                  type="text"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="e.g., 12:45"
-                />
-                <p className="text-xs text-gray-600 mt-1">Video length in MM:SS format</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Views</label>
-                <input
-                  type="text"
-                  value={formData.views}
-                  onChange={(e) => setFormData(prev => ({ ...prev, views: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="e.g., 2.4K"
-                />
-                <p className="text-xs text-gray-600 mt-1">YouTube view count (e.g., 1.2K, 450, 2.1M)</p>
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-                  className="mr-2"
-                />
-                <label htmlFor="isActive" className="text-sm font-medium text-[#383B26]">
-                  Show on website
-                </label>
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Brief description of what this healing video covers..."
-              />
-              <p className="text-xs text-gray-600 mt-1">1-2 sentences about the video content and what viewers will learn</p>
-            </div>
-
-            {/* Optional custom thumbnail */}
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Custom Thumbnail URL</label>
-              <input
-                type="url"
-                value={formData.thumbnailUrl}
-                onChange={(e) => setFormData(prev => ({ ...prev, thumbnailUrl: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="https://example.com/custom-thumbnail.jpg (optional)"
-              />
-              <p className="text-xs text-gray-600 mt-1">Override YouTube&apos;s auto-generated thumbnail. Leave blank to automatically use YouTube&apos;s default thumbnail.</p>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-[#383B26] mb-1">Description</label>
+                <textarea
+                  value={formData.video_description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_description: e.target.value }))}
+                  className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  placeholder="Brief description of what this healing video covers..."
+                />
+                <p className="text-xs text-gray-600 mt-1">1-2 sentences about the video content and what viewers will learn</p>
+              </div>
             </div>
           </div>
 

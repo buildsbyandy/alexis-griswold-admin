@@ -11,7 +11,7 @@ export interface VlogVideo {
   title: string;
   description: string;
   youtubeUrl: string;
-  youtubeId?: string;
+  youtubeId: string | null;
   thumbnailUrl: string;
   publishedAt: string;
   duration: string;

@@ -13,12 +13,18 @@ interface PhotoAlbumModalProps {
   onSave: (album: Omit<PhotoAlbum, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
 }
 
+type PhotoCategory = 'Home' | 'Lifestyle' | 'Food' | 'Travel' | 'Wellness' | 'Fitness';
+
+const isValidCategory = (category: string): category is PhotoCategory => {
+  return ['Home', 'Lifestyle', 'Food', 'Travel', 'Wellness', 'Fitness'].includes(category);
+};
+
 const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, album, onSave }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     coverImage: '',
-    category: 'Lifestyle' as 'Lifestyle' | 'Food' | 'Travel' | 'Wellness' | 'Fitness' | 'Home',
+    category: 'Lifestyle' as PhotoCategory,
     date: '',
     isFeatured: false,
     order: 0,
@@ -39,7 +45,7 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
         title: album.title,
         description: album.description,
         coverImage: album.coverImage,
-        category: album.category,
+        category: isValidCategory(album.category) ? album.category : 'Lifestyle',
         date: album.date,
         isFeatured: album.isFeatured,
         order: album.order,
