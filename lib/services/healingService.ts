@@ -401,9 +401,6 @@ class HealingService {
     return this.getHealingCarouselVideos();
   }
 
-  async deleteVideo(id: string): Promise<void> {
-    return this.deleteHealingCarouselVideo(id);
-  }
 
   async deleteProduct(id: string): Promise<void> {
     return this.deleteHealingProduct(id);
