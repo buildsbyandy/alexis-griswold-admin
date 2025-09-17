@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import type { Json } from '@/types/supabase.generated'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
@@ -28,6 +29,41 @@ interface VideoHistoryItem {
   uploaded_at: string;
   title: string;
   size?: number;
+}
+
+// Helper function to validate VideoHistoryItem structure
+function isValidHistoryItem(item: any): item is VideoHistoryItem {
+  return item &&
+         typeof item === 'object' &&
+         typeof item.path === 'string' &&
+         typeof item.uploaded_at === 'string' &&
+         typeof item.title === 'string';
+}
+
+// Helper function to safely parse and validate video history
+function parseVideoHistory(rawHistory: any): VideoHistoryItem[] {
+  let parsed: any[] = [];
+
+  if (Array.isArray(rawHistory)) {
+    parsed = rawHistory;
+  } else if (typeof rawHistory === 'string') {
+    try {
+      parsed = JSON.parse(rawHistory);
+    } catch (e) {
+      console.error('Failed to parse video history JSON:', e);
+      return [];
+    }
+  } else {
+    return [];
+  }
+
+  // Validate and filter items
+  const validItems = parsed.filter(isValidHistoryItem);
+  if (validItems.length !== parsed.length) {
+    console.warn(`Video history contained ${parsed.length - validItems.length} invalid items, filtered out`);
+  }
+
+  return validItems.slice(0, 3); // Ensure max 3 items
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -98,29 +134,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single()
     
     // Manage video history (max 3 items)
-    let videoHistory: VideoHistoryItem[] = []
-    if (currentData?.video_history) {
-      if (Array.isArray(currentData.video_history)) {
-        videoHistory = currentData.video_history as unknown as VideoHistoryItem[]
-      } else if (typeof currentData.video_history === 'string') {
-        videoHistory = JSON.parse(currentData.video_history)
-      } else {
-        videoHistory = []
-      }
-    }
-    
+    let videoHistory = parseVideoHistory(currentData?.video_history);
+    let historyMessages: string[] = [];
+
     // Add current video to history if it's different from new video
     const newVideoPath = content.background_video_path || content.videoBackground;
     if (currentData?.background_video_path && currentData.background_video_path !== newVideoPath) {
-      const historyItem: VideoHistoryItem = {
-        path: currentData.background_video_path,
-        uploaded_at: new Date().toISOString(),
-        title: currentData.video_title || 'Previous Video'
+      // Check for duplicates
+      const isDuplicate = videoHistory.some(item => item.path === currentData.background_video_path);
+
+      if (!isDuplicate) {
+        const historyItem: VideoHistoryItem = {
+          path: currentData.background_video_path,
+          uploaded_at: new Date().toISOString(),
+          title: currentData.video_title || 'Previous Video'
+        }
+
+        const originalLength = videoHistory.length;
+        videoHistory.unshift(historyItem);
+
+        // Keep max 3 items
+        if (videoHistory.length > 3) {
+          const removedItem = videoHistory[3];
+          videoHistory = videoHistory.slice(0, 3);
+          console.log(`Video history limit reached. Removed oldest video: ${removedItem.title}`);
+          historyMessages.push(`Video history is full (3 videos max). Oldest video "${removedItem.title}" was removed.`);
+        }
+
+        console.log(`Added video to history: ${historyItem.title}. History now contains ${videoHistory.length} videos.`);
+        if (originalLength === 0) {
+          historyMessages.push('Started video history tracking.');
+        }
+      } else {
+        console.log(`Video already exists in history, skipping duplicate: ${currentData.background_video_path}`);
       }
-      
-      // Add to front, keep max 3
-      videoHistory.unshift(historyItem)
-      videoHistory = videoHistory.slice(0, 3)
     }
     
     // First, unpublish all existing records
@@ -155,7 +202,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Supabase upsert error:', error);
       return res.status(500).json({ error: 'Failed to update home content', details: error });
     }
-    return res.status(200).json({ content: data })
+
+    // Include history messages in response for UI feedback
+    const response: any = { content: data };
+    if (historyMessages.length > 0) {
+      response.historyMessages = historyMessages;
+    }
+
+    return res.status(200).json(response);
   }
 
   if (req.method === 'DELETE') {
@@ -178,17 +232,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!currentData) return res.status(404).json({ error: 'Home content not found' })
     
     // Remove from video history
-    let videoHistory: VideoHistoryItem[] = []
-    if (currentData.video_history) {
-      if (Array.isArray(currentData.video_history)) {
-        videoHistory = currentData.video_history as unknown as VideoHistoryItem[]
-      } else if (typeof currentData.video_history === 'string') {
-        videoHistory = JSON.parse(currentData.video_history)
-      } else {
-        videoHistory = []
-      }
-      
-      videoHistory = videoHistory.filter(item => item.path !== videoPath)
+    let videoHistory = parseVideoHistory(currentData.video_history);
+    const originalLength = videoHistory.length;
+    videoHistory = videoHistory.filter(item => item.path !== videoPath);
+
+    if (videoHistory.length < originalLength) {
+      console.log(`Removed video from history: ${videoPath}. History now contains ${videoHistory.length} videos.`);
+    } else {
+      console.log(`Video not found in history: ${videoPath}`);
     }
     
     // Delete from Supabase Storage
