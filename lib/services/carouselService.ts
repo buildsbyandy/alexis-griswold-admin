@@ -9,7 +9,15 @@ export type CarouselItemRow = Database['public']['Tables']['carousel_items']['Ro
 export type CarouselItemInsert = Database['public']['Tables']['carousel_items']['Insert']
 export type CarouselItemUpdate = Database['public']['Tables']['carousel_items']['Update']
 
-export type VCarouselItemRow = Database['public']['Tables']['v_carousel_items']['Row']
+// Extended type for carousel items with carousel metadata
+export type VCarouselItemRow = CarouselItemRow & {
+  carousel_slug?: string | null;
+  page?: PageType | null;
+  carousels?: {
+    page: PageType;
+    slug: string;
+  } | null;
+}
 
 export type PageType = Database['public']['Enums']['page_type']
 
@@ -62,11 +70,30 @@ export async function getCarouselItems(carouselId: string): Promise<ServiceResul
 
 export async function listViewItems(page: PageType, slug?: string): Promise<ServiceResult<VCarouselItemRow[]>> {
 	try {
-		let query = supabase.from('v_carousel_items').select('*').eq('page', page)
-		if (slug) query = query.eq('carousel_slug', slug)
+		// Join carousel_items with carousels to get page and slug info
+		let query = supabase
+			.from('carousel_items')
+			.select(`
+				*,
+				carousels!inner(page, slug)
+			`)
+			.eq('carousels.page', page)
+
+		if (slug) {
+			query = query.eq('carousels.slug', slug)
+		}
+
 		const { data, error } = await query.order('order_index', { ascending: true })
 		if (error) return { error: error.message }
-		return { data: data || [] }
+
+		// Transform the joined data to match the expected format
+		const transformed = (data || []).map(item => ({
+			...item,
+			carousel_slug: item.carousels?.slug || null,
+			page: item.carousels?.page || null
+		}))
+
+		return { data: transformed }
 	} catch (e) {
 		return { error: 'Failed to fetch carousel view items' }
 	}
@@ -115,7 +142,11 @@ export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Prom
 }>>> {
   try {
     // View gives quick access to items; enrich with product metadata
-    const view = await supabase.from('v_carousel_items').select('*').eq('page', 'storefront').eq('carousel_slug', slug)
+    const view = await supabase
+      .from('carousel_items')
+      .select(`*, carousels!inner(page, slug)`)
+      .eq('carousels.page', 'storefront')
+      .eq('carousels.slug', slug)
     if (view.error) return { error: view.error.message }
 
     const refIds = (view.data || []).map(v => v.ref_id).filter(Boolean) as string[]
@@ -130,7 +161,7 @@ export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Prom
       const p = v.ref_id ? byId.get(v.ref_id) : null
       return {
         id: v.id!,
-        carousel_slug: v.carousel_slug,
+        carousel_slug: v.carousels?.slug || null,
         order_index: v.order_index,
         ref_id: v.ref_id,
         caption: v.caption || (p?.product_title ?? null),
