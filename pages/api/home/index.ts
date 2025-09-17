@@ -101,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let videoHistory: VideoHistoryItem[] = []
     if (currentData?.video_history) {
       if (Array.isArray(currentData.video_history)) {
-        videoHistory = currentData.video_history
+        videoHistory = currentData.video_history as unknown as VideoHistoryItem[]
       } else if (typeof currentData.video_history === 'string') {
         videoHistory = JSON.parse(currentData.video_history)
       } else {
@@ -181,7 +181,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let videoHistory: VideoHistoryItem[] = []
     if (currentData.video_history) {
       if (Array.isArray(currentData.video_history)) {
-        videoHistory = currentData.video_history
+        videoHistory = currentData.video_history as unknown as VideoHistoryItem[]
       } else if (typeof currentData.video_history === 'string') {
         videoHistory = JSON.parse(currentData.video_history)
       } else {
