@@ -138,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       hero_subtitle: content.hero_subtitle || content.heroSubtitle || 'Experience wellness, recipes, and lifestyle content',
       video_title: content.video_title || content.videoTitle || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
       video_description: content.video_description || content.videoDescription || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
-      video_history: videoHistory,
+      video_history: videoHistory as unknown as Json,
       is_published: true,
       updated_at: new Date().toISOString()
     };
@@ -221,8 +221,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Update database
     const { error } = await supabaseAdmin
       .from('home_content')
-      .update({ 
-        video_history: videoHistory,
+      .update({
+        video_history: videoHistory as unknown as Json,
         updated_at: new Date().toISOString() 
       })
       .eq('id', '00000000-0000-0000-0000-000000000001')
