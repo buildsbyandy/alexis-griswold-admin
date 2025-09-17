@@ -1,3 +1,4 @@
+import type { Database } from '@/types/supabase.generated'
 import { youtubeService } from './youtubeService'
 import {
   findCarouselByPageSlug,
@@ -8,18 +9,12 @@ import {
   deleteCarouselItem,
 } from './carouselService'
 
-export interface RecipeHeroVideoRow {
-  id: string
-  youtube_url: string
-  video_title: string | null
-  video_description: string | null
-  video_order: number
-  video_thumbnail_url: string | null
-  video_type: string | null
-  is_active: boolean | null
-  created_at?: string
-  updated_at?: string
-}
+type Tables = Database['public']['Tables'];
+
+export type RecipeHeroVideoRow    = Tables['recipe_hero_videos']['Row'];
+export type RecipeHeroVideoInsert = Tables['recipe_hero_videos']['Insert'];
+export type RecipeHeroVideoUpdate = Tables['recipe_hero_videos']['Update'];
+
 
 const RECIPES_HERO_SLUG = 'recipes-hero'
 
@@ -80,12 +75,7 @@ export async function getRecipeHeroVideoById(id: string): Promise<RecipeHeroVide
   }
 }
 
-export async function createRecipeHeroVideo(input: {
-  youtube_url: string
-  video_title?: string | null
-  video_description?: string | null
-  video_order?: number | null
-}): Promise<RecipeHeroVideoRow> {
+export async function createRecipeHeroVideo(input: RecipeHeroVideoInsert): Promise<RecipeHeroVideoRow> {
   const idRes = youtubeService.extract_video_id(input.youtube_url)
   if (idRes.error) throw new Error(idRes.error)
   const youtube_id = idRes.data!

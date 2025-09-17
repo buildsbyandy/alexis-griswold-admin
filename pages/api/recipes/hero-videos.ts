@@ -3,12 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import type { Database } from '@/types/supabase.generated'
-import { 
-  getRecipeHeroVideos,
+import {
   createRecipeHeroVideo,
+  getRecipeHeroVideos,
   type RecipeHeroVideoRow,
-  type RecipeHeroVideoInsert
-} from '../../../lib/services/recipeHeroService'
+  type RecipeHeroVideoInsert,
+} from '@/lib/services/recipeHeroService'
 import { youtubeService } from '../../../lib/services/youtubeService'
 
 export const config = { runtime: 'nodejs' }
