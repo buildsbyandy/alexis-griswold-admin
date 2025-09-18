@@ -63,13 +63,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let derivedType: string | null = null
       try {
         const meta = await youtubeService.getVideoDataFromUrl(youtube_url)
-        if (meta) {
-          if (!resolvedTitle?.trim()) resolvedTitle = meta.title
-          if (!thumbnailUrl) thumbnailUrl = meta.thumbnailUrl
+        if (meta && meta.data) {
+          const vd = meta.data
+          if (!resolvedTitle?.trim()) resolvedTitle = vd.title
+          if (!thumbnailUrl) thumbnailUrl = vd.thumbnail_url
           // Heuristic: treat as short if URL uses /shorts/ or duration <= 75s
           const isShortUrl = /\/shorts\//.test(youtube_url)
-          const mmss = meta.duration.split(':').map(Number)
-          const seconds = mmss.length === 2 ? mmss[0] * 60 + mmss[1] : (mmss[0] || 0)
+          const mmss = (vd.duration || '').split(':').map(Number)
+          const seconds = mmss.length === 2 ? (mmss[0] || 0) * 60 + (mmss[1] || 0) : (mmss[0] || 0)
           derivedType = (isShortUrl || seconds <= 75) ? 'short' : 'video'
         }
       } catch {}
