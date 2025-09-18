@@ -50,9 +50,12 @@ const FeaturedVideoSelectorModal = <T extends HealingVideo | VlogVideo>({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {videos.map((video) => {
                 const isSelected = currentFeaturedVideoId === video.id;
-                const thumbnailUrl = 'thumbnailUrl' in video && video.thumbnailUrl 
-                  ? video.thumbnailUrl
-                  : ('thumbnail_url' in video && typeof video.thumbnail_url === 'string' ? video.thumbnail_url : '');
+                const thumbnailUrl: string =
+                  typeof (video as any).thumbnailUrl === 'string' && (video as any).thumbnailUrl
+                    ? (video as any).thumbnailUrl
+                    : typeof (video as any).thumbnail_url === 'string'
+                      ? (video as any).thumbnail_url
+                      : '';
 
                 return (
                   <div
@@ -65,7 +68,7 @@ const FeaturedVideoSelectorModal = <T extends HealingVideo | VlogVideo>({
                     }`}
                   >
                     <div className="aspect-video bg-gray-100 relative">
-                      {thumbnailUrl && thumbnailUrl.length > 0 ? (
+                      {thumbnailUrl ? (
                         <Image
                           src={thumbnailUrl}
                           alt={'title' in video ? video.title : video.video_title}
