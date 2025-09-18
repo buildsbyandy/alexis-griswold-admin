@@ -10,7 +10,7 @@ interface RecipeModalProps {
   isOpen: boolean;
   onClose: () => void;
   recipe?: Recipe | null;
-  onSave: (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onSave: (recipe: Omit<Recipe, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
 }
 
 type RecipeDifficulty = 'Easy' | 'Medium' | 'Hard';
@@ -25,12 +25,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     slug: '',
     description: '',
     category: '',
-    folder: 'breakfast',
-    isBeginner: false,
-    isRecipeOfWeek: false,
+    folder_slug: 'breakfast',
+    is_beginner: false,
+    is_recipe_of_week: false,
     status: 'published' as RecipeStatus,
-    isFavorite: false,
-    imageUrl: '',
+    is_favorite: false,
+    hero_image_path: '',
     images: [] as string[],
     ingredients: [''],
     instructions: [''],
@@ -64,12 +64,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         slug: recipe.slug,
         description: recipe.description,
         category: recipe.category,
-        folder: recipe.folder,
-        isBeginner: recipe.isBeginner,
-        isRecipeOfWeek: recipe.isRecipeOfWeek,
+        folder_slug: recipe.folder_slug,
+        is_beginner: recipe.is_beginner,
+        is_recipe_of_week: recipe.is_recipe_of_week,
         status: recipe.status || 'published',
-        isFavorite: recipe.isFavorite || false,
-        imageUrl: recipe.imageUrl || '',
+        is_favorite: recipe.is_favorite || false,
+        hero_image_path: recipe.hero_image_path || '',
         images: recipe.images,
         ingredients: recipe.ingredients.length > 0 ? recipe.ingredients : [''],
         instructions: recipe.instructions.length > 0 ? recipe.instructions : [''],
@@ -86,12 +86,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         slug: '',
         description: '',
         category: '',
-        folder: 'breakfast',
-        isBeginner: false,
-        isRecipeOfWeek: false,
+        folder_slug: 'breakfast',
+        is_beginner: false,
+        is_recipe_of_week: false,
         status: 'published' as RecipeStatus,
-        isFavorite: false,
-        imageUrl: '',
+        is_favorite: false,
+        hero_image_path: '',
         images: [],
         ingredients: [''],
         instructions: [''],
@@ -194,7 +194,13 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     }
 
     try {
-      await onSave(formData);
+      // Add required timestamp fields for the Recipe interface
+      const recipeData = {
+        ...formData,
+        created_at: recipe ? recipe.created_at : new Date(),
+        updated_at: new Date()
+      };
+      await onSave(recipeData);
       onClose();
       toast.success(`Recipe ${recipe ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -273,10 +279,10 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <label className="block text-sm font-medium text-[#383B26] mb-1">Recipe Image</label>
               <p className="text-xs text-gray-600 mb-3">Main image shown on recipe cards (recommended: 800x600px)</p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {formData.imageUrl ? (
+                {formData.hero_image_path ? (
                   <div className="relative">
                     {(() => {
-                      const parsedUrl = parseSupabaseUrl(formData.imageUrl)
+                      const parsedUrl = parseSupabaseUrl(formData.hero_image_path)
                       if (parsedUrl) {
                         return (
                           <SecureImage
@@ -300,7 +306,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        onUpload={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
+                        onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
                         Change Image
@@ -327,8 +333,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Folder</label>
                 <select
-                  value={formData.folder}
-                  onChange={(e) => setFormData(prev => ({ ...prev, folder: e.target.value }))}
+                  value={formData.folder_slug}
+                  onChange={(e) => setFormData(prev => ({ ...prev, folder_slug: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
                   <option value="breakfast">Breakfast</option>
@@ -525,8 +531,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.isFavorite}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isFavorite: e.target.checked }))}
+                  checked={formData.is_favorite}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_favorite: e.target.checked }))}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Favorite</span>
@@ -534,8 +540,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.isBeginner}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isBeginner: e.target.checked }))}
+                  checked={formData.is_beginner}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_beginner: e.target.checked }))}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Beginner Recipe</span>
@@ -543,8 +549,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.isRecipeOfWeek}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isRecipeOfWeek: e.target.checked }))}
+                  checked={formData.is_recipe_of_week}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_recipe_of_week: e.target.checked }))}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Recipe of Week</span>
