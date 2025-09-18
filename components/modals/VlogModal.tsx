@@ -11,7 +11,7 @@ interface VlogModalProps {
   isOpen: boolean;
   onClose: () => void;
   vlog?: VlogVideo | null;
-  onSave: (vlog: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onSave: (vlog: Omit<VlogVideo, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
 }
 
 const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) => {
@@ -87,10 +87,18 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
 
     // Auto-extract YouTube thumbnail if no custom thumbnail provided
     const submitData = {
-      ...formData,
-      thumbnailUrl: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl),
+      title: formData.title,
+      description: formData.description,
+      youtube_url: formData.youtubeUrl,
+      youtube_id: null, // Will be auto-populated by YouTube API
+      thumbnail_url: formData.thumbnailUrl || getYouTubeThumbnail(formData.youtubeUrl),
+      published_at: formData.publishedAt,
       duration: '', // Duration will be auto-populated by YouTube API
-      youtubeId: null // Will be auto-populated by YouTube API
+      carousel: formData.carousel,
+      is_featured: formData.isFeatured,
+      display_order: formData.order,
+      created_at: vlog ? vlog.created_at : new Date(),
+      updated_at: new Date()
     };
 
     try {
