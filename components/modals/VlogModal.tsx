@@ -31,12 +31,12 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       setFormData({
         title: vlog.title,
         description: vlog.description,
-        youtubeUrl: vlog.youtubeUrl,
-        thumbnailUrl: vlog.thumbnailUrl,
-        publishedAt: vlog.publishedAt,
+        youtubeUrl: vlog.youtube_url,
+        thumbnailUrl: vlog.thumbnail_url,
+        publishedAt: vlog.published_at,
         carousel: vlog.carousel,
-        isFeatured: vlog.isFeatured,
-        order: vlog.order,
+        isFeatured: vlog.is_featured,
+        order: vlog.display_order,
       });
     } else {
       // Reset form for new vlog

@@ -26,8 +26,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     coverImage: '',
     category: 'Lifestyle' as PhotoCategory,
     date: '',
-    isFeatured: false,
-    order: 0,
+    is_featured: false,
+    display_order: 0,
     photos: [] as Photo[]
   });
 
@@ -47,8 +47,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
         coverImage: album.coverImage,
         category: isValidCategory(album.category) ? album.category : 'Lifestyle',
         date: album.date,
-        isFeatured: album.isFeatured,
-        order: album.order,
+        is_featured: album.is_featured,
+        display_order: album.display_order,
         photos: album.photos || []
       });
     } else {
@@ -59,8 +59,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
         coverImage: '',
         category: 'Lifestyle',
         date: new Date().toISOString().split('T')[0],
-        isFeatured: false,
-        order: 0,
+        is_featured: false,
+        display_order: 0,
         photos: []
       });
     }
@@ -182,8 +182,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
+                  value={formData.display_order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="0"
                 />
@@ -192,8 +192,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <input
                   type="checkbox"
                   id="featured"
-                  checked={formData.isFeatured}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                  checked={formData.is_featured}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
                   className="mr-2"
                 />
                 <label htmlFor="featured" className="text-sm font-medium text-[#383B26]">

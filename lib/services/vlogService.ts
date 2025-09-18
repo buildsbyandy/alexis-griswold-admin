@@ -171,10 +171,10 @@ class VlogService {
       return false;
     }
   }
-  async getFeaturedVlog(): Promise<VlogVideo | null> { const v = await this.getAllVlogs(); return v.find(x => x.isFeatured) || v[0] || null; }
-  async getMainChannelVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => v.carousel === 'main-channel' && !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
-  async getAGVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => v.carousel === 'ag-vlogs' && !v.isFeatured).sort((a,b)=>a.order-b.order).slice(0, limit); }
-  async getVlogsByCarousel(carousel: VlogCarouselType, limit?: number): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); const filtered = v.filter(v => v.carousel === carousel && !v.isFeatured).sort((a,b)=>a.order-b.order); return limit ? filtered.slice(0, limit) : filtered; }
+  async getFeaturedVlog(): Promise<VlogVideo | null> { const v = await this.getAllVlogs(); return v.find(x => x.is_featured) || v[0] || null; }
+  async getMainChannelVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => v.carousel === 'main-channel' && !v.is_featured).sort((a,b)=>a.display_order-b.display_order).slice(0, limit); }
+  async getAGVlogs(limit = 6): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); return v.filter(v => v.carousel === 'ag-vlogs' && !v.is_featured).sort((a,b)=>a.display_order-b.display_order).slice(0, limit); }
+  async getVlogsByCarousel(carousel: VlogCarouselType, limit?: number): Promise<VlogVideo[]> { const v = await this.getAllVlogs(); const filtered = v.filter(v => v.carousel === carousel && !v.is_featured).sort((a,b)=>a.display_order-b.display_order); return limit ? filtered.slice(0, limit) : filtered; }
   
   // Legacy method for backward compatibility
   async getDisplayVlogs(limit = 6): Promise<VlogVideo[]> { return this.getMainChannelVlogs(limit); }
@@ -190,7 +190,7 @@ class VlogService {
     return JSON.stringify({ vlogs }, null, 2);
   }
   importData(json: string): boolean { try { const d=JSON.parse(json); if(d.vlogs) this.saveVlogs(d.vlogs); return true;} catch {return false;} }
-  async getStats() { const v=await this.getAllVlogs(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.isFeatured).length } }
+  async getStats() { const v=await this.getAllVlogs(); return { totalVlogs: v.length, featuredVlogs: v.filter(x=>x.is_featured).length } }
 
   private saveVlogs(v: VlogVideo[]): void { if (typeof localStorage !== 'undefined') localStorage.setItem(this.VLOGS_KEY, JSON.stringify(v)); }
 

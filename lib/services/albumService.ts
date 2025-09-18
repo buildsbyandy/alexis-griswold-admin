@@ -13,10 +13,10 @@ export interface PhotoAlbum {
   category: string;
   photos: Photo[];
   date: string;
-  isFeatured: boolean;
-  order: number;
-  createdAt: Date;
-  updatedAt: Date;
+  is_featured: boolean;
+  display_order: number;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Photo {
@@ -49,10 +49,10 @@ class AlbumService {
           order: photo.photo_order || 0
         })),
         date: album.album_date || '',
-        isFeatured: album.is_visible || false,
-        order: album.album_order || 0,
-        createdAt: new Date(album.created_at),
-        updatedAt: new Date(album.updated_at)
+        is_featured: album.is_visible || false,
+        display_order: album.album_order || 0,
+        created_at: new Date(album.created_at),
+        updated_at: new Date(album.updated_at)
       }));
     } catch (error) {
       console.error('Error fetching albums:', error);
@@ -118,9 +118,9 @@ class AlbumService {
         album_title: input.title,
         album_category: input.category || null,
         album_date: input.date,
-        album_order: input.order || 0,
+        album_order: input.display_order || 0,
         album_description: input.description || null,
-        is_featured: input.isFeatured || false,
+        is_featured: input.is_featured || false,
         cover_image_path: input.coverImage,
         photos: input.photos.map((photo, index) => ({
           photo_url: photo.src,
@@ -154,8 +154,8 @@ class AlbumService {
       if (input.description !== undefined) updatePayload.album_description = input.description;
       if (input.date !== undefined) updatePayload.album_date = input.date;
       if (input.coverImage !== undefined) updatePayload.cover_image_path = input.coverImage;
-      if (input.order !== undefined) updatePayload.album_order = input.order;
-      if (input.isFeatured !== undefined) updatePayload.is_featured = input.isFeatured;
+      if (input.display_order !== undefined) updatePayload.album_order = input.display_order;
+      if (input.is_featured !== undefined) updatePayload.is_featured = input.is_featured;
       if (input.category !== undefined) updatePayload.album_category = input.category;
 
       if (input.photos !== undefined) {
@@ -230,7 +230,7 @@ class AlbumService {
     const albums = await this.getAllAlbums();
     return {
       totalAlbums: albums.length,
-      featuredAlbums: albums.filter(a => a.isFeatured).length,
+      featuredAlbums: albums.filter(a => a.is_featured).length,
       totalPhotos: albums.reduce((sum, album) => sum + album.photos.length, 0),
       categories: albums.reduce((counts, album) => {
         counts[album.category] = (counts[album.category] || 0) + 1;
