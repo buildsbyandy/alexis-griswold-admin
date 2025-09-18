@@ -625,7 +625,6 @@ const AdminContent: React.FC = () => {
           image_alt: productData.image_alt,
           description: productData.description,
           tags: productData.tags,
-          is_alexis_pick: productData.is_alexis_pick,
           is_favorite: productData.is_favorite,
           status: productData.status,
           sort_weight: productData.sort_weight,
@@ -652,7 +651,6 @@ const AdminContent: React.FC = () => {
           image_alt: productData.image_alt,
           description: productData.description,
           tags: productData.tags,
-          is_alexis_pick: productData.is_alexis_pick,
           is_favorite: productData.is_favorite,
           status: productData.status,
           sort_weight: productData.sort_weight,
@@ -2767,7 +2765,7 @@ const AdminContent: React.FC = () => {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                       {healingVideos
                         .filter(video => video.carousel === 'part1' && video.isActive)
-                        .sort((a, b) => a.order - b.order)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
                         .map((video) => (
                           <div key={video.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative">
@@ -2781,11 +2779,6 @@ const AdminContent: React.FC = () => {
                               <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
                                 <FaVideo className="text-2xl text-white" />
                               </div>
-                              {null && (
-                                <div className="absolute px-2 py-1 text-xs text-white bg-black bg-opacity-75 rounded bottom-2 right-2">
-                                  {null}
-                                </div>
-                              )}
                             </div>
                             <div className="p-3">
                               <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.video_title}</h4>
@@ -2847,7 +2840,7 @@ const AdminContent: React.FC = () => {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                       {healingVideos
                         .filter(video => video.carousel === 'part2' && video.isActive)
-                        .sort((a, b) => a.order - b.order)
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
                         .map((video) => (
                           <div key={video.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative">
@@ -2861,11 +2854,6 @@ const AdminContent: React.FC = () => {
                               <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
                                 <FaVideo className="text-2xl text-white" />
                               </div>
-                              {null && (
-                                <div className="absolute px-2 py-1 text-xs text-white bg-black bg-opacity-75 rounded bottom-2 right-2">
-                                  {null}
-                                </div>
-                              )}
                             </div>
                             <div className="p-3">
                               <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{video.video_title}</h4>
@@ -2942,14 +2930,14 @@ const AdminContent: React.FC = () => {
                       </div>
                     ) : (
                       healingProducts
-                        .filter(product => product.isActive)
-                        .sort((a, b) => a.order - b.order)
+                        .filter(product => product.is_active)
+                        .sort((a, b) => (a.product_order || 0) - (b.product_order || 0))
                         .map((product) => (
                           <div key={product.id} className="p-4 transition-shadow border rounded-lg hover:shadow-md">
                             <div className="relative mb-3">
-                              {product.imageUrl ? (
+                              {product.image_path ? (
                                 <Image 
-                                  src={product.imageUrl} 
+                                  src={product.image_path} 
                                   alt={product.name}
                                   className="object-cover w-full h-24 rounded"
                                   width={400}
@@ -2961,14 +2949,14 @@ const AdminContent: React.FC = () => {
                                 </div>
                               )}
                             </div>
-                            <h3 className="font-medium text-[#383B26] mb-1">{product.name}</h3>
-                            <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{product.purpose}</p>
-                            {product.howToUse && (
-                              <p className="mb-2 text-xs text-gray-600 line-clamp-1">How to use: {product.howToUse}</p>
+                            <h3 className="font-medium text-[#383B26] mb-1">{product.product_title}</h3>
+                            <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{product.product_purpose}</p>
+                            {product.product_purpose && (
+                              <p className="mb-2 text-xs text-gray-600 line-clamp-1">Purpose: {product.product_purpose}</p>
                             )}
-                            {product.amazonUrl && (
+                            {product.amazon_url && (
                               <a 
-                                href={product.amazonUrl}
+                                href={product.amazon_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-block text-xs text-[#B8A692] hover:text-[#A0956C] mb-2"
@@ -2986,11 +2974,9 @@ const AdminContent: React.FC = () => {
                               <button 
                                 onClick={async () => {
                                   if (window.confirm('Are you sure you want to delete this product?')) {
-                                    const success = await healingService.deleteProduct(product.id);
-                                    if (success) {
-                                      const productsList = await healingService.getAllProducts();
-                                      setHealingProducts(productsList);
-                                    }
+                                    await healingService.deleteProduct(product.id);
+                                    const productsList = await healingService.getAllProducts();
+                                    setHealingProducts(productsList);
                                   }
                                 }}
                                 className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600"
@@ -3054,12 +3040,16 @@ const AdminContent: React.FC = () => {
                         description: '',
                         price: null,
                         tags: [],
-                        is_alexis_pick: false,
-                        is_favorite: false,
                         status: 'draft',
-                        sort_weight: 0,
                         created_at: now,
                         updated_at: now,
+                        click_count: null,
+                        clicks_30d: null,
+                        deleted_at: null,
+                        imageAlt: null,
+                        is_top_clicked: null,
+                        pairsWith: null,
+                        usedIn: null
                       };
                       setSfEditing(draft);
                       setSfIsAdding(true);
@@ -3071,7 +3061,8 @@ const AdminContent: React.FC = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const dataStr = storefrontService.export();
+                        // TODO: Implement export functionality
+                        const dataStr = JSON.stringify(sfProducts, null, 2);
                         const blob = new Blob([dataStr], { type: 'application/json' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -3098,7 +3089,8 @@ const AdminContent: React.FC = () => {
                         if (file) {
                           try {
                             const text = await file.text();
-                            storefrontService.import(text);
+                            // TODO: Implement import functionality
+                            // storefrontService.import(text);
                             const products = await storefrontService.get_storefront_products();
                             setSfProducts(products);
                             setSfItems(products);
@@ -3191,9 +3183,6 @@ const AdminContent: React.FC = () => {
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.product_title}</h3>
                                 
-                                {product.is_alexis_pick && (
-                                  <span className="bg-[#B89178] text-white text-xs px-2 py-1 rounded-full">Alexis&apos; Pick</span>
-                                )}
                               </div>
                               
                               <div className="flex items-center gap-4 text-sm text-[#8F907E] mb-2">
