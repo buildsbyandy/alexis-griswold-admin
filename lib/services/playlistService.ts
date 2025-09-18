@@ -6,14 +6,14 @@ type PlaylistUpdate = Database['public']['Tables']['spotify_playlists']['Update'
 
 export interface SpotifyPlaylist {
   id: string;
-  name: string;
+  playlist_title: string;
   description: string;
-  theme_color: string;
+  card_color: string;
   spotify_url: string;
-  display_order: number;
+  playlist_order: number;
   is_active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PlaylistService {
@@ -28,14 +28,14 @@ class PlaylistService {
       // Map database fields to service interface
       return (data.playlists as PlaylistRow[] || []).map((p: PlaylistRow) => ({
         id: p.id,
-        name: p.playlist_title,
+        playlist_title: p.playlist_title,
         description: p.description || '',
-        theme_color: p.card_color || '',
+        card_color: p.card_color || '',
         spotify_url: p.spotify_url,
-        display_order: p.playlist_order || 0,
+        playlist_order: p.playlist_order || 0,
         is_active: p.is_active || false,
-        createdAt: new Date(p.created_at),
-        updatedAt: new Date(p.updated_at)
+        created_at: new Date(p.created_at),
+        updated_at: new Date(p.updated_at)
       }));
     } catch (error) {
       console.error('Error fetching playlists:', error);
@@ -55,14 +55,14 @@ class PlaylistService {
 
       return {
         id: p.id,
-        name: p.playlist_title,
+        playlist_title: p.playlist_title,
         description: p.description || '',
-        theme_color: p.card_color || '',
+        card_color: p.card_color || '',
         spotify_url: p.spotify_url,
-        display_order: p.playlist_order || 0,
+        playlist_order: p.playlist_order || 0,
         is_active: p.is_active || false,
-        createdAt: new Date(p.created_at),
-        updatedAt: new Date(p.updated_at)
+        created_at: new Date(p.created_at),
+        updated_at: new Date(p.updated_at)
       };
     } catch (error) {
       console.error('Error fetching playlist:', error);

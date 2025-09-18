@@ -55,16 +55,16 @@ class VlogService {
         id: v.id,
         title: v.title || '',
         description: v.description || '',
-        youtubeUrl: v.youtube_url || '',
-        youtubeId: this.extractYouTubeId(v.youtube_url || ''),
-        thumbnailUrl: v.thumbnail_url || '',
-        publishedAt: v.published_at || '',
+        youtube_url: v.youtube_url || '',
+        youtube_id: this.extractYouTubeId(v.youtube_url || ''),
+        thumbnail_url: v.thumbnail_url || '',
+        published_at: v.published_at || '',
         duration: v.duration || '',
         carousel: (v.carousel || 'main-channel') as VlogCarouselType,
-        isFeatured: v.is_featured || false,
-        order: v.display_order || 0,
-        createdAt: new Date(v.created_at),
-        updatedAt: new Date(v.updated_at)
+        is_featured: v.is_featured || false,
+        display_order: v.display_order || 0,
+        created_at: new Date(v.created_at),
+        updated_at: new Date(v.updated_at)
       }));
     } catch (error) {
       console.error('Error fetching vlogs:', error);
@@ -73,32 +73,32 @@ class VlogService {
     }
   }
 
-  async addVlog(input: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
+  async addVlog(input: Omit<VlogVideo, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
     try {
       // Validate and process YouTube URL
-      if (!this.validateYouTubeUrl(input.youtubeUrl)) {
+      if (!this.validateYouTubeUrl(input.youtube_url)) {
         throw new Error('Invalid YouTube URL');
       }
 
-      const youtubeId = this.extractYouTubeId(input.youtubeUrl);
+      const youtubeId = this.extractYouTubeId(input.youtube_url);
       if (!youtubeId) {
         throw new Error('Could not extract YouTube ID from URL');
       }
 
       // Auto-generate thumbnail if not provided
-      const thumbnailUrl = input.thumbnailUrl || this.generateThumbnailUrl(youtubeId);
+      const thumbnailUrl = input.thumbnail_url || this.generateThumbnailUrl(youtubeId);
 
       // Map interface to database fields
       const vlogData: VlogInsert = {
         title: input.title,
         description: input.description,
-        youtube_url: input.youtubeUrl,
+        youtube_url: input.youtube_url,
         thumbnail_url: thumbnailUrl,
-        published_at: input.publishedAt,
+        published_at: input.published_at,
         duration: input.duration,
         carousel: input.carousel,
-        is_featured: input.isFeatured,
-        display_order: input.order
+        is_featured: input.is_featured,
+        display_order: input.display_order
       };
 
       const response = await fetch('/api/vlogs', {
@@ -121,25 +121,25 @@ class VlogService {
       const vlogData: VlogUpdate = {};
       if (input.title !== undefined) vlogData.title = input.title;
       if (input.description !== undefined) vlogData.description = input.description;
-      if (input.thumbnailUrl !== undefined) vlogData.thumbnail_url = input.thumbnailUrl;
-      if (input.publishedAt !== undefined) vlogData.published_at = input.publishedAt;
+      if (input.thumbnail_url !== undefined) vlogData.thumbnail_url = input.thumbnail_url;
+      if (input.published_at !== undefined) vlogData.published_at = input.published_at;
       if (input.duration !== undefined) vlogData.duration = input.duration;
       if (input.carousel !== undefined) vlogData.carousel = input.carousel;
-      if (input.isFeatured !== undefined) vlogData.is_featured = input.isFeatured;
-      if (input.order !== undefined) vlogData.display_order = input.order;
+      if (input.is_featured !== undefined) vlogData.is_featured = input.is_featured;
+      if (input.display_order !== undefined) vlogData.display_order = input.display_order;
 
       // Handle YouTube URL updates
-      if (input.youtubeUrl !== undefined) {
-        if (!this.validateYouTubeUrl(input.youtubeUrl)) {
+      if (input.youtube_url !== undefined) {
+        if (!this.validateYouTubeUrl(input.youtube_url)) {
           throw new Error('Invalid YouTube URL');
         }
-        const youtubeId = this.extractYouTubeId(input.youtubeUrl);
+        const youtubeId = this.extractYouTubeId(input.youtube_url);
         if (!youtubeId) {
           throw new Error('Could not extract YouTube ID from URL');
         }
-        vlogData.youtube_url = input.youtubeUrl;
+        vlogData.youtube_url = input.youtube_url;
         // Auto-update thumbnail if not explicitly provided
-        if (input.thumbnailUrl === undefined) {
+        if (input.thumbnail_url === undefined) {
           vlogData.thumbnail_url = this.generateThumbnailUrl(youtubeId);
         }
       }

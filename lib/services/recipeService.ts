@@ -16,12 +16,12 @@ export interface Recipe {
   slug: string;
   description: string;
   category: string;
-  folder: string;
-  isBeginner: boolean;
-  isRecipeOfWeek: boolean;
+  folder_slug: string;
+  is_beginner: boolean;
+  is_recipe_of_week: boolean;
   status: RecipeStatus;
-  isFavorite: boolean;
-  imageUrl?: string;
+  is_favorite: boolean;
+  hero_image_path?: string;
   images: string[];
   ingredients: string[];
   instructions: string[];
@@ -30,8 +30,8 @@ export interface Recipe {
   servings: number;
   difficulty: string;
   tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface RecipePageContent {
@@ -77,12 +77,12 @@ class RecipeService {
         slug: r.slug,
         description: r.description || '',
         category: r.category || '',
-        folder: r.folder_slug || '',
-        isBeginner: r.is_beginner || false,
-        isRecipeOfWeek: r.is_recipe_of_week || false,
+        folder_slug: r.folder_slug || '',
+        is_beginner: r.is_beginner || false,
+        is_recipe_of_week: r.is_recipe_of_week || false,
         status: r.status,
-        isFavorite: r.is_favorite || false,
-        imageUrl: r.hero_image_path || '',
+        is_favorite: r.is_favorite || false,
+        hero_image_path: r.hero_image_path || '',
         images: r.images || [],
         ingredients: r.ingredients || [],
         instructions: r.instructions || [],
@@ -91,8 +91,8 @@ class RecipeService {
         servings: r.servings || 1,
         difficulty: r.difficulty || 'Easy',
         tags: r.tags || [],
-        createdAt: new Date(r.created_at),
-        updatedAt: new Date(r.updated_at)
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at)
       }));
     } catch (error) {
       console.error('Error fetching recipes:', error);
@@ -116,12 +116,12 @@ class RecipeService {
         slug: r.slug,
         description: r.description || '',
         category: r.category || '',
-        folder: r.folder_slug || '',
-        isBeginner: r.is_beginner || false,
-        isRecipeOfWeek: r.is_recipe_of_week || false,
+        folder_slug: r.folder_slug || '',
+        is_beginner: r.is_beginner || false,
+        is_recipe_of_week: r.is_recipe_of_week || false,
         status: r.status,
-        isFavorite: r.is_favorite || false,
-        imageUrl: r.hero_image_path || '',
+        is_favorite: r.is_favorite || false,
+        hero_image_path: r.hero_image_path || '',
         images: r.images || [],
         ingredients: r.ingredients || [],
         instructions: r.instructions || [],
@@ -130,8 +130,8 @@ class RecipeService {
         servings: r.servings || 1,
         difficulty: r.difficulty || 'Easy',
         tags: r.tags || [],
-        createdAt: new Date(r.created_at),
-        updatedAt: new Date(r.updated_at)
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at)
       };
     } catch (error) {
       console.error('Error fetching recipe:', error);
@@ -209,12 +209,12 @@ class RecipeService {
         slug: r.slug,
         description: r.description || '',
         category: r.category || '',
-        folder: r.folder_slug || '',
-        isBeginner: r.is_beginner || false,
-        isRecipeOfWeek: r.is_recipe_of_week || false,
+        folder_slug: r.folder_slug || '',
+        is_beginner: r.is_beginner || false,
+        is_recipe_of_week: r.is_recipe_of_week || false,
         status: r.status,
-        isFavorite: r.is_favorite || false,
-        imageUrl: r.hero_image_path || '',
+        is_favorite: r.is_favorite || false,
+        hero_image_path: r.hero_image_path || '',
         images: r.images || [],
         ingredients: r.ingredients || [],
         instructions: r.instructions || [],
@@ -223,8 +223,8 @@ class RecipeService {
         servings: r.servings || 1,
         difficulty: r.difficulty || 'Easy',
         tags: r.tags || [],
-        createdAt: new Date(r.created_at),
-        updatedAt: new Date(r.updated_at)
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at)
       };
     } catch (error) {
       console.error('Error adding recipe:', error);
@@ -276,12 +276,12 @@ class RecipeService {
         slug: r.slug,
         description: r.description || '',
         category: r.category || '',
-        folder: r.folder_slug || '',
-        isBeginner: r.is_beginner || false,
-        isRecipeOfWeek: r.is_recipe_of_week || false,
+        folder_slug: r.folder_slug || '',
+        is_beginner: r.is_beginner || false,
+        is_recipe_of_week: r.is_recipe_of_week || false,
         status: r.status,
-        isFavorite: r.is_favorite || false,
-        imageUrl: r.hero_image_path || '',
+        is_favorite: r.is_favorite || false,
+        hero_image_path: r.hero_image_path || '',
         images: r.images || [],
         ingredients: r.ingredients || [],
         instructions: r.instructions || [],
@@ -290,8 +290,8 @@ class RecipeService {
         servings: r.servings || 1,
         difficulty: r.difficulty || 'Easy',
         tags: r.tags || [],
-        createdAt: new Date(r.created_at),
-        updatedAt: new Date(r.updated_at)
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at)
       };
     } catch (error) {
       console.error('Error updating recipe:', error);

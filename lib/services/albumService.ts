@@ -84,10 +84,10 @@ class AlbumService {
           order: photo.photo_order || 0
         })),
         date: album.album_date || '',
-        isFeatured: album.is_visible || false,
-        order: album.album_order || 0,
-        createdAt: new Date(album.created_at),
-        updatedAt: new Date(album.updated_at)
+        is_featured: album.is_visible || false,
+        display_order: album.album_order || 0,
+        created_at: new Date(album.created_at),
+        updated_at: new Date(album.updated_at)
       };
     } catch (error) {
       console.error('Error fetching album:', error);
@@ -97,10 +97,10 @@ class AlbumService {
 
   async getDisplayAlbums(limit = 6): Promise<PhotoAlbum[]> {
     const albums = await this.getAllAlbums();
-    return albums.sort((a, b) => a.order - b.order).slice(0, limit);
+    return albums.sort((a, b) => a.display_order - b.display_order).slice(0, limit);
   }
 
-  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
+  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
     try {
       // Validate required fields
       if (!input.title.trim()) {

@@ -6,13 +6,14 @@ import toast from 'react-hot-toast';
 // Using snake_case to match database schema
 export interface HealingFeaturedVideo {
   id: string;
-  title: string;
-  description: string;
-  video_url: string;
-  thumbnail_url: string;
-  duration: string;
-  published_at: string;
+  video_title: string;
+  video_description: string;
+  youtube_url: string;
+  video_thumbnail_url: string;
+  video_type: string;
+  video_order: number;
   is_active: boolean;
+  created_at: Date;
   updated_at: Date;
 }
 
@@ -30,12 +31,12 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
   onSave 
 }) => {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    video_url: '',
-    thumbnail_url: '',
-    duration: '',
-    published_at: '',
+    video_title: '',
+    video_description: '',
+    youtube_url: '',
+    video_thumbnail_url: '',
+    video_type: '',
+    video_order: 0,
     is_active: true,
   });
 
@@ -44,23 +45,23 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
   useEffect(() => {
     if (currentVideo) {
       setFormData({
-        title: currentVideo.title,
-        description: currentVideo.description,
-        video_url: currentVideo.video_url,
-        thumbnail_url: currentVideo.thumbnail_url,
-        duration: currentVideo.duration,
-        published_at: currentVideo.published_at,
+        video_title: currentVideo.video_title,
+        video_description: currentVideo.video_description,
+        youtube_url: currentVideo.youtube_url,
+        video_thumbnail_url: currentVideo.video_thumbnail_url,
+        video_type: currentVideo.video_type,
+        video_order: currentVideo.video_order,
         is_active: currentVideo.is_active,
       });
     } else {
       // Reset form for new video
       setFormData({
-        title: '',
-        description: '',
-        video_url: '',
-        thumbnail_url: '',
-        duration: '',
-        published_at: new Date().toISOString().split('T')[0],
+        video_title: '',
+        video_description: '',
+        youtube_url: '',
+        video_thumbnail_url: '',
+        video_type: '',
+        video_order: 0,
         is_active: true,
       });
     }
@@ -74,30 +75,30 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
 
   // Auto-generate thumbnail from YouTube URL
   const handleVideoUrlChange = (url: string) => {
-    setFormData(prev => ({ ...prev, video_url: url }));
+    setFormData(prev => ({ ...prev, youtube_url: url }));
 
     const videoId = getYouTubeVideoId(url);
     if (videoId) {
-      const thumbnail_url = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-      setFormData(prev => ({ ...prev, thumbnail_url }));
+      const video_thumbnail_url = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      setFormData(prev => ({ ...prev, video_thumbnail_url }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title.trim()) {
+    if (!formData.video_title.trim()) {
       toast.error('Video title is required');
       return;
     }
 
-    if (!formData.video_url.trim()) {
+    if (!formData.youtube_url.trim()) {
       toast.error('Video URL is required');
       return;
     }
 
     // Validate YouTube URL
-    if (!getYouTubeVideoId(formData.video_url)) {
+    if (!getYouTubeVideoId(formData.youtube_url)) {
       toast.error('Please enter a valid YouTube URL');
       return;
     }
@@ -113,7 +114,7 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
 
   if (!isOpen) return null;
 
-  const videoId = getYouTubeVideoId(formData.video_url);
+  const videoId = getYouTubeVideoId(formData.youtube_url);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -143,7 +144,7 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
               </label>
               <input
                 type="url"
-                value={formData.video_url}
+                value={formData.youtube_url}
                 onChange={(e) => handleVideoUrlChange(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
@@ -179,7 +180,7 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
                     />
                   ) : (
                     <Image
-                      src={formData.thumbnail_url}
+                      src={formData.video_thumbnail_url}
                       alt="Video thumbnail"
                       className="w-full h-auto"
                       width={480}
@@ -199,8 +200,8 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Video Title *</label>
                 <input
                   type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  value={formData.video_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_title: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="Enter video title"
                   required
@@ -210,8 +211,8 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Duration</label>
                 <input
                   type="text"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                  value={formData.video_type}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_type: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="e.g., 15:30"
                 />
@@ -221,20 +222,21 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Video Description</label>
               <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                value={formData.video_description}
+                onChange={(e) => setFormData(prev => ({ ...prev, video_description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Brief description of the video content"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Published Date</label>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
               <input
-                type="date"
-                value={formData.published_at}
-                onChange={(e) => setFormData(prev => ({ ...prev, published_at: e.target.value }))}
+                type="number"
+                value={formData.video_order}
+                onChange={(e) => setFormData(prev => ({ ...prev, video_order: parseInt(e.target.value) || 0 }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                min="0"
               />
             </div>
 

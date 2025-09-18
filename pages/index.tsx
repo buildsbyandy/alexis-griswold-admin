@@ -186,7 +186,7 @@ const AdminContent: React.FC = () => {
   const [spotifyStats, setSpotifyStats] = useState({ totalPlaylists: 0, activePlaylists: 0 });
 
   // Recipe save functionality
-  const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       if (editingRecipe) {
         // Update existing recipe
@@ -264,7 +264,7 @@ const AdminContent: React.FC = () => {
           
           // Add each imported recipe individually
           for (const recipe of importedRecipes) {
-            const { id, createdAt, updatedAt, ...recipeData } = recipe;
+            const { id, created_at, updated_at, ...recipeData } = recipe;
             await recipeService.addRecipe(recipeData);
           }
           
@@ -401,18 +401,18 @@ const AdminContent: React.FC = () => {
   };
 
   // Vlog save functionality
-  const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveVlog = async (vlogData: Omit<VlogVideo, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       // Map from VlogVideo interface to API format
       const apiData = {
-        youtube_url: vlogData.youtubeUrl,
+        youtube_url: vlogData.youtube_url,
         carousel: vlogData.carousel,
         title: vlogData.title,
         description: vlogData.description,
-        is_featured: vlogData.isFeatured,
-        display_order: vlogData.order,
-        thumbnail_url: vlogData.thumbnailUrl,
-        published_at: vlogData.publishedAt,
+        is_featured: vlogData.is_featured,
+        display_order: vlogData.display_order,
+        thumbnail_url: vlogData.thumbnail_url,
+        published_at: vlogData.published_at,
         duration: vlogData.duration
       };
 
@@ -462,7 +462,7 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveAlbum = async (albumData: Omit<PhotoAlbum, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveAlbum = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       if (editingAlbum) {
         const success = await albumService.updateAlbum(editingAlbum.id, albumData);
@@ -491,7 +491,7 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSavePlaylist = async (playlistData: Omit<SpotifyPlaylist, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSavePlaylist = async (playlistData: Omit<SpotifyPlaylist, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       if (editingPlaylist) {
         const success = await playlistService.updatePlaylist(editingPlaylist.id, playlistData);
