@@ -104,7 +104,13 @@ const HealingFeaturedVideoModal: React.FC<HealingFeaturedVideoModalProps> = ({
     }
 
     try {
-      await onSave(formData);
+      // Add required timestamp fields for the HealingFeaturedVideo interface
+      const videoData = {
+        ...formData,
+        created_at: currentVideo ? currentVideo.created_at : new Date(),
+        updated_at: new Date()
+      };
+      await onSave(videoData);
       onClose();
       toast.success('Featured video updated successfully!');
     } catch (error) {
