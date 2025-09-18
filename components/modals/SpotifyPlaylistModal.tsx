@@ -7,7 +7,7 @@ interface SpotifyPlaylistModalProps {
   isOpen: boolean;
   onClose: () => void;
   playlist?: SpotifyPlaylist | null;
-  onSave: (playlist: Omit<SpotifyPlaylist, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onSave: (playlist: Omit<SpotifyPlaylist, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
 }
 
 // Predefined color palette for theme colors
@@ -28,12 +28,12 @@ const COLOR_PALETTE = [
 
 const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onClose, playlist, onSave }) => {
   const [formData, setFormData] = useState({
-    name: '',
+    playlist_title: '',
     description: '',
-    theme_color: '#2D2D2D',
+    card_color: '#2D2D2D',
     spotify_url: '',
     is_active: true,
-    display_order: 0
+    playlist_order: 0
   });
 
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -41,22 +41,22 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
   useEffect(() => {
     if (playlist) {
       setFormData({
-        name: playlist.name,
+        playlist_title: playlist.playlist_title,
         description: playlist.description,
-        theme_color: playlist.theme_color,
+        card_color: playlist.card_color,
         spotify_url: playlist.spotify_url,
         is_active: playlist.is_active,
-        display_order: playlist.display_order
+        playlist_order: playlist.playlist_order
       });
     } else {
       // Reset form for new playlist
       setFormData({
-        name: '',
+        playlist_title: '',
         description: '',
-        theme_color: '#2D2D2D',
+        card_color: '#2D2D2D',
         spotify_url: '',
         is_active: true,
-        display_order: 0
+        playlist_order: 0
       });
     }
   }, [playlist]);
@@ -64,7 +64,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim()) {
+    if (!formData.playlist_title.trim()) {
       toast.error('Playlist name is required');
       return;
     }
@@ -86,7 +86,13 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
     }
 
     try {
-      await onSave(formData);
+      // Add required timestamp fields for the SpotifyPlaylist interface
+      const playlistData = {
+        ...formData,
+        created_at: playlist ? playlist.created_at : new Date(),
+        updated_at: new Date()
+      };
+      await onSave(playlistData);
       onClose();
       toast.success(`Playlist ${playlist ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -100,7 +106,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
   };
 
   const handleColorSelect = (color: string) => {
-    setFormData(prev => ({ ...prev, theme_color: color }));
+    setFormData(prev => ({ ...prev, card_color: color }));
     setShowColorPicker(false);
   };
 
@@ -131,8 +137,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
               <label className="block text-sm font-medium text-[#383B26] mb-1">Playlist Name *</label>
               <input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                value={formData.playlist_title}
+                onChange={(e) => setFormData(prev => ({ ...prev, playlist_title: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="e.g., Morning Coffee Vibes"
                 required
@@ -165,9 +171,9 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 >
                   <div
                     className="w-8 h-8 rounded border-2 border-gray-300"
-                    style={{ backgroundColor: formData.theme_color }}
+                    style={{ backgroundColor: formData.card_color }}
                   ></div>
-                  <span className="text-gray-700">{formData.theme_color}</span>
+                  <span className="text-gray-700">{formData.card_color}</span>
                   <FaPalette className="ml-auto text-[#B8A692]" />
                 </button>
                 
@@ -180,7 +186,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                           type="button"
                           onClick={() => handleColorSelect(color)}
                           className={`w-10 h-10 rounded border-2 hover:scale-110 transition-transform ${
-                            formData.theme_color === color ? 'border-[#B8A692] ring-2 ring-[#B8A692]' : 'border-gray-300'
+                            formData.card_color === color ? 'border-[#B8A692] ring-2 ring-[#B8A692]' : 'border-gray-300'
                           }`}
                           style={{ backgroundColor: color }}
                         />
@@ -189,8 +195,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <input
                         type="color"
-                        value={formData.theme_color}
-                        onChange={(e) => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
+                        value={formData.card_color}
+                        onChange={(e) => setFormData(prev => ({ ...prev, card_color: e.target.value }))}
                         className="w-full h-8 rounded border border-gray-300"
                       />
                       <p className="text-xs text-gray-500 mt-1">Or choose custom color</p>
@@ -223,8 +229,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.display_order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
+                  value={formData.playlist_order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, playlist_order: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="0"
                 />
@@ -250,11 +256,11 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
               <div className="border border-gray-200 rounded-lg p-4">
                 <div
                   className="w-48 h-32 rounded-lg flex flex-col items-center justify-center text-white relative overflow-hidden"
-                  style={{ backgroundColor: formData.theme_color }}
+                  style={{ backgroundColor: formData.card_color }}
                 >
                   <FaMusic className="text-3xl mb-2 opacity-70" />
                   <div className="text-center px-2">
-                    <p className="font-medium text-sm">{formData.name || 'Playlist Name'}</p>
+                    <p className="font-medium text-sm">{formData.playlist_title || 'Playlist Name'}</p>
                     <p className="text-xs opacity-80">Mood: {formData.description || 'Mood/Theme'}</p>
                   </div>
                 </div>
