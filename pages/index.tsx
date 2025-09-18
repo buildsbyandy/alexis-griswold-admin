@@ -578,7 +578,7 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveCarouselHeader = async (headerData: Omit<CarouselHeader, 'id' | 'updatedAt'>) => {
+  const handleSaveCarouselHeader = async (headerData: Omit<CarouselHeader, 'id' | 'updated_at'>) => {
     try {
       const success = await healingService.updateCarouselHeader(headerData);
       if (!success) throw new Error('Failed to update carousel header');
@@ -590,9 +590,17 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveHealingFeaturedVideo = async (videoData: Omit<HealingFeaturedVideo, 'id' | 'updatedAt'>) => {
+  const handleSaveHealingFeaturedVideo = async (videoData: Omit<HealingFeaturedVideo, 'id' | 'updated_at'>) => {
     try {
-      const result = await healingService.upsert_featured_video(videoData);
+      // Map HealingFeaturedVideo properties to the expected API format
+      const apiData = {
+        hero_video_title: videoData.video_title,
+        hero_video_subtitle: videoData.video_description,
+        hero_video_date: videoData.video_order?.toString(),
+        hero_video_youtube_url: videoData.youtube_url
+      };
+      
+      const result = await healingService.upsert_featured_video(apiData);
       if (result.error) throw new Error(result.error);
       
       setEditingHealingFeaturedVideo(null);
