@@ -8,7 +8,7 @@ export interface CarouselHeader {
   description: string;
   type: 'part1' | 'part2';
   isActive: boolean;
-  updatedAt: Date;
+  updated_at: Date;
 }
 
 interface CarouselHeaderModalProps {

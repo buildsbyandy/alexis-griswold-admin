@@ -47,8 +47,8 @@ export interface RecipePageContent {
   showBeginnerSection: boolean;
   pageSeoTitle: string;
   pageSeoDescription: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 // Recipe hero video types have moved to lib/services/recipeHeroService.ts
@@ -352,8 +352,8 @@ class RecipeService {
         showBeginnerSection: content.show_beginner_section || false,
         pageSeoTitle: content.page_seo_title || '',
         pageSeoDescription: content.page_seo_description || '',
-        createdAt: new Date(content.created_at),
-        updatedAt: new Date(content.updated_at)
+        created_at: new Date(content.created_at),
+        updated_at: new Date(content.updated_at)
       };
     } catch (error) {
       console.error('Error fetching page content:', error);
@@ -404,8 +404,8 @@ class RecipeService {
         showBeginnerSection: pageContent.show_beginner_section || false,
         pageSeoTitle: pageContent.page_seo_title || '',
         pageSeoDescription: pageContent.page_seo_description || '',
-        createdAt: new Date(pageContent.created_at),
-        updatedAt: new Date(pageContent.updated_at)
+        created_at: new Date(pageContent.created_at),
+        updated_at: new Date(pageContent.updated_at)
       };
     } catch (error) {
       console.error('Error updating page content:', error);
@@ -437,8 +437,8 @@ class RecipeService {
       servings: 1,
       difficulty: 'Easy',
       tags: [legacy.label],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
     }));
     this.saveRecipes(mapped);
   }

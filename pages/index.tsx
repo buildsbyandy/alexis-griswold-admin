@@ -1439,20 +1439,20 @@ const AdminContent: React.FC = () => {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {recipes
                     .filter(recipe => 
-                      (selectedFolder === 'all' || recipe.folder === selectedFolder) &&
+                      (selectedFolder === 'all' || recipe.folder_slug === selectedFolder) &&
                       (searchTerm === '' || recipe.title.toLowerCase().includes(searchTerm.toLowerCase()))
                     )
                     .map(recipe => (
                       <div key={recipe.id} className="overflow-hidden transition-shadow border border-gray-200 rounded-lg hover:shadow-lg">
                         {/* Recipe Image */}
                         <div className="flex items-center justify-center h-48 bg-gray-200 relative">
-                          {recipe.imageUrl ? (
+                          {recipe.hero_image_path ? (
                             <div 
                               className="relative w-full h-full cursor-pointer group"
-                              onClick={() => setImageModalUrl(recipe.imageUrl || null)}
+                              onClick={() => setImageModalUrl(recipe.hero_image_path || null)}
                             >
                               <Image 
-                                src={recipe.imageUrl} 
+                                src={recipe.hero_image_path} 
                                 alt={recipe.title} 
                                 className="object-cover w-full h-full transition-transform group-hover:scale-105" 
                                 fill 
@@ -1476,12 +1476,12 @@ const AdminContent: React.FC = () => {
                         <div className="p-4">
                           <div className="flex items-start justify-between mb-2">
                             <h3 className="font-semibold text-[#383B26] truncate">{recipe.title}</h3>
-                            {recipe.isFavorite && <FaStar className="ml-2 text-yellow-500" />}
+                            {recipe.is_favorite && <FaStar className="ml-2 text-yellow-500" />}
                           </div>
                           
                           <div className="mb-3 space-y-1">
                             <p className="text-sm text-[#8F907E]">
-                              <strong>Category:</strong> {recipe.folder || 'Uncategorized'}
+                              <strong>Category:</strong> {recipe.folder_slug || 'Uncategorized'}
                             </p>
                             <p className="text-sm text-[#8F907E]">
                               <strong>Difficulty:</strong> {recipe.difficulty}
@@ -1561,7 +1561,7 @@ const AdminContent: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Favorites:</span>
-                    <span className="font-medium">{recipes.filter(r => r.isFavorite).length}</span>
+                    <span className="font-medium">{recipes.filter(r => r.is_favorite).length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Last Updated:</span>
@@ -1779,14 +1779,14 @@ const AdminContent: React.FC = () => {
                     <h4 className="font-medium text-[#383B26] mb-3">Current Beginner Recipes Preview</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {recipes
-                        .filter(recipe => recipe.isBeginner)
+                        .filter(recipe => recipe.is_beginner)
                         .slice(0, 3)
                         .map(recipe => (
                           <div key={recipe.id} className="text-center p-4 border border-gray-200 rounded-lg">
                             <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden relative">
-                              {recipe.imageUrl ? (
+                              {recipe.hero_image_path ? (
                                 <Image
-                                  src={recipe.imageUrl}
+                                  src={recipe.hero_image_path}
                                   alt={recipe.title}
                                   fill
                                   sizes="(max-width: 768px) 100vw, 33vw"
@@ -1804,7 +1804,7 @@ const AdminContent: React.FC = () => {
                           </div>
                         ))}
                       
-                      {recipes.filter(recipe => recipe.isBeginner).length < 3 && (
+                      {recipes.filter(recipe => recipe.is_beginner).length < 3 && (
                         <div className="text-center p-4 border-2 border-dashed border-gray-300 rounded-lg">
                           <div className="w-full h-32 bg-gray-100 rounded mb-3 flex items-center justify-center">
                             <FaPlus className="text-gray-400 text-xl" />
@@ -2139,14 +2139,14 @@ const AdminContent: React.FC = () => {
                 {vlogs.map((vlog) => (
                   <div key={vlog.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
-                      <Image src={vlog.thumbnailUrl} alt={vlog.title} className="object-cover w-24 h-16 rounded" width={96} height={64} />
+                      <Image src={vlog.thumbnail_url} alt={vlog.title} className="object-cover w-24 h-16 rounded" width={96} height={64} />
                       <div>
                         <h3 className="font-medium text-[#383B26]">{vlog.title}</h3>
                         <p className="text-sm text-[#8F907E]">{vlog.description}</p>
                         <div className="flex items-center space-x-4 text-xs text-[#8F907E] mt-1">
                           <span>{vlog.duration}</span>
-                          <span>{vlog.publishedAt}</span>
-                          {vlog.isFeatured && <span className="px-2 py-1 text-yellow-800 bg-yellow-100 rounded">Featured</span>}
+                          <span>{vlog.published_at}</span>
+                          {vlog.is_featured && <span className="px-2 py-1 text-yellow-800 bg-yellow-100 rounded">Featured</span>}
                         </div>
                       </div>
                     </div>
@@ -2229,7 +2229,7 @@ const AdminContent: React.FC = () => {
                           width={400}
                           height={192}
                         />
-                        {album.isFeatured && (
+                        {album.is_featured && (
                           <span className="absolute flex items-center px-2 py-1 text-xs text-white bg-yellow-500 rounded top-2 left-2">
                             <FaStar className="mr-1" />
                             Featured
@@ -2384,12 +2384,12 @@ const AdminContent: React.FC = () => {
                           <div className="relative">
                             <div 
                               className="relative flex flex-col items-center justify-center h-32 text-white"
-                              style={{ backgroundColor: playlist.theme_color || '#2D2D2D' }}
+                              style={{ backgroundColor: playlist.card_color || '#2D2D2D' }}
                             >
                               <FaMusic className="mb-2 text-3xl opacity-70" />
                               <div className="px-2 text-center">
-                                <p className="text-sm font-medium">{playlist.name}</p>
-                                <p className="text-xs opacity-80">Order: {playlist.display_order}</p>
+                                <p className="text-sm font-medium">{playlist.playlist_title}</p>
+                                <p className="text-xs opacity-80">Order: {playlist.playlist_order}</p>
                               </div>
                               {!playlist.is_active && (
                                 <div className="absolute top-2 right-2">
@@ -2405,7 +2405,7 @@ const AdminContent: React.FC = () => {
                           <div className="p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-gray-600">Order: {playlist.display_order}</p>
+                                <p className="text-sm text-gray-600">Order: {playlist.playlist_order}</p>
                                 <a 
                                   href={playlist.spotify_url} 
                                   target="_blank" 
@@ -2492,8 +2492,8 @@ const AdminContent: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Featured:</span>
-                    <span className={`font-medium ${vlogs.filter(v => v.isFeatured).length >= 1 ? 'text-amber-600' : 'text-green-600'}`}>
-                      {vlogs.filter(v => v.isFeatured).length}/1
+                    <span className={`font-medium ${vlogs.filter(v => v.is_featured).length >= 1 ? 'text-amber-600' : 'text-green-600'}`}>
+                      {vlogs.filter(v => v.is_featured).length}/1
                     </span>
                   </div>
                 </div>
@@ -2708,7 +2708,7 @@ const AdminContent: React.FC = () => {
                           description: 'Educational videos for candida cleansing process',
                           type: 'part1',
                           isActive: true,
-                          updatedAt: new Date()
+                          updated_at: new Date()
                         })}
                         className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] opacity-0 group-hover:opacity-100 transition-opacity"
                       >
@@ -2725,7 +2725,7 @@ const AdminContent: React.FC = () => {
                           description: 'Videos focused on rebuilding gut health after cleansing',
                           type: 'part2',
                           isActive: true,
-                          updatedAt: new Date()
+                          updated_at: new Date()
                         })}
                         className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] opacity-0 group-hover:opacity-100 transition-opacity"
                       >
