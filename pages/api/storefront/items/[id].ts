@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../../auth/[...nextauth]'
 import isAdminEmail from '../../../../lib/auth/isAdminEmail'
 import { updateStorefrontItem, deleteStorefrontItem } from '../../../../lib/services/carouselService'
+import { z } from 'zod'
 
 export const config = { runtime: 'nodejs' }
 
@@ -18,10 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { order_index, slug } = req.body as { order_index?: number; slug?: Slug }
-      if (order_index !== undefined && order_index < 0) return res.status(400).json({ error: 'order_index must be >= 0' })
-      if (slug && slug !== 'favorites' && slug !== 'top-picks') return res.status(400).json({ error: 'Invalid slug' })
-      const updated = await updateStorefrontItem(id, { order_index, slug })
+      const BodySchema = z.object({
+        order_index: z.number().int().min(0).optional(),
+        slug: z.enum(['favorites','top-picks']).optional(),
+      })
+      const { order_index, slug } = BodySchema.parse(req.body)
+      const updated = await updateStorefrontItem(id, { order_index, slug: slug as Slug | undefined })
       if (updated.error) return res.status(500).json({ error: updated.error })
       return res.status(200).json({ item: updated.data })
     } catch (error) {

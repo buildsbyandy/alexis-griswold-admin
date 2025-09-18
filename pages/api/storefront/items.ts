@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import { listStorefrontItems, createStorefrontItem } from '../../../lib/services/carouselService'
+import { z } from 'zod'
 
 export const config = { runtime: 'nodejs' }
 
@@ -27,9 +28,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!email || !isAdminEmail(email)) return res.status(401).json({ error: 'Unauthorized' })
 
     try {
-      const { product_id, slug, order_index } = req.body as { product_id?: string; slug?: Slug; order_index?: number }
-      if (!product_id) return res.status(400).json({ error: 'product_id is required' })
-      const targetSlug = slug === 'top-picks' ? 'top-picks' : 'favorites'
+      const BodySchema = z.object({
+        product_id: z.string().min(1),
+        slug: z.enum(['favorites','top-picks']).optional(),
+        order_index: z.number().int().min(0).optional(),
+      })
+      const { product_id, slug, order_index } = BodySchema.parse(req.body)
+      const targetSlug: Slug = slug === 'top-picks' ? 'top-picks' : 'favorites'
       const created = await createStorefrontItem(targetSlug, product_id, order_index)
       if (created.error) return res.status(500).json({ error: created.error })
       return res.status(201).json({ item: created.data })

@@ -13,6 +13,7 @@ import type {
   ContentStatus
 } from '@/lib/types/storefront';
 import { listStorefrontItems } from '../services/carouselService';
+import slugify from '@/lib/utils/slugify';
 
 class StorefrontService {
   // Carousel items (favorites, top-picks)
@@ -384,13 +385,7 @@ class StorefrontService {
 
   // Utility functions
   generate_slug(product_title: string): string {
-    return product_title
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+    return slugify(product_title);
   }
 
   validate_product_data(data: StorefrontProductFormData): { valid: boolean; errors: string[] } {

@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const itemsRes = await listViewItems('vlogs')
     if (itemsRes.error) return res.status(500).json({ error: itemsRes.error })
-    const itemByRef = new Map<string, typeof itemsRes.data[number]>()
+    const itemByRef = new Map<string, NonNullable<typeof itemsRes.data>[number]>()
     for (const it of itemsRes.data || []) {
       if (it?.ref_id) itemByRef.set(it.ref_id, it)
     }

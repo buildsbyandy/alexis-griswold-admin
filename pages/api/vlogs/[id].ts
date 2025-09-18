@@ -19,6 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { id } = req.query
 
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid vlog ID' })
+  }
+
   if (req.method === 'GET') {
     const { data, error } = await supabaseAdmin
       .from('vlogs')

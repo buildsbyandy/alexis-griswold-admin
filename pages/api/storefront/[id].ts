@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import isAdminEmail from '../../../lib/auth/isAdminEmail';
 import supabaseAdmin from '@/lib/supabase';
+import { z } from 'zod';
+import { slugify } from '@/lib/utils/slugify';
+import type { StorefrontUpdate, StorefrontRow } from '@/types/supabase.generated';
 
 export const config = { runtime: 'nodejs' };
 
@@ -46,32 +49,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      // Remove undefined fields from the update
-      const updateData = Object.fromEntries(
-        Object.entries(req.body).filter(([_, value]) => value !== undefined)
-      );
+      const BodySchema = z.object({
+        // Prefer `name` but support legacy `product_title`. Optional partial updates.
+        name: z.string().trim().min(1).max(255).optional(),
+        product_title: z.string().trim().min(1).max(255).optional(),
+        slug: z.string().trim().min(1).max(255).optional(),
+        category_slug: z.string().trim().min(1).max(255).nullable().optional(),
+        status: z.enum(['draft','published','archived']).optional(),
+        amazon_url: z.string().trim().url().optional(),
+        price: z.number().nullable().optional(),
+        image_path: z.string().trim().nullable().optional(),
+        image_alt: z.string().trim().nullable().optional(),
+        description: z.string().trim().nullable().optional(),
+        tags: z.array(z.string()).nullable().optional(),
+      });
+
+      const parsed = BodySchema.parse(req.body);
+
+      const updateData: StorefrontUpdate = Object.fromEntries(
+        Object.entries(parsed).filter(([_, value]) => value !== undefined)
+      ) as StorefrontUpdate;
+
+      // Normalize incoming name/product_title into product_title field if provided.
+      const incomingTitle = (parsed.name ?? parsed.product_title);
+      if (incomingTitle !== undefined) {
+        updateData.product_title = incomingTitle;
+      }
 
       // Add updated timestamp
       updateData.updated_at = new Date().toISOString();
 
-      // Handle slug regeneration if product_title changed but slug wasn't provided
-      if (updateData.product_title && !updateData.slug) {
-        // Get current product to check if product_title changed
-        const { data: currentProduct } = await supabaseAdmin
+      // Get current product for comparison if we might need to regenerate slug
+      let currentProduct: Pick<StorefrontRow, 'product_title' | 'slug'> | null = null;
+      if ((incomingTitle !== undefined && !parsed.slug) || updateData.slug === undefined) {
+        const { data } = await supabaseAdmin
           .from('storefront_products')
           .select('product_title, slug')
           .eq('id', id)
           .single();
+        currentProduct = (data as StorefrontRow | null) ? { product_title: data!.product_title, slug: data!.slug } : null;
+      }
 
-        if (currentProduct && currentProduct.product_title !== updateData.product_title) {
-          updateData.slug = updateData.product_title
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
-        }
+      // Only regenerate slug if title changed AND a slug was not explicitly provided
+      if (incomingTitle !== undefined && !parsed.slug && currentProduct && currentProduct.product_title !== incomingTitle) {
+        updateData.slug = slugify(incomingTitle);
       }
 
       const { data, error } = await supabaseAdmin

@@ -10,7 +10,8 @@ import VlogModal from '../components/modals/VlogModal';
 import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
 import HomeContentModal from '../components/modals/HomeContentModal';
 import SpotifyPlaylistModal from '../components/modals/SpotifyPlaylistModal';
-import HealingProductModal, { type HealingProduct } from '../components/modals/HealingProductModal';
+import HealingProductModal from '../components/modals/HealingProductModal';
+import { type HealingProductRow } from '../lib/services/healingService';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
 import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
 import HealingVideoModal from '../components/modals/HealingVideoModal';
@@ -86,8 +87,8 @@ const AdminContent: React.FC = () => {
     featuredVideoDate: '',
     featuredVideoThumbnail: ''
   });
-  const [healingProducts, setHealingProducts] = useState<HealingProduct[]>([]);
-  const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProduct | null>(null);
+  const [healingProducts, setHealingProducts] = useState<HealingProductRow[]>([]);
+  const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProductRow | null>(null);
   const [isAddingHealingProduct, setIsAddingHealingProduct] = useState(false);
   const [editingCarouselHeader, setEditingCarouselHeader] = useState<CarouselHeader | null>(null);
   const [editingHealingFeaturedVideo, setEditingHealingFeaturedVideo] = useState<HealingFeaturedVideo | null>(null);
@@ -517,14 +518,12 @@ const AdminContent: React.FC = () => {
   };
 
   // Healing save functionality
-  const handleSaveHealingProduct = async (productData: Omit<HealingProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveHealingProduct = async (productData: Omit<HealingProductRow, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       if (editingHealingProduct) {
-        const success = await healingService.updateProduct(editingHealingProduct.id, productData);
-        if (!success) throw new Error('Failed to update healing product');
+        await healingService.updateHealingProduct(editingHealingProduct.id, productData);
       } else {
-        const success = await healingService.addProduct(productData);
-        if (!success) throw new Error('Failed to create healing product');
+        await healingService.createHealingProduct(productData);
       }
       
       // Reload products
@@ -543,10 +542,10 @@ const AdminContent: React.FC = () => {
     try {
       // Map from HealingVideo interface to API format
       const apiData = {
-        youtube_url: videoData.youtubeUrl,
+        youtube_url: videoData.youtube_url,
         carousel_number: videoData.carousel === 'part1' ? 1 : 2,
-        video_title: videoData.title,
-        video_description: videoData.description,
+        video_title: videoData.video_title,
+        video_description: videoData.video_description,
         video_order: videoData.order,
       };
 
@@ -593,8 +592,8 @@ const AdminContent: React.FC = () => {
 
   const handleSaveHealingFeaturedVideo = async (videoData: Omit<HealingFeaturedVideo, 'id' | 'updatedAt'>) => {
     try {
-      const success = await healingService.updateFeaturedVideo(videoData);
-      if (!success) throw new Error('Failed to update healing featured video');
+      const result = await healingService.upsert_featured_video(videoData);
+      if (result.error) throw new Error(result.error);
       
       setEditingHealingFeaturedVideo(null);
     } catch (error) {
@@ -684,7 +683,7 @@ const AdminContent: React.FC = () => {
       // Update the healing hero data with the selected video
       setHealingHeroData(prev => ({
         ...prev,
-        featuredVideoId: video.youtubeId || video.id,
+        featuredVideoId: video.youtube_id || video.id,
         featuredVideoTitle: video.video_title,
         featuredVideoDate: new Date().toISOString().split('T')[0]
       }));
@@ -701,9 +700,9 @@ const AdminContent: React.FC = () => {
       // Update the vlog hero data with the selected video
       setVlogHeroData(prev => ({
         ...prev,
-        featuredVideoId: video.youtubeId || video.id,
-        featuredVideoTitle: video.video_title,
-        featuredVideoDate: video.publishedAt || new Date().toISOString().split('T')[0],
+        featuredVideoId: video.youtube_id || video.id,
+        featuredVideoTitle: video.title,
+        featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0],
         featuredVideoThumbnail: `https://img.youtube.com/vi/${video.youtube_id}/maxresdefault.jpg`
       }));
       

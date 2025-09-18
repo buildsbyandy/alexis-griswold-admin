@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import isAdminEmail from '../../../lib/auth/isAdminEmail';
 import supabaseAdmin from '@/lib/supabase';
+import { z } from 'zod';
+import type { Database } from '@/types/supabase.generated';
+type CategoryInsert = Database['public']['Tables']['storefront_categories']['Insert'];
+type CategoryUpdate = Database['public']['Tables']['storefront_categories']['Update'];
 
 export const config = { runtime: 'nodejs' };
 
@@ -36,30 +40,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      // Validate required fields
-      const { category_name, slug } = req.body;
-      if (!category_name || !slug) {
-        return res.status(400).json({ error: 'Category name and slug are required' });
-      }
+      const BodySchema = z.object({
+        category_name: z.string().trim().min(1).max(100),
+        slug: z.string().trim().min(1).max(100),
+        category_description: z.string().trim().max(1000).optional(),
+        category_image_path: z.string().trim().optional(),
+        is_featured: z.boolean().optional(),
+        is_visible: z.boolean().optional(),
+        sort_order: z.number().int().min(0).optional(),
+      });
+      const parsed = BodySchema.parse(req.body);
 
-      // Remove undefined fields from the insert data
-      const insertData = Object.fromEntries(
-        Object.entries(req.body).filter(([_, value]) => value !== undefined)
-      );
+      const insertData: CategoryInsert = {
+        category_name: parsed.category_name,
+        slug: parsed.slug,
+        category_description: parsed.category_description ?? null,
+        category_image_path: parsed.category_image_path ?? null,
+        is_featured: parsed.is_featured ?? false,
+        is_visible: parsed.is_visible ?? true,
+        sort_order: parsed.sort_order ?? undefined,
+      };
 
-      // Ensure defaults for optional fields
-      if (insertData.is_featured === undefined) insertData.is_featured = false;
-      if (insertData.is_visible === undefined) insertData.is_visible = true;
       if (insertData.sort_order === undefined) {
-        // Auto-assign next sort order
         const { data: lastCategory } = await supabaseAdmin
           .from('storefront_categories')
           .select('sort_order')
           .order('sort_order', { ascending: false })
           .limit(1)
           .single();
-
-        insertData.sort_order = lastCategory?.sort_order ? lastCategory.sort_order + 1 : 1;
+        insertData.sort_order = (lastCategory?.sort_order ?? 0) + 1;
       }
 
       const { data, error } = await supabaseAdmin
@@ -97,13 +106,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      // Remove undefined fields from the update data
-      const updateData = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined)
-      );
+      const BodySchema = z.object({
+        category_name: z.string().trim().min(1).max(100).optional(),
+        slug: z.string().trim().min(1).max(100).optional(),
+        category_description: z.string().trim().max(1000).nullable().optional(),
+        category_image_path: z.string().trim().nullable().optional(),
+        is_featured: z.boolean().nullable().optional(),
+        is_visible: z.boolean().nullable().optional(),
+        sort_order: z.number().int().min(0).nullable().optional(),
+      });
+      const parsed = BodySchema.parse(updates);
+      const updateData: CategoryUpdate = Object.fromEntries(
+        Object.entries(parsed).filter(([_, value]) => value !== undefined)
+      ) as CategoryUpdate;
 
-      // Add updated timestamp
-      updateData.updated_at = new Date().toISOString();
+      (updateData as any).updated_at = new Date().toISOString();
 
       const { data, error } = await supabaseAdmin
         .from('storefront_categories')

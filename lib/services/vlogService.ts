@@ -10,16 +10,16 @@ export interface VlogVideo {
   id: string;
   title: string;
   description: string;
-  youtubeUrl: string;
-  youtubeId: string | null;
-  thumbnailUrl: string;
-  publishedAt: string;
+  youtube_url: string;
+  youtube_id: string | null;
+  thumbnail_url: string;
+  published_at: string;
   duration: string;
   carousel: VlogCarouselType;
-  isFeatured: boolean;
-  order: number;
-  createdAt: Date;
-  updatedAt: Date;
+  is_featured: boolean;
+  display_order: number;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Photo { id: string; src: string; alt: string; caption?: string; order: number; }
