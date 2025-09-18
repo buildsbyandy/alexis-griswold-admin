@@ -15,7 +15,7 @@ interface CarouselHeaderModalProps {
   isOpen: boolean;
   onClose: () => void;
   carouselHeader?: CarouselHeader | null;
-  onSave: (header: Omit<CarouselHeader, 'id' | 'updatedAt'>) => Promise<void>;
+  onSave: (header: Omit<CarouselHeader, 'id' | 'updated_at'>) => Promise<void>;
 }
 
 const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClose, carouselHeader, onSave }) => {
@@ -59,7 +59,11 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
     }
 
     try {
-      await onSave(formData);
+      const headerData = {
+        ...formData,
+        updated_at: carouselHeader ? carouselHeader.updated_at : new Date()
+      };
+      await onSave(headerData);
       onClose();
       toast.success(`Carousel header ${carouselHeader ? 'updated' : 'created'} successfully!`);
     } catch (error) {
