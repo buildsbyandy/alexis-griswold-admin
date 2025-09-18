@@ -75,18 +75,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Extract video metadata from YouTube
       const youtubeData = await youtubeService.getVideoDataFromUrl(youtube_url)
-      if (!youtubeData) {
+      if (!youtubeData || youtubeData.error || !youtubeData.data) {
         return res.status(404).json({ error: 'Video not found or private' })
       }
 
       // Prepare vlog data - use custom title/description if provided, otherwise use YouTube data
+      const vd = youtubeData.data
       const vlogData: VlogInsert = {
-        title: customTitle?.trim() || youtubeData.title,
-        description: customDescription?.trim() || youtubeData.description,
+        title: customTitle?.trim() || vd.title,
+        description: customDescription?.trim() || vd.description,
         youtube_url: youtube_url,
-        thumbnail_url: youtubeData.thumbnailUrl,
-        published_at: youtubeData.publishedAt,
-        duration: youtubeData.duration,
+        thumbnail_url: vd.thumbnail_url,
+        published_at: vd.published_at,
+        duration: vd.duration,
         is_featured: is_featured || false,
       }
 

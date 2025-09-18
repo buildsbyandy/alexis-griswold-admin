@@ -50,18 +50,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         // Extract video metadata from YouTube
         const youtubeData = await youtubeService.getVideoDataFromUrl(youtube_url)
-        if (!youtubeData) {
+        if (!youtubeData || youtubeData.error || !youtubeData.data) {
           return res.status(404).json({ error: 'Video not found or private' })
         }
+        const vd = youtubeData.data
         
         updateData = {
           ...updateData,
           youtube_url: youtube_url,
-          thumbnail_url: youtubeData.thumbnailUrl,
-          published_at: youtubeData.publishedAt,
-          duration: youtubeData.duration,
-          title: customTitle?.trim() || youtubeData.title,
-          description: customDescription?.trim() || youtubeData.description,
+          thumbnail_url: vd.thumbnail_url,
+          published_at: vd.published_at,
+          duration: vd.duration,
+          title: customTitle?.trim() || vd.title,
+          description: customDescription?.trim() || vd.description,
         }
       } else {
         // Update only provided fields without YouTube data

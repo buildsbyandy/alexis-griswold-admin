@@ -69,7 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (youtube_url && !video_thumbnail_url) {
         try {
           const meta = await youtubeService.getVideoDataFromUrl(youtube_url)
-          if (meta?.thumbnailUrl) updatePayload.video_thumbnail_url = meta.thumbnailUrl
+          if (meta && meta.data && meta.data.thumbnail_url) {
+            updatePayload.video_thumbnail_url = meta.data.thumbnail_url
+          }
         } catch {}
       }
 
