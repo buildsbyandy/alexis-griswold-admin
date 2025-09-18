@@ -10,7 +10,7 @@ interface PhotoAlbumModalProps {
   isOpen: boolean;
   onClose: () => void;
   album?: PhotoAlbum | null;
-  onSave: (album: Omit<PhotoAlbum, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onSave: (album: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
 }
 
 type PhotoCategory = 'Home' | 'Lifestyle' | 'Food' | 'Travel' | 'Wellness' | 'Fitness';
@@ -80,7 +80,13 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     }
 
     try {
-      await onSave(formData);
+      // Add required timestamp fields for the PhotoAlbum interface
+      const albumData = {
+        ...formData,
+        created_at: album ? album.created_at : new Date(),
+        updated_at: new Date()
+      };
+      await onSave(albumData);
       onClose();
       toast.success(`Album ${album ? 'updated' : 'created'} successfully!`);
     } catch (error) {
