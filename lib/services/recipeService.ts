@@ -146,26 +146,26 @@ class RecipeService {
       slug: recipe.slug,
       images: recipe.images,
       category: recipe.category,
-      label: recipe.folder,
+      label: recipe.folder_slug,
     }));
   }
 
   async getBeginnerRecipes(): Promise<Recipe[]> {
     const recipes = await this.getAllRecipes();
-    return recipes.filter(recipe => recipe.isBeginner);
+    return recipes.filter(recipe => recipe.is_beginner);
   }
 
   async getRecipeOfWeek(): Promise<Recipe | null> {
     const recipes = await this.getAllRecipes();
-    return recipes.find(recipe => recipe.isRecipeOfWeek) || null;
+    return recipes.find(recipe => recipe.is_recipe_of_week) || null;
   }
 
   async getRecipesByFolder(folder: string): Promise<Recipe[]> {
     const recipes = await this.getAllRecipes();
-    return recipes.filter(recipe => recipe.folder === folder);
+    return recipes.filter(recipe => recipe.folder_slug === folder);
   }
 
-  async addRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Promise<Recipe> {
+  async addRecipe(recipe: Omit<Recipe, 'id' | 'created_at' | 'updated_at'>): Promise<Recipe> {
     try {
       // Map interface to database fields
       const recipeData = {
@@ -173,7 +173,7 @@ class RecipeService {
         slug: recipe.slug,
         description: recipe.description,
         category: recipe.category,
-        folder_slug: recipe.folder,
+        folder_slug: recipe.folder_slug,
         difficulty: recipe.difficulty,
         servings: recipe.servings,
         prepTime: recipe.prepTime,
@@ -182,10 +182,10 @@ class RecipeService {
         instructions: recipe.instructions,
         tags: recipe.tags,
         status: recipe.status,
-        is_favorite: recipe.isFavorite,
-        is_beginner: recipe.isBeginner,
-        is_recipe_of_week: recipe.isRecipeOfWeek,
-        hero_image_path: recipe.imageUrl,
+        is_favorite: recipe.is_favorite,
+        is_beginner: recipe.is_beginner,
+        is_recipe_of_week: recipe.is_recipe_of_week,
+        hero_image_path: recipe.hero_image_path,
         images: recipe.images
       };
 
@@ -240,7 +240,7 @@ class RecipeService {
       if (updates.slug !== undefined) updateData.slug = updates.slug;
       if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.category !== undefined) updateData.category = updates.category;
-      if (updates.folder !== undefined) updateData.folder_slug = updates.folder;
+      if (updates.folder_slug !== undefined) updateData.folder_slug = updates.folder_slug;
       if (updates.difficulty !== undefined) updateData.difficulty = updates.difficulty;
       if (updates.servings !== undefined) updateData.servings = updates.servings;
       if (updates.prepTime !== undefined) updateData.prepTime = updates.prepTime;
@@ -249,10 +249,10 @@ class RecipeService {
       if (updates.instructions !== undefined) updateData.instructions = updates.instructions;
       if (updates.tags !== undefined) updateData.tags = updates.tags;
       if (updates.status !== undefined) updateData.status = updates.status;
-      if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
-      if (updates.isBeginner !== undefined) updateData.is_beginner = updates.isBeginner;
-      if (updates.isRecipeOfWeek !== undefined) updateData.is_recipe_of_week = updates.isRecipeOfWeek;
-      if (updates.imageUrl !== undefined) updateData.hero_image_path = updates.imageUrl;
+      if (updates.is_favorite !== undefined) updateData.is_favorite = updates.is_favorite;
+      if (updates.is_beginner !== undefined) updateData.is_beginner = updates.is_beginner;
+      if (updates.is_recipe_of_week !== undefined) updateData.is_recipe_of_week = updates.is_recipe_of_week;
+      if (updates.hero_image_path !== undefined) updateData.hero_image_path = updates.hero_image_path;
       if (updates.images !== undefined) updateData.images = updates.images;
 
       const response = await fetch(`/api/recipes/${id}`, {
@@ -423,12 +423,12 @@ class RecipeService {
       slug: legacy.slug,
       description: `Recipe for ${legacy.title}`,
       category: legacy.category,
-      folder: this.mapCategoryToFolder(legacy.category, legacy.label),
-      isBeginner: this.isBeginnerRecipe(legacy.title),
-      isRecipeOfWeek: false,
+      folder_slug: this.mapCategoryToFolder(legacy.category, legacy.label),
+      is_beginner: this.isBeginnerRecipe(legacy.title),
+      is_recipe_of_week: false,
       status: 'published' as RecipeStatus,
-      isFavorite: false,
-      imageUrl: legacy.images[0] || undefined,
+      is_favorite: false,
+      hero_image_path: legacy.images[0] || undefined,
       images: legacy.images,
       ingredients: [''],
       instructions: [''],
@@ -478,12 +478,12 @@ class RecipeService {
   async getRecipeStats(): Promise<{ total: number; byFolder: Record<string, number>; beginners: number; recipeOfWeek: number; }> {
     const recipes = await this.getAllRecipes();
     const byFolder: Record<string, number> = {};
-    recipes.forEach(r => { byFolder[r.folder] = (byFolder[r.folder] || 0) + 1; });
+    recipes.forEach(r => { byFolder[r.folder_slug] = (byFolder[r.folder_slug] || 0) + 1; });
     return {
       total: recipes.length,
       byFolder,
-      beginners: recipes.filter(r => r.isBeginner).length,
-      recipeOfWeek: recipes.filter(r => r.isRecipeOfWeek).length
+      beginners: recipes.filter(r => r.is_beginner).length,
+      recipeOfWeek: recipes.filter(r => r.is_recipe_of_week).length
     };
   }
 }

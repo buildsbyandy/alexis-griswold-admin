@@ -74,14 +74,14 @@ class PlaylistService {
     const playlists = await this.getAllPlaylists();
     return playlists
       .filter(p => p.is_active)
-      .sort((a, b) => a.display_order - b.display_order)
+      .sort((a, b) => a.playlist_order - b.playlist_order)
       .slice(0, limit);
   }
 
-  async addPlaylist(input: Omit<SpotifyPlaylist, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> {
+  async addPlaylist(input: Omit<SpotifyPlaylist, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
     try {
       // Validate required fields
-      if (!input.name.trim()) {
+      if (!input.playlist_title.trim()) {
         throw new Error('Playlist name is required');
       }
       if (!input.spotify_url.trim()) {
@@ -90,11 +90,11 @@ class PlaylistService {
 
       // Map interface to database fields
       const playlistData: PlaylistInsert = {
-        playlist_title: input.name,
+        playlist_title: input.playlist_title,
         description: input.description || null,
-        card_color: input.theme_color || null,
+        card_color: input.card_color || null,
         spotify_url: input.spotify_url,
-        playlist_order: input.display_order,
+        playlist_order: input.playlist_order,
         is_active: input.is_active
       };
 
@@ -102,11 +102,11 @@ class PlaylistService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: input.name,
+          playlist_title: input.playlist_title,
           description: input.description,
-          theme_color: input.theme_color,
+          card_color: input.card_color,
           spotify_url: input.spotify_url,
-          display_order: input.display_order,
+          playlist_order: input.playlist_order,
           is_active: input.is_active
         })
       });
@@ -126,11 +126,11 @@ class PlaylistService {
     try {
       // Map interface to database fields for API call
       const updatePayload: any = {};
-      if (input.name !== undefined) updatePayload.name = input.name;
+      if (input.playlist_title !== undefined) updatePayload.playlist_title = input.playlist_title;
       if (input.description !== undefined) updatePayload.description = input.description;
-      if (input.theme_color !== undefined) updatePayload.theme_color = input.theme_color;
+      if (input.card_color !== undefined) updatePayload.card_color = input.card_color;
       if (input.spotify_url !== undefined) updatePayload.spotify_url = input.spotify_url;
-      if (input.display_order !== undefined) updatePayload.display_order = input.display_order;
+      if (input.playlist_order !== undefined) updatePayload.playlist_order = input.playlist_order;
       if (input.is_active !== undefined) updatePayload.is_active = input.is_active;
 
       const response = await fetch(`/api/playlists/${id}`, {
