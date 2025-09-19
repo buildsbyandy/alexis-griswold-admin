@@ -185,6 +185,20 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     }));
   };
 
+  const addImage = (imageUrl: string) => {
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, imageUrl]
+    }));
+  };
+
+  const removeImage = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, index) => index !== indexToRemove)
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -318,7 +332,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
-                      onUpload={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
+                      onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
                       className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                     >
                       Upload Recipe Image
@@ -326,6 +340,74 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Additional Images */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-[#383B26]">Additional Images</label>
+                <FileUpload
+                  accept="image/*"
+                  uploadType="image"
+                  onUpload={addImage}
+                  className="px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center"
+                >
+                  <FaPlus className="mr-1" />
+                  Add Image
+                </FileUpload>
+              </div>
+              <p className="text-xs text-gray-600 mb-3">Additional photos showing the cooking process, final result, or different angles</p>
+              
+              {formData.images.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {formData.images.map((imageUrl, index) => (
+                    <div key={index} className="relative group">
+                      {(() => {
+                        const parsedUrl = parseSupabaseUrl(imageUrl)
+                        if (parsedUrl) {
+                          return (
+                            <SecureImage
+                              bucket={parsedUrl.bucket}
+                              path={parsedUrl.path}
+                              alt={`Recipe step ${index + 1}`}
+                              width={300}
+                              height={200}
+                              className="w-full h-32 object-cover rounded border"
+                            />
+                          )
+                        } else {
+                          return (
+                            <div className="w-full h-32 bg-gray-200 rounded border flex items-center justify-center">
+                              <span className="text-gray-400 text-sm">Invalid image URL</span>
+                            </div>
+                          )
+                        }
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                      >
+                        <FaTimes className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                  <p className="text-gray-500 mb-2">No additional images yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Click "Add Image" to upload photos of the cooking process or final result</p>
+                  <FileUpload
+                    accept="image/*"
+                    uploadType="image"
+                    onUpload={addImage}
+                    className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
+                  >
+                    <FaPlus className="mr-2" />
+                    Upload Additional Image
+                  </FileUpload>
+                </div>
+              )}
             </div>
 
             {/* Category & Settings */}

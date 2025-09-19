@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaVideo, FaSpinner } from 'react-icons/fa';
 import type { VlogVideo, VlogCarouselType } from '../../lib/services/vlogService';
 import { vlogService } from '../../lib/services/vlogService';
-import { youtubeService } from '../../lib/services/youtubeService';
 import FileUpload from '../ui/FileUpload';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
@@ -76,9 +75,18 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     if (!vlog && url && url.includes('youtube.com')) {
       setIsLoadingYouTubeData(true);
       try {
-        const youtubeData = await youtubeService.get_video_data_from_url(url);
-        if (youtubeData.data) {
-          const data = youtubeData.data;
+        const response = await fetch('/api/youtube/metadata', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.data) {
+          const data = result.data;
           setFormData(prev => ({
             ...prev,
             title: data.title || prev.title,
@@ -88,11 +96,23 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
           }));
           toast.success('YouTube data loaded automatically!');
         } else {
-          toast.error('Could not fetch YouTube data. Please fill in manually.');
+          console.error('YouTube API error:', result.error);
+          // Show more specific error messages
+          if (result.error?.includes('API key not configured')) {
+            toast.error('YouTube API key not configured. Please contact administrator.');
+          } else if (result.error?.includes('API error')) {
+            toast.error('YouTube API error. Please try again or fill in manually.');
+          } else if (result.error?.includes('Video not found')) {
+            toast.error('Video not found. Please check the URL or fill in manually.');
+          } else if (result.error?.includes('Invalid YouTube video ID')) {
+            toast.error('Invalid YouTube URL. Please check the format or fill in manually.');
+          } else {
+            toast.error(`YouTube error: ${result.error || 'Unknown error'}. Please fill in manually.`);
+          }
         }
       } catch (error) {
         console.error('Error fetching YouTube data:', error);
-        toast.error('Could not fetch YouTube data. Please fill in manually.');
+        toast.error('Network error fetching YouTube data. Please fill in manually.');
       } finally {
         setIsLoadingYouTubeData(false);
       }
