@@ -9,6 +9,7 @@ interface FileUploadProps {
   uploadType: 'video' | 'image' | 'file';
   className?: string;
   children?: React.ReactNode;
+  disabled?: boolean;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
@@ -16,7 +17,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   onUpload, 
   uploadType, 
   className = '',
-  children 
+  children,
+  disabled = false
 }) => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +61,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    if (!disabled && !uploading) {
+      fileInputRef.current?.click();
+    }
   };
 
   return (
@@ -73,7 +77,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       />
       <button
         onClick={handleClick}
-        disabled={uploading}
+        disabled={disabled || uploading}
         className={`flex items-center gap-2 ${className}`}
         type="button"
       >
