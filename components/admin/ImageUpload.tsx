@@ -67,7 +67,7 @@ export default function ImageUpload({
     const res = await fetch('/api/storage/signed-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bucket: 'public', path })
+      body: JSON.stringify({ bucket: 'media', path })
     })
 
     if (!res.ok) {

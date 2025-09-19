@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
-import supabaseAdmin from '@/lib/supabase'
+import { supabase as supabaseAdmin } from '@/lib/supabase'
 
 export const config = { runtime: 'nodejs' }
 
@@ -30,6 +30,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .createSignedUploadUrl(path)
 
   if (error) return res.status(500).json({ error: 'Failed to create signed URL' })
-  return res.status(200).json(data)
+  
+  // Return the expected format with uploadUrl and publicUrl
+  return res.status(200).json({
+    uploadUrl: data.signedUrl,
+    publicUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`
+  })
 }
 

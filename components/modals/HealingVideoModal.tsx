@@ -71,9 +71,12 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
   // Auto-fetch YouTube metadata when URL is entered
   const handleYouTubeUrlChange = async (url: string) => {
     setFormData(prev => ({ ...prev, youtube_url: url }));
-    
+
+    // Check if URL is a valid YouTube URL
+    const isYouTubeUrl = url && (url.includes('youtube.com') || url.includes('youtu.be'));
+
     // Only auto-fetch if this is a new video (not editing existing)
-    if (!video && url && url.includes('youtube.com')) {
+    if (!video && isYouTubeUrl) {
       setIsLoadingYouTubeData(true);
       try {
         const response = await fetch('/api/youtube/metadata', {

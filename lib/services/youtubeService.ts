@@ -173,15 +173,22 @@ class YouTubeService {
    */
   async get_video_data(video_id: string): Promise<YouTubeServiceResponse<YouTubeVideoData>> {
     try {
+      console.log('YouTube Service: get_video_data called with video_id:', video_id);
+      console.log('YouTube Service: API_KEY available:', !!this.API_KEY);
+      console.log('YouTube Service: API_KEY first 10 chars:', this.API_KEY?.substring(0, 10));
+
       if (!this.API_KEY) {
+        console.log('YouTube Service: No API key configured');
         return { error: 'YouTube API key not configured' };
       }
 
       if (!video_id || !/^[a-zA-Z0-9_-]{11}$/.test(video_id)) {
+        console.log('YouTube Service: Invalid video ID format:', video_id);
         return { error: 'Invalid YouTube video ID' };
       }
 
       const url = `${this.BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${video_id}&key=${this.API_KEY}`;
+      console.log('YouTube Service: Making API request to:', url.replace(this.API_KEY, 'API_KEY_HIDDEN'));
       const response = await fetch(url);
 
       if (!response.ok) {
