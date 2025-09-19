@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaVideo } from 'react-icons/fa';
+import { FaTimes, FaSave, FaVideo, FaSpinner } from 'react-icons/fa';
 import type { VlogVideo, VlogCarouselType } from '../../lib/services/vlogService';
 import { vlogService } from '../../lib/services/vlogService';
+import { youtubeService } from '../../lib/services/youtubeService';
 import FileUpload from '../ui/FileUpload';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
@@ -25,6 +26,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     isFeatured: false,
     order: 0,
   });
+  const [isLoadingYouTubeData, setIsLoadingYouTubeData] = useState(false);
 
   useEffect(() => {
     if (vlog) {
@@ -64,6 +66,37 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
   const getYouTubeThumbnail = (url: string): string => {
     const videoId = extractYouTubeId(url);
     return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+  };
+
+  // Auto-fetch YouTube metadata when URL is entered
+  const handleYouTubeUrlChange = async (url: string) => {
+    setFormData(prev => ({ ...prev, youtubeUrl: url }));
+    
+    // Only auto-fetch if this is a new vlog (not editing existing)
+    if (!vlog && url && url.includes('youtube.com')) {
+      setIsLoadingYouTubeData(true);
+      try {
+        const youtubeData = await youtubeService.get_video_data_from_url(url);
+        if (youtubeData.data) {
+          const data = youtubeData.data;
+          setFormData(prev => ({
+            ...prev,
+            title: data.title || prev.title,
+            description: data.description || prev.description,
+            thumbnailUrl: data.thumbnail_url || prev.thumbnailUrl,
+            publishedAt: data.published_at || prev.publishedAt,
+          }));
+          toast.success('YouTube data loaded automatically!');
+        } else {
+          toast.error('Could not fetch YouTube data. Please fill in manually.');
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube data:', error);
+        toast.error('Could not fetch YouTube data. Please fill in manually.');
+      } finally {
+        setIsLoadingYouTubeData(false);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,15 +181,24 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
-                <input
-                  type="url"
-                  value={formData.youtubeUrl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, youtubeUrl: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                  required
-                />
-                <p className="text-xs text-gray-600 mt-1">Full YouTube URL - thumbnail and video info will be auto-extracted</p>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={formData.youtubeUrl}
+                    onChange={(e) => handleYouTubeUrlChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] pr-10"
+                    placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                    required
+                  />
+                  {isLoadingYouTubeData && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <FaSpinner className="animate-spin text-[#B8A692]" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  {!vlog ? 'Paste YouTube URL to auto-fill title, description, and thumbnail' : 'Full YouTube URL - thumbnail and video info will be auto-extracted'}
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel *</label>

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import storefrontService from '../../../lib/services/storefrontService'
+import supabaseAdmin from '../../../lib/supabase'
 import { z } from 'zod'
 
 export const config = { runtime: 'nodejs' }
@@ -10,9 +11,19 @@ export const config = { runtime: 'nodejs' }
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (req.method === 'GET') {
 		try {
-			// Delegate to storefrontService with optional filters
-			const products = await storefrontService.get_storefront_products()
-			return res.status(200).json({ products })
+			// Query database directly to avoid circular dependency
+			const { data, error } = await supabaseAdmin
+				.from('storefront_products')
+				.select('*')
+				.is('deleted_at', null) // Exclude soft-deleted products
+				.order('created_at', { ascending: false });
+
+			if (error) {
+				console.error('Supabase error:', error);
+				return res.status(500).json({ error: 'Failed to fetch products' });
+			}
+
+			return res.status(200).json({ products: data || [] });
 		} catch (error) {
 			console.error('Error fetching storefront products:', error)
 			return res.status(500).json({ error: 'Internal server error' })

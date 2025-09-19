@@ -17,6 +17,7 @@ import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/C
 import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
 import HealingVideoModal from '../components/modals/HealingVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
+import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
 import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe } from '../lib/services/recipeService';
@@ -25,6 +26,7 @@ import playlistService, { type SpotifyPlaylist } from '../lib/services/playlistS
 import albumService, { type PhotoAlbum } from '../lib/services/albumService';
 import healingService, { type HealingVideo } from '../lib/services/healingService';
 import storefrontService from '../lib/services/storefrontService';
+import { youtubeService } from '../lib/services/youtubeService';
 import type { StorefrontProductRow, StorefrontProductFormData, StorefrontCategoryRow } from '../lib/types/storefront';
 import VideoHistoryCarousel from '../components/ui/VideoHistoryCarousel';
 
@@ -115,6 +117,7 @@ const AdminContent: React.FC = () => {
   const [sfStatus, setSfStatus] = useState<string>('all');
   const [sfStats, setSfStats] = useState({ total: 0, byStatus: { draft: 0, published: 0, archived: 0 }, byCategory: {}, favorites: 0 });
   const [sfCategories, setSfCategories] = useState<StorefrontCategoryRow[]>([]);
+  const [showCategoryPhotoModal, setShowCategoryPhotoModal] = useState(false);
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
@@ -711,13 +714,20 @@ const AdminContent: React.FC = () => {
 
   const handleSelectVlogFeaturedVideo = async (video: VlogVideo) => {
     try {
+      // Extract YouTube ID from URL if youtube_id is missing
+      let youtubeId = video.youtube_id;
+      if (!youtubeId && video.youtube_url) {
+        const videoIdResult = youtubeService.extract_video_id(video.youtube_url);
+        youtubeId = videoIdResult.data || null;
+      }
+
       // Update the vlog hero data with the selected video
       setVlogHeroData(prev => ({
         ...prev,
-        featuredVideoId: video.youtube_id || video.id,
+        featuredVideoId: youtubeId || video.id,
         featuredVideoTitle: video.title,
         featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0],
-        featuredVideoThumbnail: `https://img.youtube.com/vi/${video.youtube_id}/maxresdefault.jpg`
+        featuredVideoThumbnail: youtubeId ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg` : ''
       }));
       
       toast.success('Featured video updated successfully!');
@@ -3207,6 +3217,12 @@ const AdminContent: React.FC = () => {
                   >
                     <FaUploadIcon /> Import
                   </button>
+                  <button
+                    onClick={() => setShowCategoryPhotoModal(true)}
+                    className="bg-[#B8A692] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#A0956C] transition-colors"
+                  >
+                    <FaImage /> Category Photos
+                  </button>
                 </div>
                 
                 {/* Search */}
@@ -3555,6 +3571,25 @@ const AdminContent: React.FC = () => {
         product={sfEditing}
         onSave={handleSaveStorefrontProduct}
         categories={sfCategories}
+      />
+
+      {/* Category Photo Modal */}
+      <CategoryPhotoModal
+        isOpen={showCategoryPhotoModal}
+        onClose={() => setShowCategoryPhotoModal(false)}
+        categories={sfCategories}
+        onUpdate={async () => {
+          // Refresh categories when photo is updated
+          try {
+            const response = await fetch('/api/storefront/categories');
+            if (response.ok) {
+              const data = await response.json();
+              setSfCategories(data.categories || []);
+            }
+          } catch (error) {
+            console.error('Error refreshing categories:', error);
+          }
+        }}
       />
 
       {/* Featured Video Selector Modals */}

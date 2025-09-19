@@ -4,7 +4,7 @@ import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
 import { youtubeService } from '../../../lib/services/youtubeService'
-import { listViewItems, findCarouselByPageSlug, createCarousel, createCarouselItem } from '../../../lib/services/carouselService'
+import { findCarouselByPageSlug, createCarousel, createCarouselItem } from '../../../lib/services/carouselService'
 import type { Database } from '@/types/supabase.generated'
 
 type VlogRow = Database['public']['Tables']['vlogs']['Row']
@@ -15,33 +15,71 @@ export const config = { runtime: 'nodejs' }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    // Fetch vlogs and enrich with carousel assignment from v_carousel_items
-    const { data: vlogRows, error: vlogError } = await supabaseAdmin
-      .from('vlogs')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      // Fetch vlogs and enrich with carousel assignment from carousel_items
+      const { data: vlogRows, error: vlogError } = await supabaseAdmin
+        .from('vlogs')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (vlogError) return res.status(500).json({ error: 'Failed to fetch vlogs' })
-
-    const itemsRes = await listViewItems('vlogs')
-    if (itemsRes.error) return res.status(500).json({ error: itemsRes.error })
-    const itemByRef = new Map<string, NonNullable<typeof itemsRes.data>[number]>()
-    for (const it of itemsRes.data || []) {
-      if (it?.ref_id) itemByRef.set(it.ref_id, it)
-    }
-
-    const result = (vlogRows as VlogRow[]).map((v) => {
-      const it = itemByRef.get(v.id)
-      const carouselSlug = it?.carousel_slug || null
-      const display_order = it?.order_index ?? 0
-      return {
-        ...v,
-        carousel: carouselSlug === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel',
-        display_order,
+      if (vlogError) {
+        console.error('Error fetching vlogs:', vlogError)
+        return res.status(500).json({ error: 'Failed to fetch vlogs' })
       }
-    })
 
-    return res.status(200).json({ vlogs: result })
+      // Get carousel items for vlogs page directly from database
+      // This shows which vlogs are featured in carousels and their order
+      const { data: carouselItems, error: itemsError } = await supabaseAdmin
+        .from('carousel_items')
+        .select(`
+          *,
+          carousels!inner(page, slug)
+        `)
+        .eq('carousels.page', 'vlogs')
+        .order('order_index', { ascending: true })
+
+      if (itemsError) {
+        console.error('Error fetching carousel items:', itemsError)
+        return res.status(500).json({ error: 'Failed to fetch carousel items' })
+      }
+
+      // Create lookup map for carousel items
+      // This allows us to see which vlogs are in carousels and their display order
+      const itemByRef = new Map<string, any>()
+      for (const item of carouselItems || []) {
+        if (item?.ref_id) {
+          itemByRef.set(item.ref_id, {
+            ...item,
+            carousel_slug: item.carousels?.slug || null,
+            order_index: item.order_index || 0
+          })
+        }
+      }
+
+      // Map vlogs with carousel information
+      // This gives us both the vlog data AND its carousel placement
+      const result = (vlogRows as VlogRow[]).map((v) => {
+        const it = itemByRef.get(v.id)
+        const carouselSlug = it?.carousel_slug || null
+        const display_order = it?.order_index ?? 0
+        
+        return {
+          ...v,
+          // Show which carousel this vlog appears in (if any)
+          carousel: carouselSlug === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel',
+          // Show the display order within the carousel
+          display_order,
+          // Additional carousel metadata for admin interface
+          is_in_carousel: !!it,
+          carousel_slug: carouselSlug
+        }
+      })
+
+      return res.status(200).json({ vlogs: result })
+    } catch (error) {
+      console.error('Error in vlogs GET:', error)
+      return res.status(500).json({ error: 'Internal server error' })
+    }
   }
 
   if (req.method === 'POST') {
@@ -85,6 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         title: customTitle?.trim() || vd.title,
         description: customDescription?.trim() || vd.description,
         youtube_url: youtube_url,
+        youtube_id: vd.video_id, // Include the YouTube video ID
         thumbnail_url: vd.thumbnail_url,
         published_at: vd.published_at,
         duration: vd.duration,

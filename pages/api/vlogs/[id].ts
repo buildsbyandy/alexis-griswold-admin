@@ -62,6 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updateData = {
           ...updateData,
           youtube_url: youtube_url,
+          youtube_id: vd.video_id, // Include the YouTube video ID
           thumbnail_url: vd.thumbnail_url,
           published_at: vd.published_at,
           duration: vd.duration,
@@ -109,13 +110,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'DELETE') {
-    const { error } = await supabaseAdmin
-      .from('vlogs')
-      .delete()
-      .eq('id', id)
-    
-    if (error) return res.status(500).json({ error: 'Failed to delete vlog' })
-    return res.status(200).json({ message: 'Vlog deleted successfully' })
+    try {
+      // First, delete any carousel items that reference this vlog
+      const { error: carouselItemsError } = await supabaseAdmin
+        .from('carousel_items')
+        .delete()
+        .eq('ref_id', id)
+        .eq('kind', 'video')
+      
+      if (carouselItemsError) {
+        console.error('Error deleting carousel items:', carouselItemsError)
+        // Continue with vlog deletion even if carousel items deletion fails
+      }
+
+      // Then delete the vlog itself
+      const { error } = await supabaseAdmin
+        .from('vlogs')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting vlog:', error)
+        return res.status(500).json({ error: 'Failed to delete vlog' })
+      }
+      
+      return res.status(200).json({ message: 'Vlog and associated carousel items deleted successfully' })
+    } catch (error) {
+      console.error('Error in vlog deletion:', error)
+      return res.status(500).json({ 
+        error: 'Failed to delete vlog',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
   }
 
   res.setHeader('Allow', 'GET,PUT,DELETE')
