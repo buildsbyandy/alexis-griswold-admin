@@ -54,7 +54,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
     setIsUpdating(true);
     try {
       await storefrontService.update_storefront_category(selectedCategory.id, {
-        category_image_path: null
+        category_image_path: undefined
       });
       
       toast.success('Category photo removed successfully!');
