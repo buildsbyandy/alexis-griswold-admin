@@ -6,6 +6,7 @@
  */
 
 import type { Database } from '@/types/supabase.generated';
+import supabaseAdmin from '@/lib/supabase';
 
 // Supabase table types for products and page content
 export type HealingProductRow = Database['public']['Tables']['healing_products']['Row'];
@@ -321,90 +322,41 @@ class HealingService {
     }
   }
 
-  // Legacy method support for existing code
-  async getHealingProducts(): Promise<HealingProductRow[]> {
-    const result = await this.get_healing_products();
-    if (result.error) throw new Error(result.error);
-    return result.data || [];
+
+
+
+
+  // Additional methods
+  async get_all_products(): Promise<HealingProductRow[]> {
+    // Use direct database access to avoid circular API calls
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('healing_products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching healing products directly:', error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('Error in getAllProducts:', error);
+      return [];
+    }
   }
 
-  async getHealingProductById(id: string): Promise<HealingProductRow | null> {
-    const result = await this.get_healing_product_by_id(id);
-    if (result.error) throw new Error(result.error);
-    return result.data || null;
-  }
-
-  async createHealingProduct(input: HealingProductInsert): Promise<HealingProductRow> {
-    const result = await this.create_healing_product(input);
-    if (result.error) throw new Error(result.error);
-    return result.data!;
-  }
-
-  async updateHealingProduct(id: string, input: HealingProductUpdate): Promise<HealingProductRow> {
-    const result = await this.update_healing_product(id, input);
-    if (result.error) throw new Error(result.error);
-    return result.data!;
-  }
-
-  async deleteHealingProduct(id: string): Promise<void> {
-    const result = await this.delete_healing_product(id);
-    if (result.error) throw new Error(result.error);
-  }
-
-  async getHealingCarouselVideos(): Promise<HealingVideo[]> {
+  async get_all_videos(): Promise<HealingVideo[]> {
     const result = await this.listVideos();
-    if (result.error) throw new Error(result.error);
+    if (result.error) {
+      console.error('Error fetching healing videos:', result.error);
+      return [];
+    }
     return result.data || [];
   }
 
-  async createHealingCarouselVideo(input: { carousel_number: number; youtube_url: string; video_title: string; video_description?: string; video_order?: number }): Promise<HealingVideo> {
-    const type: HealingPart = input.carousel_number === 1 ? 'part1' : 'part2';
-    const result = await this.createVideo({
-      type,
-      youtube_url: input.youtube_url,
-      video_title: input.video_title,
-      video_description: input.video_description,
-      video_order: input.video_order
-    });
-    if (result.error) throw new Error(result.error);
-    return result.data!;
-  }
 
-  async updateHealingCarouselVideo(id: string, input: { carousel_number?: number; youtube_url?: string; video_order?: number }): Promise<HealingVideo> {
-    const patch: Partial<{ youtube_url: string; video_order: number; type: HealingPart }> = {};
-    if (input.youtube_url) patch.youtube_url = input.youtube_url;
-    if (input.video_order) patch.video_order = input.video_order;
-    if (input.carousel_number) patch.type = input.carousel_number === 1 ? 'part1' : 'part2';
-
-    const result = await this.updateVideo(id, patch);
-    if (result.error) throw new Error(result.error);
-
-    // Return updated video from list
-    const videos = await this.listVideos();
-    if (videos.error) throw new Error(videos.error);
-    const updated = (videos.data || []).find(v => v.id === id);
-    if (!updated) throw new Error('Updated video not found');
-    return updated;
-  }
-
-  async deleteHealingCarouselVideo(id: string): Promise<void> {
-    const result = await this.deleteVideo(id);
-    if (result.error) throw new Error(result.error);
-  }
-
-  // Additional legacy methods
-  async getAllProducts(): Promise<HealingProductRow[]> {
-    return this.getHealingProducts();
-  }
-
-  async getAllVideos(): Promise<HealingVideo[]> {
-    return this.getHealingCarouselVideos();
-  }
-
-
-  async deleteProduct(id: string): Promise<void> {
-    return this.deleteHealingProduct(id);
-  }
 }
 
 export const healingService = new HealingService();

@@ -9,6 +9,7 @@ import RecipeModal from '../components/modals/RecipeModal';
 import VlogModal from '../components/modals/VlogModal';
 import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
 import HomeContentModal from '../components/modals/HomeContentModal';
+import SpotifySectionConfigModal from '../components/modals/SpotifySectionConfigModal';
 import SpotifyPlaylistModal from '../components/modals/SpotifyPlaylistModal';
 import HealingProductModal from '../components/modals/HealingProductModal';
 import { type HealingProductRow } from '../lib/services/healingService';
@@ -78,6 +79,11 @@ const AdminContent: React.FC = () => {
   const [isAddingVlog, setIsAddingVlog] = useState(false);
   const [vlogActiveTab, setVlogActiveTab] = useState<'hero' | 'videos' | 'gallery' | 'spotify'>('hero');
   const [editingVlogHero, setEditingVlogHero] = useState(false);
+  const [spotifySectionConfigModalOpen, setSpotifySectionConfigModalOpen] = useState(false);
+  const [spotifySectionConfig, setSpotifySectionConfig] = useState({
+    section_title: 'Listen to My Playlists',
+    section_subtitle: 'Curated music for every mood and moment'
+  });
   const [vlogHeroData, setVlogHeroData] = useState({
     title: 'VLOGS',
     subtitle: 'Step into my life — one video at a time.',
@@ -521,13 +527,15 @@ const AdminContent: React.FC = () => {
   const handleSaveHealingProduct = async (productData: Omit<HealingProductRow, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       if (editingHealingProduct) {
-        await healingService.updateHealingProduct(editingHealingProduct.id, productData);
+        const updateResult = await healingService.update_healing_product(editingHealingProduct.id, productData);
+        if (updateResult.error) throw new Error(updateResult.error);
       } else {
-        await healingService.createHealingProduct(productData);
+        const createResult = await healingService.create_healing_product(productData);
+        if (createResult.error) throw new Error(createResult.error);
       }
       
       // Reload products
-      const productsList = await healingService.getAllProducts();
+      const productsList = await healingService.get_all_products();
       setHealingProducts(productsList);
 
       setIsAddingHealingProduct(false);
@@ -567,7 +575,7 @@ const AdminContent: React.FC = () => {
       }
       
       // Reload videos
-      const videosList = await healingService.getAllVideos();
+      const videosList = await healingService.get_all_videos();
       setHealingVideos(videosList);
 
       setShowHealingVideoModal(false);
@@ -719,6 +727,27 @@ const AdminContent: React.FC = () => {
     }
   };
 
+  // Spotify section configuration save functionality
+  const handleSaveSpotifySectionConfig = async (configData: any) => {
+    try {
+      const response = await fetch('/api/playlists/section-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+      });
+      
+      if (response.ok) {
+        // Update local state with the new configuration
+        setSpotifySectionConfig(configData);
+      } else {
+        throw new Error('Failed to save Spotify section configuration');
+      }
+    } catch (error) {
+      console.error('Spotify section config save error:', error);
+      throw error; // Re-throw so modal can handle it
+    }
+  };
+
   // Home content save functionality
   const handleSaveHomeContent = async (contentData: any) => {
     try {
@@ -823,10 +852,10 @@ const AdminContent: React.FC = () => {
 
       // Load healing data
       try {
-        const healingProductsList = await healingService.getAllProducts();
-        setHealingProducts(healingProductsList);
+      const healingProductsList = await healingService.get_all_products();
+      setHealingProducts(healingProductsList);
 
-        const healingVideosList = await healingService.getAllVideos();
+      const healingVideosList = await healingService.get_all_videos();
         setHealingVideos(healingVideosList);
       } catch (error) {
         console.error('Error loading healing data:', error);
@@ -841,6 +870,13 @@ const AdminContent: React.FC = () => {
           totalPlaylists: playlists.length,
           activePlaylists: playlists.filter(p => p.is_active).length
         });
+
+        // Load Spotify section configuration
+        const configResponse = await fetch('/api/playlists/section-config');
+        if (configResponse.ok) {
+          const configData = await configResponse.json();
+          setSpotifySectionConfig(configData.config);
+        }
       } catch (error) {
         console.error('Error loading playlist data:', error);
         errors.push('Failed to load playlist data');
@@ -2407,32 +2443,39 @@ const AdminContent: React.FC = () => {
                       <h2 className="text-xl font-semibold text-[#383B26]">Spotify Playlists Section</h2>
                       <p className="text-[#8F907E] text-sm">Configure section content and manage playlists</p>
                     </div>
-                    <button 
-                      onClick={() => setShowPlaylistModal(true)}
-                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
-                    >
-                      <FaPlus className="mr-2" />
-                      Add Playlist
-                    </button>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => setSpotifySectionConfigModalOpen(true)}
+                        className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
+                      >
+                        <FaEdit className="mr-2" />
+                        Edit
+                      </button>
+                      {spotifyPlaylists.length > 0 && (
+                        <button 
+                          onClick={() => setShowPlaylistModal(true)}
+                          className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                        >
+                          <FaPlus className="mr-2" />
+                          Add Playlist
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Section Content Configuration */}
+                  {/* Section Content Display */}
                   <div className="grid grid-cols-1 gap-4 p-4 mb-6 rounded-lg md:grid-cols-2 bg-gray-50">
                     <div>
                       <label className="block text-sm font-medium text-[#383B26] mb-1">Section Title</label>
-                      <input
-                        type="text"
-                        defaultValue="Listen to My Playlists"
-                        className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      />
+                      <div className="w-full p-2 border border-gray-200 rounded-md bg-white text-gray-700">
+                        {spotifySectionConfig.section_title}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-[#383B26] mb-1">Section Subtitle</label>
-                      <input
-                        type="text"
-                        defaultValue="Curated music for every mood and moment"
-                        className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      />
+                      <div className="w-full p-2 border border-gray-200 rounded-md bg-white text-gray-700">
+                        {spotifySectionConfig.section_subtitle}
+                      </div>
                     </div>
                   </div>
 
@@ -2853,7 +2896,7 @@ const AdminContent: React.FC = () => {
                                     if (confirm('Are you sure you want to delete this video?')) {
                                       const success = await healingService.deleteVideo(video.id);
                                       if (success) {
-                                        const videosList = await healingService.getAllVideos();
+                                        const videosList = await healingService.get_all_videos();
                                         setHealingVideos(videosList);
                                         toast.success('Video deleted successfully!');
                                       } else {
@@ -2928,7 +2971,7 @@ const AdminContent: React.FC = () => {
                                     if (confirm('Are you sure you want to delete this video?')) {
                                       const success = await healingService.deleteVideo(video.id);
                                       if (success) {
-                                        const videosList = await healingService.getAllVideos();
+                                        const videosList = await healingService.get_all_videos();
                                         setHealingVideos(videosList);
                                         toast.success('Video deleted successfully!');
                                       } else {
@@ -3029,8 +3072,9 @@ const AdminContent: React.FC = () => {
                               <button 
                                 onClick={async () => {
                                   if (window.confirm('Are you sure you want to delete this product?')) {
-                                    await healingService.deleteProduct(product.id);
-                                    const productsList = await healingService.getAllProducts();
+                                    const deleteResult = await healingService.delete_healing_product(product.id);
+                                    if (deleteResult.error) throw new Error(deleteResult.error);
+                                    const productsList = await healingService.get_all_products();
                                     setHealingProducts(productsList);
                                   }
                                 }}
@@ -3538,6 +3582,14 @@ const AdminContent: React.FC = () => {
         onClose={() => setHomeContentModalOpen(false)}
         initialData={homePageContent}
         onSave={handleSaveHomeContent}
+      />
+
+      {/* Spotify Section Config Modal */}
+      <SpotifySectionConfigModal
+        isOpen={spotifySectionConfigModalOpen}
+        onClose={() => setSpotifySectionConfigModalOpen(false)}
+        initialData={spotifySectionConfig}
+        onSave={handleSaveSpotifySectionConfig}
       />
     </div>
   );

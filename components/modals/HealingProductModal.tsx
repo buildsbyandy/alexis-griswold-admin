@@ -191,14 +191,16 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
                 ) : (
                   <div className="text-center py-8">
                     <FaHeartbeat className="mx-auto text-4xl text-gray-400 mb-4" />
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                    >
-                      Upload Product Image
-                    </FileUpload>
+                    <div className="flex justify-center">
+                      <FileUpload
+                        accept="image/*"
+                        uploadType="image"
+                        onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
+                        className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                      >
+                        Upload Product Image
+                      </FileUpload>
+                    </div>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-[#383B26] mb-1">Or enter image URL:</label>
                       <input

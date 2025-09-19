@@ -297,14 +297,16 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 ) : (
                   <div className="text-center py-8">
                     <FaStore className="mx-auto text-4xl text-gray-400 mb-4" />
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                    >
-                      Upload Product Image
-                    </FileUpload>
+                    <div className="flex justify-center">
+                      <FileUpload
+                        accept="image/*"
+                        uploadType="image"
+                        onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
+                        className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                      >
+                        Upload Product Image
+                      </FileUpload>
+                    </div>
                   </div>
                 )}
               </div>

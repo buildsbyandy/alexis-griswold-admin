@@ -14,6 +14,7 @@ import type {
 } from '@/lib/types/storefront';
 import { listStorefrontItems } from '../services/carouselService';
 import slugify from '@/lib/utils/slugify';
+import supabaseAdmin from '@/lib/supabase';
 
 class StorefrontService {
   // Carousel items (favorites, top-picks)
@@ -344,10 +345,26 @@ class StorefrontService {
   // Stats and utilities
   async get_storefront_stats(): Promise<StorefrontStats> {
     try {
-      const products = await this.get_storefront_products();
+      // Use direct database access to avoid circular API calls
+      const { data: products, error } = await supabaseAdmin
+        .from('storefront_products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching storefront products directly:', error);
+        // Return empty stats instead of throwing
+        return {
+          total: 0,
+          byStatus: { draft: 0, published: 0, archived: 0 },
+          byCategory: {},
+          favorites: 0,
+          topClicked: 0,
+        };
+      }
 
       const stats: StorefrontStats = {
-        total: products.length,
+        total: products?.length || 0,
         byStatus: {
           draft: 0,
           published: 0,
@@ -358,7 +375,7 @@ class StorefrontService {
         topClicked: 0,
       };
 
-      for (const product of products) {
+      for (const product of products || []) {
         // Count by status
         if (product.status) {
           stats.byStatus[product.status as ContentStatus] = (stats.byStatus[product.status as ContentStatus] || 0) + 1;
