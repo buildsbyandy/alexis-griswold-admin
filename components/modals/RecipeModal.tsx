@@ -396,7 +396,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               ) : (
                 <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
                   <p className="text-gray-500 mb-2">No additional images yet</p>
-                  <p className="text-sm text-gray-400 mb-4">Click "Add Image" to upload photos of the cooking process or final result</p>
+                  <p className="text-sm text-gray-400 mb-4">Click &quot;Add Image&quot; to upload photos of the cooking process or final result</p>
                   <FileUpload
                     accept="image/*"
                     uploadType="image"
