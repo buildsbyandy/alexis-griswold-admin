@@ -74,14 +74,14 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
     try {
       if (video?.id) {
         // Update existing video
-        const updatedVideo = await healingService.updateHealingCarouselVideo(video.id, {
+        const updatedVideo = await healingService.updateVideo(video.id, {
           ...formData,
           carousel_number: carouselNumber
         });
         await onSave(updatedVideo);
       } else {
         // Create new video
-        const newVideo = await healingService.createHealingCarouselVideo({
+        const newVideo = await healingService.createVideo({
           ...formData,
           carousel_number: carouselNumber
         });

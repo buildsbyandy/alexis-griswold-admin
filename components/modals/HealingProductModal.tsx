@@ -77,11 +77,11 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
     try {
       if (product?.id) {
         // Update existing product
-        const updatedProduct = await healingService.updateHealingProduct(product.id, formData);
+        const updatedProduct = await healingService.update_healing_product(product.id, formData);
         await onSave(updatedProduct);
       } else {
         // Create new product
-        const newProduct = await healingService.createHealingProduct(formData);
+        const newProduct = await healingService.create_healing_product(formData);
         await onSave(newProduct);
       }
       onClose();
