@@ -67,58 +67,68 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
   };
 
-  // Auto-fetch YouTube metadata when URL is entered
-  const handleYouTubeUrlChange = async (url: string) => {
+  // Handle YouTube URL change (no auto-fetch)
+  const handleYouTubeUrlChange = (url: string) => {
     setFormData(prev => ({ ...prev, youtubeUrl: url }));
+  };
+
+  // Manual fetch YouTube metadata
+  const fetchYouTubeMetadata = async () => {
+    const url = formData.youtubeUrl;
+    if (!url) {
+      toast.error('Please enter a YouTube URL first');
+      return;
+    }
 
     // Check if URL is a valid YouTube URL
     const isYouTubeUrl = url && (url.includes('youtube.com') || url.includes('youtu.be'));
+    if (!isYouTubeUrl) {
+      toast.error('Please enter a valid YouTube URL');
+      return;
+    }
 
-    // Only auto-fetch if this is a new vlog (not editing existing)
-    if (!vlog && isYouTubeUrl) {
-      setIsLoadingYouTubeData(true);
-      try {
-        const response = await fetch('/api/youtube/metadata', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ url }),
-        });
+    setIsLoadingYouTubeData(true);
+    try {
+      const response = await fetch('/api/youtube/metadata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (response.ok && result.data) {
-          const data = result.data;
-          setFormData(prev => ({
-            ...prev,
-            title: data.title || prev.title,
-            description: data.description || prev.description,
-            thumbnailUrl: data.thumbnail_url || prev.thumbnailUrl,
-            publishedAt: data.published_at || prev.publishedAt,
-          }));
-          toast.success('YouTube data loaded automatically!');
+      if (response.ok && result.data) {
+        const data = result.data;
+        setFormData(prev => ({
+          ...prev,
+          title: data.title || prev.title,
+          description: data.description || prev.description,
+          thumbnailUrl: data.thumbnail_url || prev.thumbnailUrl,
+          publishedAt: data.published_at || prev.publishedAt,
+        }));
+        toast.success('YouTube data loaded successfully!');
+      } else {
+        console.error('YouTube API error:', result.error);
+        // Show more specific error messages
+        if (result.error?.includes('API key not configured')) {
+          toast.error('YouTube API key not configured. Please contact administrator.');
+        } else if (result.error?.includes('API error')) {
+          toast.error('YouTube API error. Please try again or fill in manually.');
+        } else if (result.error?.includes('Video not found')) {
+          toast.error('Video not found. Please check the URL or fill in manually.');
+        } else if (result.error?.includes('Invalid YouTube video ID')) {
+          toast.error('Invalid YouTube URL. Please check the format or fill in manually.');
         } else {
-          console.error('YouTube API error:', result.error);
-          // Show more specific error messages
-          if (result.error?.includes('API key not configured')) {
-            toast.error('YouTube API key not configured. Please contact administrator.');
-          } else if (result.error?.includes('API error')) {
-            toast.error('YouTube API error. Please try again or fill in manually.');
-          } else if (result.error?.includes('Video not found')) {
-            toast.error('Video not found. Please check the URL or fill in manually.');
-          } else if (result.error?.includes('Invalid YouTube video ID')) {
-            toast.error('Invalid YouTube URL. Please check the format or fill in manually.');
-          } else {
-            toast.error(`YouTube error: ${result.error || 'Unknown error'}. Please fill in manually.`);
-          }
+          toast.error(`YouTube error: ${result.error || 'Unknown error'}. Please fill in manually.`);
         }
-      } catch (error) {
-        console.error('Error fetching YouTube data:', error);
-        toast.error('Network error fetching YouTube data. Please fill in manually.');
-      } finally {
-        setIsLoadingYouTubeData(false);
       }
+    } catch (error) {
+      console.error('Error fetching YouTube data:', error);
+      toast.error('Network error fetching YouTube data. Please fill in manually.');
+    } finally {
+      setIsLoadingYouTubeData(false);
     }
   };
 
@@ -192,23 +202,33 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={formData.youtubeUrl}
-                    onChange={(e) => handleYouTubeUrlChange(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] pr-10"
-                    placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                    required
-                  />
-                  {isLoadingYouTubeData && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <FaSpinner className="animate-spin text-[#B8A692]" />
-                    </div>
-                  )}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="url"
+                      value={formData.youtubeUrl}
+                      onChange={(e) => handleYouTubeUrlChange(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                      placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchYouTubeMetadata}
+                    disabled={isLoadingYouTubeData || !formData.youtubeUrl}
+                    className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isLoadingYouTubeData ? (
+                      <FaSpinner className="animate-spin" />
+                    ) : (
+                      <FaVideo />
+                    )}
+                    {isLoadingYouTubeData ? 'Loading...' : 'Fetch Data'}
+                  </button>
                 </div>
                 <p className="text-xs text-gray-600 mt-1">
-                  {!vlog ? 'Paste YouTube URL to auto-fill title, description, and thumbnail' : 'Full YouTube URL - thumbnail and video info will be auto-extracted'}
+                  Paste YouTube URL and click "Fetch Data" to auto-fill title, description, and thumbnail
                 </p>
               </div>
               <div className="md:col-span-2">

@@ -13,7 +13,9 @@ export class FileUploadService {
     });
 
     if (!response.ok) throw new Error('Failed to get signed upload URL');
-    return response.json();
+    const data = await response.json();
+    // Fix: API returns uploadUrl, but we expect signedUrl
+    return { signedUrl: data.uploadUrl, path };
   }
 
   static async uploadFile(file: File, folder: string = 'uploads', bucket: string = 'media'): Promise<UploadResponse> {
@@ -22,7 +24,10 @@ export class FileUploadService {
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExtension}`;
       const filePath = `${folder}/${fileName}`;
       
+      console.log('Starting upload process:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+      
       const { signedUrl, path } = await this.getSignedUploadUrl(filePath, file.type, bucket);
+      console.log('Got signed URL:', { path, signedUrlLength: signedUrl.length });
       
       const uploadResponse = await fetch(signedUrl, {
         method: 'PUT',
@@ -32,9 +37,16 @@ export class FileUploadService {
         },
       });
 
-      if (!uploadResponse.ok) throw new Error('Failed to upload file');
+      console.log('Upload response status:', uploadResponse.status, uploadResponse.statusText);
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Upload failed with response:', errorText);
+        throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
 
       const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+      console.log('Upload successful, public URL:', publicUrl);
       
       return {
         success: true,
