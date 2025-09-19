@@ -14,7 +14,6 @@ import type {
 } from '@/lib/types/storefront';
 import { listStorefrontItems } from '../services/carouselService';
 import slugify from '@/lib/utils/slugify';
-import supabaseAdmin from '@/lib/supabase';
 
 class StorefrontService {
   // Carousel items (favorites, top-picks)
@@ -345,15 +344,11 @@ class StorefrontService {
   // Stats and utilities
   async get_storefront_stats(): Promise<StorefrontStats> {
     try {
-      // Use direct database access to avoid circular API calls
-      const { data: products, error } = await supabaseAdmin
-        .from('storefront_products')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Use API endpoint to maintain consistency
+      const products = await this.get_storefront_products();
       
-      if (error) {
-        console.error('Error fetching storefront products directly:', error);
-        // Return empty stats instead of throwing
+      if (!products || products.length === 0) {
+        // Return empty stats if no products
         return {
           total: 0,
           byStatus: { draft: 0, published: 0, archived: 0 },

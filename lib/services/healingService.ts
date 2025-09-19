@@ -1,12 +1,12 @@
 /**
- * REFACTORED: Healing service with unified carousel schema
- * - Uses existing healing carousel API endpoints
- * - Clean interface without direct Supabase access
+ * REFACTORED: Healing service with API-first architecture
+ * - Uses existing healing API endpoints instead of direct Supabase access
+ * - Clean interface without server-only dependencies
  * - Maintains backward compatibility with existing UI contracts
+ * - Client-side safe (no server-only imports)
  */
 
 import type { Database } from '@/types/supabase.generated';
-import supabaseAdmin from '@/lib/supabase';
 
 // Supabase table types for products and page content
 export type HealingProductRow = Database['public']['Tables']['healing_products']['Row'];
@@ -328,19 +328,14 @@ class HealingService {
 
   // Additional methods
   async get_all_products(): Promise<HealingProductRow[]> {
-    // Use direct database access to avoid circular API calls
+    // Use API endpoint to maintain consistency
     try {
-      const { data, error } = await supabaseAdmin
-        .from('healing_products')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching healing products directly:', error);
+      const result = await this.get_healing_products();
+      if (result.error) {
+        console.error('Error fetching healing products:', result.error);
         return [];
       }
-      
-      return data || [];
+      return result.data || [];
     } catch (error) {
       console.error('Error in getAllProducts:', error);
       return [];
