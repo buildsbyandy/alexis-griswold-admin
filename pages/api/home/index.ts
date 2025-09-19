@@ -68,54 +68,84 @@ function parseVideoHistory(rawHistory: any): VideoHistoryItem[] {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    // First try to get the specific home content record
-    const { data: specificData, error: specificError } = await supabaseAdmin
-      .from('home_content')
-      .select('*')
-      .eq('id', '00000000-0000-0000-0000-000000000001')
-      .single()
-    
-    if (specificData) {
-      return res.status(200).json({ content: specificData })
+    try {
+      // First try to get the specific home content record
+      const { data: specificData, error: specificError } = await supabaseAdmin
+        .from('home_content')
+        .select('*')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .single()
+      
+      if (specificData && !specificError) {
+        // Ensure video_history is properly parsed
+        const content = {
+          ...specificData,
+          video_history: parseVideoHistory(specificData.video_history)
+        };
+        return res.status(200).json({ content });
+      }
+      
+      // If specific record doesn't exist, get the first published record
+      const { data: publishedData, error: publishedError } = await supabaseAdmin
+        .from('home_content')
+        .select('*')
+        .eq('is_published', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (publishedData && !publishedError) {
+        // Ensure video_history is properly parsed
+        const content = {
+          ...publishedData,
+          video_history: parseVideoHistory(publishedData.video_history)
+        };
+        return res.status(200).json({ content });
+      }
+      
+      // If no published record exists, get any record
+      const { data: anyData, error: anyError } = await supabaseAdmin
+        .from('home_content')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (anyData && !anyError) {
+        // Ensure video_history is properly parsed
+        const content = {
+          ...anyData,
+          video_history: parseVideoHistory(anyData.video_history)
+        };
+        return res.status(200).json({ content });
+      }
+      
+      // Return safe defaults if no data exists
+      const defaultContent = {
+        background_video_path: '',
+        fallback_image_path: '',
+        hero_main_title: 'Welcome to Alexis Griswold',
+        hero_subtitle: 'Experience wellness, recipes, and lifestyle content',
+        video_title: 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+        video_description: 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
+        video_history: []
+      }
+      
+      return res.status(200).json({ content: defaultContent });
+    } catch (error) {
+      console.error('Error in GET /api/home:', error);
+      // Return safe defaults even if there's an error
+      const defaultContent = {
+        background_video_path: '',
+        fallback_image_path: '',
+        hero_main_title: 'Welcome to Alexis Griswold',
+        hero_subtitle: 'Experience wellness, recipes, and lifestyle content',
+        video_title: 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+        video_description: 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
+        video_history: []
+      }
+      return res.status(200).json({ content: defaultContent });
     }
-    
-    // If specific record doesn't exist, get the first published record
-    const { data: publishedData, error: publishedError } = await supabaseAdmin
-      .from('home_content')
-      .select('*')
-      .eq('is_published', true)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single()
-    
-    if (publishedData) {
-      return res.status(200).json({ content: publishedData })
-    }
-    
-    // If no published record exists, get any record
-    const { data: anyData, error: anyError } = await supabaseAdmin
-      .from('home_content')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single()
-    
-    if (anyData) {
-      return res.status(200).json({ content: anyData })
-    }
-    
-    // Return safe defaults if no data exists
-    const defaultContent = {
-      background_video_path: '',
-      fallback_image_path: '',
-      hero_main_title: 'Welcome to Alexis Griswold',
-      hero_subtitle: 'Experience wellness, recipes, and lifestyle content',
-      video_title: 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
-      video_description: 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
-      video_history: []
-    }
-    
-    return res.status(200).json({ content: defaultContent })
   }
 
   if (req.method === 'PUT') {

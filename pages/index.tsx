@@ -763,98 +763,153 @@ const AdminContent: React.FC = () => {
 
   // Load data function - moved outside useEffect so it can be called from other places
   const loadData = useCallback(async () => {
+    const errors: string[] = [];
+    
     try {
-      const recipeStats = await recipeService.getRecipeStats();
-      setStats(recipeStats);
-      
-      const recipesList = await recipeService.getAllRecipes();
-      setRecipes(recipesList);
-
-      // Load recipe page content
-      await loadRecipePageContent();
-      await loadRecipeHeroVideos();
-
-      const storefrontStats = await storefrontService.get_storefront_stats();
-      setSfStats(storefrontStats);
-
-      const storefrontItems = await storefrontService.get_storefront_products();
-      setSfItems(storefrontItems);
-
-      // Load storefront categories
+      // Load recipe data
       try {
+        const recipeStats = await recipeService.getRecipeStats();
+        setStats(recipeStats);
+        
+        const recipesList = await recipeService.getAllRecipes();
+        setRecipes(recipesList);
+
+        // Load recipe page content
+        await loadRecipePageContent();
+        await loadRecipeHeroVideos();
+      } catch (error) {
+        console.error('Error loading recipe data:', error);
+        errors.push('Failed to load recipe data');
+      }
+
+      // Load storefront data
+      try {
+        const storefrontStats = await storefrontService.get_storefront_stats();
+        setSfStats(storefrontStats);
+
+        const storefrontItems = await storefrontService.get_storefront_products();
+        setSfItems(storefrontItems);
+
+        // Load storefront categories
         const response = await fetch('/api/storefront/categories');
         if (response.ok) {
           const data = await response.json();
           setSfCategories(data.categories || []);
         }
       } catch (error) {
-        console.error('Error loading categories:', error);
+        console.error('Error loading storefront data:', error);
+        errors.push('Failed to load storefront data');
       }
 
-      const vlogStatsData = await vlogService.getStats();
-      setVlogStats(prev => ({
-        totalVlogs: vlogStatsData.totalVlogs,
-        featuredVlogs: vlogStatsData.featuredVlogs,
-        totalAlbums: prev.totalAlbums,
-        totalPhotos: prev.totalPhotos,
-      }));
+      // Load vlog data
+      try {
+        const vlogStatsData = await vlogService.getStats();
+        setVlogStats(prev => ({
+          totalVlogs: vlogStatsData.totalVlogs,
+          featuredVlogs: vlogStatsData.featuredVlogs,
+          totalAlbums: prev.totalAlbums,
+          totalPhotos: prev.totalPhotos,
+        }));
 
-      const vlogsList = await vlogService.getAllVlogs();
-      setVlogs(vlogsList);
+        const vlogsList = await vlogService.getAllVlogs();
+        setVlogs(vlogsList);
 
-      const albumsList = await albumService.getAllAlbums();
-      setPhotoAlbums(albumsList);
+        const albumsList = await albumService.getAllAlbums();
+        setPhotoAlbums(albumsList);
+      } catch (error) {
+        console.error('Error loading vlog data:', error);
+        errors.push('Failed to load vlog data');
+      }
 
-      const healingProductsList = await healingService.getAllProducts();
-      setHealingProducts(healingProductsList);
+      // Load healing data
+      try {
+        const healingProductsList = await healingService.getAllProducts();
+        setHealingProducts(healingProductsList);
 
-      const healingVideosList = await healingService.getAllVideos();
-      setHealingVideos(healingVideosList);
+        const healingVideosList = await healingService.getAllVideos();
+        setHealingVideos(healingVideosList);
+      } catch (error) {
+        console.error('Error loading healing data:', error);
+        errors.push('Failed to load healing data');
+      }
 
-      const playlists = await playlistService.getAllPlaylists();
-      setSpotifyPlaylists(playlists);
-      setSpotifyStats({
-        totalPlaylists: playlists.length,
-        activePlaylists: playlists.filter(p => p.is_active).length
-      });
-
-      // Load home content
-      const homeResponse = await fetch('/api/home');
-      if (homeResponse.ok) {
-        const homeData = await homeResponse.json();
-        const content = homeData.content;
-        // Normalize paths: strip accidental '/public' prefix and ensure video is full URL
-        const normalizedFallback = (content?.fallback_image_path || '').replace(/^\/public\//, '/');
-        const normalizedVideo = content?.background_video_path || '';
-        
-        // Map API response to frontend state structure (safe defaults)
-        setHomePageContent({
-          background_video_path: normalizedVideo,
-          fallback_image_path: normalizedFallback,
-          hero_main_title: content?.hero_main_title || 'Welcome to Alexis Griswold',
-          hero_subtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
-          video_title: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
-          video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
-          videoOpacity: content?.videoOpacity || 0.7,
-          // Frontend-specific field names for compatibility
-          videoBackground: normalizedVideo,
-          fallbackImage: normalizedFallback,
-          heroMainTitle: content?.hero_main_title || 'Welcome to Alexis Griswold',
-          heroSubtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
-          videoTitle: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
-          videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
+      // Load playlist data
+      try {
+        const playlists = await playlistService.getAllPlaylists();
+        setSpotifyPlaylists(playlists);
+        setSpotifyStats({
+          totalPlaylists: playlists.length,
+          activePlaylists: playlists.filter(p => p.is_active).length
         });
-        
-        // Load video history if it exists
-        if (content?.video_history) {
-          setVideoHistory(Array.isArray(content.video_history) 
-            ? content.video_history 
-            : JSON.parse(content.video_history)
-          );
+      } catch (error) {
+        console.error('Error loading playlist data:', error);
+        errors.push('Failed to load playlist data');
+      }
+
+      // Load home content - this is critical for the home page
+      try {
+        const homeResponse = await fetch('/api/home');
+        if (homeResponse.ok) {
+          const homeData = await homeResponse.json();
+          const content = homeData.content;
+          // Normalize paths: strip accidental '/public' prefix and ensure video is full URL
+          const normalizedFallback = (content?.fallback_image_path || '').replace(/^\/public\//, '/');
+          const normalizedVideo = content?.background_video_path || '';
+          
+          // Map API response to frontend state structure (safe defaults)
+          setHomePageContent({
+            background_video_path: normalizedVideo,
+            fallback_image_path: normalizedFallback,
+            hero_main_title: content?.hero_main_title || 'Welcome to Alexis Griswold',
+            hero_subtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
+            video_title: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+            video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
+            videoOpacity: content?.videoOpacity || 0.7,
+            // Frontend-specific field names for compatibility
+            videoBackground: normalizedVideo,
+            fallbackImage: normalizedFallback,
+            heroMainTitle: content?.hero_main_title || 'Welcome to Alexis Griswold',
+            heroSubtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
+            videoTitle: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+            videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
+          });
+          
+          // Load video history with better error handling
+          try {
+            if (content?.video_history) {
+              let parsedHistory;
+              if (Array.isArray(content.video_history)) {
+                parsedHistory = content.video_history;
+              } else if (typeof content.video_history === 'string') {
+                parsedHistory = JSON.parse(content.video_history);
+              } else {
+                parsedHistory = [];
+              }
+              setVideoHistory(parsedHistory);
+            } else {
+              // Ensure video history is always initialized as an empty array
+              setVideoHistory([]);
+            }
+          } catch (parseError) {
+            console.error('Error parsing video history:', parseError);
+            setVideoHistory([]);
+          }
+        } else {
+          console.error('Failed to fetch home content:', homeResponse.status, homeResponse.statusText);
+          errors.push('Failed to load home page content');
         }
+      } catch (error) {
+        console.error('Error loading home content:', error);
+        errors.push('Failed to load home page content');
+      }
+
+      // Show errors if any occurred, but don't fail the entire load
+      if (errors.length > 0) {
+        console.warn('Some dashboard data failed to load:', errors);
+        toast.error(`Some data failed to load: ${errors.join(', ')}`);
       }
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Critical error loading dashboard data:', error);
       toast.error('Failed to load dashboard data');
     }
   }, []);
