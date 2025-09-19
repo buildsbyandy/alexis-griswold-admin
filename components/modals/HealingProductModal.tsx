@@ -77,12 +77,24 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
     try {
       if (product?.id) {
         // Update existing product
-        const updatedProduct = await healingService.update_healing_product(product.id, formData);
-        await onSave(updatedProduct);
+        const response = await healingService.update_healing_product(product.id, formData);
+        if (response.error) {
+          throw new Error(response.error);
+        }
+        if (!response.data) {
+          throw new Error('No data returned from update');
+        }
+        await onSave(response.data);
       } else {
         // Create new product
-        const newProduct = await healingService.create_healing_product(formData);
-        await onSave(newProduct);
+        const response = await healingService.create_healing_product(formData);
+        if (response.error) {
+          throw new Error(response.error);
+        }
+        if (!response.data) {
+          throw new Error('No data returned from create');
+        }
+        await onSave(response.data);
       }
       onClose();
       toast.success(`Product ${product ? 'updated' : 'created'} successfully!`);

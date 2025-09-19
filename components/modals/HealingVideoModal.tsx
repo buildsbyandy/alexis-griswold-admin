@@ -74,18 +74,35 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
     try {
       if (video?.id) {
         // Update existing video
-        const updatedVideo = await healingService.updateVideo(video.id, {
-          ...formData,
-          carousel_number: carouselNumber
+        const response = await healingService.updateVideo(video.id, {
+          youtube_url: formData.youtube_url,
+          video_order: formData.video_order,
+          type: carouselNumber === 1 ? 'part1' : 'part2'
         });
-        await onSave(updatedVideo);
+        if (response.error) {
+          throw new Error(response.error);
+        }
+        if (!response.data) {
+          throw new Error('Update failed');
+        }
+        // For updates, we don't call onSave since updateVideo only returns a boolean
+        // The parent component should handle refreshing the data
       } else {
         // Create new video
-        const newVideo = await healingService.createVideo({
-          ...formData,
-          carousel_number: carouselNumber
+        const response = await healingService.createVideo({
+          type: carouselNumber === 1 ? 'part1' : 'part2',
+          youtube_url: formData.youtube_url,
+          video_title: formData.video_title,
+          video_description: formData.video_description,
+          video_order: formData.video_order
         });
-        await onSave(newVideo);
+        if (response.error) {
+          throw new Error(response.error);
+        }
+        if (!response.data) {
+          throw new Error('No data returned from create');
+        }
+        await onSave(response.data);
       }
       onClose();
       toast.success(`Video ${video ? 'updated' : 'created'} successfully!`);
