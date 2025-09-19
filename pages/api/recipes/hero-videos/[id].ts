@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } = req.body as Partial<RecipeHeroVideoUpdate>
 
       // Validate YouTube URL if provided
-      if (youtube_url && !youtubeService.isValidYouTubeUrl(youtube_url)) {
+      if (youtube_url && !youtubeService.validate_youtube_url(youtube_url)) {
         return res.status(400).json({ error: 'Invalid YouTube URL format' })
       }
 
@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Auto-generate thumbnail if YouTube URL changed but no thumbnail provided
       if (youtube_url && !video_thumbnail_url) {
         try {
-          const meta = await youtubeService.getVideoDataFromUrl(youtube_url)
+          const meta = await youtubeService.get_video_data_from_url(youtube_url)
           if (meta && meta.data && meta.data.thumbnail_url) {
             updatePayload.video_thumbnail_url = meta.data.thumbnail_url
           }

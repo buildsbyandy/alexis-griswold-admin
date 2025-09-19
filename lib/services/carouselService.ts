@@ -1,4 +1,3 @@
-import supabase from '@/lib/supabase'
 import type { Database } from '@/types/supabase.generated'
 
 export type CarouselRow = Database['public']['Tables']['carousels']['Row']
@@ -30,13 +29,14 @@ function mapUiTypeToSlug(type: 'part1' | 'part2'): { page: PageType; slug: strin
 
 export async function findCarouselByPageSlug(page: PageType, slug: string): Promise<ServiceResult<CarouselRow | null>> {
 	try {
-		const { data, error } = await supabase.from('carousels').select('*').eq('page', page).eq('slug', slug).single()
-		if (error) {
-			// If not found, supabase returns error; treat as null when code is PGRST116
-			if ((error as any).code === 'PGRST116') return { data: null }
-			return { error: error.message }
+		const response = await fetch(`/api/carousels/find?page=${encodeURIComponent(page)}&slug=${encodeURIComponent(slug)}`)
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to find carousel' }
 		}
-		return { data }
+
+		return { data: result.data }
 	} catch (e) {
 		return { error: 'Failed to find carousel' }
 	}
@@ -44,11 +44,17 @@ export async function findCarouselByPageSlug(page: PageType, slug: string): Prom
 
 export async function listCarousels(page: PageType, slug?: string): Promise<ServiceResult<CarouselRow[]>> {
 	try {
-		let query = supabase.from('carousels').select('*').eq('page', page).order('updated_at', { ascending: false })
-		if (slug) query = query.eq('slug', slug)
-		const { data, error } = await query
-		if (error) return { error: error.message }
-		return { data: data || [] }
+		const params = new URLSearchParams({ page })
+		if (slug) params.append('slug', slug)
+
+		const response = await fetch(`/api/carousels?${params.toString()}`)
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to list carousels' }
+		}
+
+		return { data: result.data || [] }
 	} catch (e) {
 		return { error: 'Failed to list carousels' }
 	}
@@ -56,13 +62,14 @@ export async function listCarousels(page: PageType, slug?: string): Promise<Serv
 
 export async function getCarouselItems(carouselId: string): Promise<ServiceResult<CarouselItemRow[]>> {
 	try {
-		const { data, error } = await supabase
-			.from('carousel_items')
-			.select('*')
-			.eq('carousel_id', carouselId)
-			.order('order_index', { ascending: true })
-		if (error) return { error: error.message }
-		return { data: data || [] }
+		const response = await fetch(`/api/carousels/items?carousel_id=${encodeURIComponent(carouselId)}`)
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to fetch carousel items' }
+		}
+
+		return { data: result.data || [] }
 	} catch (e) {
 		return { error: 'Failed to fetch carousel items' }
 	}
@@ -70,30 +77,17 @@ export async function getCarouselItems(carouselId: string): Promise<ServiceResul
 
 export async function listViewItems(page: PageType, slug?: string): Promise<ServiceResult<VCarouselItemRow[]>> {
 	try {
-		// Join carousel_items with carousels to get page and slug info
-		let query = supabase
-			.from('carousel_items')
-			.select(`
-				*,
-				carousels!inner(page, slug)
-			`)
-			.eq('carousels.page', page)
+		const params = new URLSearchParams({ page })
+		if (slug) params.append('slug', slug)
 
-		if (slug) {
-			query = query.eq('carousels.slug', slug)
+		const response = await fetch(`/api/carousels/items?${params.toString()}`)
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to fetch carousel view items' }
 		}
 
-		const { data, error } = await query.order('order_index', { ascending: true })
-		if (error) return { error: error.message }
-
-		// Transform the joined data to match the expected format
-		const transformed = (data || []).map(item => ({
-			...item,
-			carousel_slug: item.carousels?.slug || null,
-			page: item.carousels?.page || null
-		}))
-
-		return { data: transformed }
+		return { data: result.data || [] }
 	} catch (e) {
 		return { error: 'Failed to fetch carousel view items' }
 	}
@@ -101,9 +95,18 @@ export async function listViewItems(page: PageType, slug?: string): Promise<Serv
 
 export async function createCarouselItem(input: CarouselItemInsert): Promise<ServiceResult<CarouselItemRow>> {
 	try {
-		const { data, error } = await supabase.from('carousel_items').insert(input).select('*').single()
-		if (error) return { error: error.message }
-		return { data: data as CarouselItemRow }
+		const response = await fetch('/api/carousels/items', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(input)
+		})
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to create carousel item' }
+		}
+
+		return { data: result.data }
 	} catch (e) {
 		return { error: 'Failed to create carousel item' }
 	}
@@ -111,9 +114,18 @@ export async function createCarouselItem(input: CarouselItemInsert): Promise<Ser
 
 export async function updateCarouselItem(id: string, input: CarouselItemUpdate): Promise<ServiceResult<CarouselItemRow>> {
 	try {
-		const { data, error } = await supabase.from('carousel_items').update(input).eq('id', id).select('*').single()
-		if (error) return { error: error.message }
-		return { data: data as CarouselItemRow }
+		const response = await fetch(`/api/carousels/items/${encodeURIComponent(id)}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(input)
+		})
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to update carousel item' }
+		}
+
+		return { data: result.data }
 	} catch (e) {
 		return { error: 'Failed to update carousel item' }
 	}
@@ -121,8 +133,15 @@ export async function updateCarouselItem(id: string, input: CarouselItemUpdate):
 
 export async function deleteCarouselItem(id: string): Promise<ServiceResult<null>> {
 	try {
-		const { error } = await supabase.from('carousel_items').delete().eq('id', id)
-		if (error) return { error: error.message }
+		const response = await fetch(`/api/carousels/items/${encodeURIComponent(id)}`, {
+			method: 'DELETE'
+		})
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to delete carousel item' }
+		}
+
 		return { data: null }
 	} catch (e) {
 		return { error: 'Failed to delete carousel item' }
@@ -141,27 +160,31 @@ export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Prom
   amazon_url: string | null
 }>>> {
   try {
-    // View gives quick access to items; enrich with product metadata
-    const view = await supabase
-      .from('carousel_items')
-      .select(`*, carousels!inner(page, slug)`)
-      .eq('carousels.page', 'storefront')
-      .eq('carousels.slug', slug)
-    if (view.error) return { error: view.error.message }
+    // Get carousel items for this storefront slug
+    const viewResult = await listViewItems('storefront', slug)
+    if (viewResult.error) return { error: viewResult.error }
 
-    const refIds = (view.data || []).map(v => v.ref_id).filter(Boolean) as string[]
-    const products = refIds.length > 0
-      ? await supabase.from('storefront_products').select('id, product_title, image_path, amazon_url').in('id', refIds)
-      : { data: [], error: null as any }
-    if (products.error) return { error: products.error.message }
+    const viewData = viewResult.data || []
+    const refIds = viewData.map(v => v.ref_id).filter(Boolean) as string[]
+
+    // Fetch product metadata if we have ref_ids
+    let products: any = { data: [], error: null }
+    if (refIds.length > 0) {
+      const productsResponse = await fetch(`/api/storefront/products?ids=${refIds.join(',')}`)
+      if (productsResponse.ok) {
+        products = await productsResponse.json()
+      }
+    }
+
+    if (products.error) return { error: products.error }
     const byId = new Map<string, any>()
     for (const p of products.data || []) byId.set(p.id, p)
 
-    const items = (view.data || []).map(v => {
+    const items = viewData.map(v => {
       const p = v.ref_id ? byId.get(v.ref_id) : null
       return {
         id: v.id!,
-        carousel_slug: v.carousels?.slug || null,
+        carousel_slug: v.carousel_slug || null,
         order_index: v.order_index,
         ref_id: v.ref_id,
         caption: v.caption || (p?.product_title ?? null),
@@ -226,19 +249,24 @@ export async function deleteStorefrontItem(id: string): Promise<ServiceResult<nu
 
 export async function createCarousel(input: Pick<CarouselInsert, 'page' | 'slug'> & Partial<Pick<CarouselInsert, 'title' | 'description' | 'is_active'>>): Promise<ServiceResult<CarouselRow>> {
 	try {
-		const nowIso = new Date().toISOString()
-		const payload: CarouselInsert = {
-			page: input.page,
-			slug: input.slug,
-			title: input.title ?? null,
-			description: input.description ?? null,
-			is_active: input.is_active ?? true,
-			created_at: nowIso,
-			updated_at: nowIso,
+		const response = await fetch('/api/carousels', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				page: input.page,
+				slug: input.slug,
+				title: input.title ?? null,
+				description: input.description ?? null,
+				is_active: input.is_active ?? true
+			})
+		})
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to create carousel' }
 		}
-		const { data, error } = await supabase.from('carousels').insert(payload).select('*').single()
-		if (error) return { error: error.message }
-		return { data: data as CarouselRow }
+
+		return { data: result.data }
 	} catch (e) {
 		return { error: 'Failed to create carousel' }
 	}
@@ -246,15 +274,22 @@ export async function createCarousel(input: Pick<CarouselInsert, 'page' | 'slug'
 
 export async function updateCarousel(id: string, input: Partial<Pick<CarouselUpdate, 'title' | 'description' | 'is_active'>>): Promise<ServiceResult<CarouselRow>> {
 	try {
-		const payload: CarouselUpdate = {
-			title: input.title ?? undefined,
-			description: input.description ?? undefined,
-			is_active: input.is_active ?? undefined,
-			updated_at: new Date().toISOString(),
+		const response = await fetch(`/api/carousels/${encodeURIComponent(id)}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				title: input.title ?? undefined,
+				description: input.description ?? undefined,
+				is_active: input.is_active ?? undefined
+			})
+		})
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to update carousel' }
 		}
-		const { data, error } = await supabase.from('carousels').update(payload).eq('id', id).select('*').single()
-		if (error) return { error: error.message }
-		return { data: data as CarouselRow }
+
+		return { data: result.data }
 	} catch (e) {
 		return { error: 'Failed to update carousel' }
 	}
@@ -262,8 +297,15 @@ export async function updateCarousel(id: string, input: Partial<Pick<CarouselUpd
 
 export async function deleteCarousel(id: string): Promise<ServiceResult<null>> {
 	try {
-		const { error } = await supabase.from('carousels').delete().eq('id', id)
-		if (error) return { error: error.message }
+		const response = await fetch(`/api/carousels/${encodeURIComponent(id)}`, {
+			method: 'DELETE'
+		})
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to delete carousel' }
+		}
+
 		return { data: null }
 	} catch (e) {
 		return { error: 'Failed to delete carousel' }

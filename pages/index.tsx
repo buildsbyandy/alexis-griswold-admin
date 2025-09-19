@@ -3048,8 +3048,8 @@ const AdminContent: React.FC = () => {
                         deleted_at: null,
                         imageAlt: null,
                         is_top_clicked: null,
-                        pairsWith: null,
-                        usedIn: null
+                        pairs_with: null,
+                        used_in: null
                       };
                       setSfEditing(draft);
                       setSfIsAdding(true);

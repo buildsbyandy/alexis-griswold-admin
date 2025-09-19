@@ -5,7 +5,10 @@ import isAdminEmail from '../../../lib/auth/isAdminEmail';
 import supabaseAdmin from '@/lib/supabase';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils/slugify';
-import type { StorefrontUpdate, StorefrontRow } from '@/types/supabase.generated';
+import type { Database } from '@/types/supabase.generated';
+
+type StorefrontRow = Database['public']['Tables']['storefront_products']['Row'];
+type StorefrontUpdate = Database['public']['Tables']['storefront_products']['Update'];
 
 export const config = { runtime: 'nodejs' };
 

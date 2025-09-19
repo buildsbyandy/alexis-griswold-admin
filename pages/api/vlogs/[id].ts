@@ -48,12 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // If YouTube URL is being updated, extract fresh metadata
       if (youtube_url) {
         // Validate YouTube URL format
-        if (!youtubeService.isValidYouTubeUrl(youtube_url)) {
+        if (!youtubeService.validate_youtube_url(youtube_url)) {
           return res.status(400).json({ error: 'Invalid YouTube URL format' })
         }
         
         // Extract video metadata from YouTube
-        const youtubeData = await youtubeService.getVideoDataFromUrl(youtube_url)
+        const youtubeData = await youtubeService.get_video_data_from_url(youtube_url)
         if (!youtubeData || youtubeData.error || !youtubeData.data) {
           return res.status(404).json({ error: 'Video not found or private' })
         }

@@ -160,8 +160,8 @@ class StorefrontService {
         deleted_at: null,
         // Legacy camelCase fields set to null (will be removed from schema eventually)
         imageAlt: null,
-        pairsWith: null,
-        usedIn: null
+        pairs_with: null,
+        used_in: null
       };
 
       const response = await fetch('/api/storefront', {

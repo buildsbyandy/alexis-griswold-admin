@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Validate using shared YouTube service
-      if (!youtubeService.isValidYouTubeUrl(youtube_url)) {
+      if (!youtubeService.validate_youtube_url(youtube_url)) {
         return res.status(400).json({ error: 'Invalid YouTube URL format' })
       }
 
@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let thumbnailUrl = video_thumbnail_url ?? null
       let derivedType: string | null = null
       try {
-        const meta = await youtubeService.getVideoDataFromUrl(youtube_url)
+        const meta = await youtubeService.get_video_data_from_url(youtube_url)
         if (meta && meta.data) {
           const vd = meta.data
           if (!resolvedTitle?.trim()) resolvedTitle = vd.title
