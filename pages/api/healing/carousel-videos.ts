@@ -10,12 +10,12 @@ import { authOptions } from '../auth/[...nextauth]';
 import isAdminEmail from '../../../lib/auth/isAdminEmail';
 import { youtubeService } from '../../../lib/services/youtubeService';
 import {
-  listViewItems,
   findCarouselByPageSlug,
   createCarousel,
   getCarouselItems,
   createCarouselItem,
 } from '../../../lib/services/carouselService';
+import supabaseAdmin from '../../../lib/supabase';
 
 export const config = { runtime: 'nodejs' };
 
@@ -31,13 +31,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      // Fetch all healing items (both slugs), then filter kind='video'
-      const result = await listViewItems('healing');
-      if (result.error) return res.status(500).json({ error: result.error });
-      const items = (result.data || []).filter(i => i?.kind === 'video' && (i.carousel_slug === HEALING_SLUGS[1] || i.carousel_slug === HEALING_SLUGS[2]));
+      // Fetch healing carousel items directly from database (excluding featured videos)
+      const { data: carouselItems, error: itemsError } = await supabaseAdmin
+        .from('carousel_items')
+        .select(`
+          *,
+          carousels!inner(page, slug)
+        `)
+        .eq('carousels.page', 'healing')
+        .eq('kind', 'video')
+        .in('carousels.slug', [HEALING_SLUGS[1], HEALING_SLUGS[2]])
+        .eq('is_featured', false)  // Exclude featured videos from carousel
+        .order('order_index', { ascending: true });
+
+      if (itemsError) {
+        console.error('Error fetching healing carousel items:', itemsError);
+        return res.status(500).json({ error: 'Failed to fetch healing carousel items' });
+      }
 
       // Normalize to UI shape expected (legacy fields)
-      const normalized = await Promise.all(items.map(async (item) => {
+      const normalized = await Promise.all((carouselItems || []).map(async (item) => {
         const youtubeId = item.youtube_id || '';
         const url = youtubeService.format_youtube_url(youtubeId).data || '';
         let title = item.caption || '';
@@ -49,16 +62,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         return {
           id: item.id!,
-          carousel_id: null,
+          carousel_id: item.carousel_id,
           youtube_url: url,
           youtube_id: youtubeId,
           video_title: title,
           video_description: description || null,
           video_order: item.order_index || 1,
-          created_at: '',
-          updated_at: '',
+          created_at: item.created_at || '',
+          updated_at: item.updated_at || '',
           // extra fields for UI convenience (ignored by types)
-          carousel: item.carousel_slug === HEALING_SLUGS[1] ? 'part1' : 'part2',
+          carousel: item.carousels?.slug === HEALING_SLUGS[1] ? 'part1' : 'part2',
           isActive: item.is_active ?? true,
           order: item.order_index || 1,
         };
@@ -68,18 +81,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       normalized.sort((a, b) => (a.carousel === 'part1' ? 0 : 1) - (b.carousel === 'part1' ? 0 : 1) || a.video_order - b.video_order);
       return res.status(200).json({ data: normalized });
     } catch (error) {
+      console.error('Error in healing carousel videos GET:', error);
       return res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   if (req.method === 'POST') {
     try {
-      const { carousel_number, youtube_url, video_title, video_description, video_order } = req.body as {
+      const { carousel_number, youtube_url, video_title, video_description, video_order, is_featured } = req.body as {
         carousel_number?: 1 | 2;
         youtube_url?: string;
         video_title?: string;
         video_description?: string;
         video_order?: number;
+        is_featured?: boolean;
       };
 
       if (!youtube_url) return res.status(400).json({ error: 'youtube_url is required' });
@@ -126,6 +141,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         youtube_id,
         caption: caption || null,
         is_active: true,
+        is_featured: is_featured || false,
       });
       if (insertRes.error) return res.status(500).json({ error: insertRes.error });
 

@@ -11,17 +11,25 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]';
 import isAdminEmail from '../../../../lib/auth/isAdminEmail';
 import healingService from '../../../../lib/services/healingService';
+import supabaseAdmin from '../../../../lib/supabase';
 
 export const config = { runtime: 'nodejs' };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const result = await healingService.get_healing_products();
-      if (result.error) {
-        return res.status(500).json({ error: result.error });
+      // Query database directly to avoid circular dependency
+      const { data, error } = await supabaseAdmin
+        .from('healing_products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching healing products:', error);
+        return res.status(500).json({ error: 'Failed to fetch healing products' });
       }
-      return res.status(200).json({ data: result.data || [] });
+
+      return res.status(200).json({ data: data || [] });
     } catch (error) {
       console.error('Error fetching healing products:', error);
       return res.status(500).json({ error: 'Internal server error' });

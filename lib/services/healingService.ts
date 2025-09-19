@@ -43,6 +43,7 @@ export interface HealingVideo {
   carousel?: 'part1' | 'part2';
   isActive?: boolean;
   order?: number;
+  is_featured?: boolean;
 }
 
 // Service response type
@@ -111,6 +112,7 @@ class HealingService {
     video_title?: string;
     video_description?: string;
     video_order?: number;
+    is_featured?: boolean;
   }): Promise<HealingServiceResponse<HealingVideo>> {
     try {
       const carousel_number = payload.type === 'part1' ? 1 : 2;
@@ -123,6 +125,7 @@ class HealingService {
           video_title: payload.video_title,
           video_description: payload.video_description,
           video_order: payload.video_order || 1,
+          is_featured: payload.is_featured || false,
         }),
       });
       const result = await response.json();
@@ -133,12 +136,13 @@ class HealingService {
     }
   }
 
-  async updateVideo(id: string, patch: Partial<{ youtube_url: string; video_order: number; type: HealingPart }>): Promise<HealingServiceResponse<boolean>> {
+  async updateVideo(id: string, patch: Partial<{ youtube_url: string; video_order: number; type: HealingPart; is_featured: boolean }>): Promise<HealingServiceResponse<boolean>> {
     try {
       const updatePayload: any = {};
       if (patch.youtube_url) updatePayload.youtube_url = patch.youtube_url;
       if (patch.video_order) updatePayload.video_order = patch.video_order;
       if (patch.type) updatePayload.carousel_number = patch.type === 'part1' ? 1 : 2;
+      if (patch.is_featured !== undefined) updatePayload.is_featured = patch.is_featured;
 
       const response = await fetch(`/api/healing/carousel-videos/${id}`, {
         method: 'PUT',
@@ -350,6 +354,24 @@ class HealingService {
     }
     return result.data || [];
   }
+
+  // Featured video methods (similar to vlog service)
+  async getFeaturedVideos(): Promise<HealingServiceResponse<HealingVideo[]>> {
+    try {
+      const response = await fetch('/api/healing/featured-videos');
+      const result = await response.json();
+      if (!response.ok) return { error: result.error || 'Failed to fetch featured videos' };
+      return { data: result.data || [] };
+    } catch (error) {
+      return { error: 'Failed to fetch featured videos' };
+    }
+  }
+
+  async getCarouselVideosExcludingFeatured(): Promise<HealingServiceResponse<HealingVideo[]>> {
+    // This now uses the updated API that excludes featured videos
+    return this.listVideos();
+  }
+
 
 
 }

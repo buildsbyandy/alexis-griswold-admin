@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaVideo } from 'react-icons/fa';
+import { FaTimes, FaSave, FaVideo, FaSpinner } from 'react-icons/fa';
 import type { HealingVideo, HealingCarouselType } from '../../lib/services/healingService';
 import { healingService } from '../../lib/services/healingService';
+import { youtubeService } from '../../lib/services/youtubeService';
 import toast from 'react-hot-toast';
 
 interface HealingVideoModalProps {
@@ -24,9 +25,11 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
     video_title: '',
     video_description: '',
     video_order: 1,
+    is_featured: false,
   });
 
   const [carouselNumber, setCarouselNumber] = useState(1);
+  const [isLoadingYouTubeData, setIsLoadingYouTubeData] = useState(false);
 
   useEffect(() => {
     if (video) {
@@ -35,6 +38,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
         video_title: video.video_title || '',
         video_description: video.video_description || '',
         video_order: video.video_order || 1,
+        is_featured: video.is_featured || false,
       });
     } else {
       // Reset form for new video
@@ -43,6 +47,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
         video_title: '',
         video_description: '',
         video_order: 1,
+        is_featured: false,
       });
     }
 
@@ -50,6 +55,45 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
       setCarouselNumber(propCarouselNumber);
     }
   }, [video, propCarouselNumber]);
+
+  // Extract YouTube video ID from URL
+  const extractYouTubeId = (url: string): string | null => {
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
+  // Get YouTube thumbnail URL
+  const getYouTubeThumbnail = (url: string): string => {
+    const videoId = extractYouTubeId(url);
+    return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+  };
+
+  // Auto-fetch YouTube metadata when URL is entered
+  const handleYouTubeUrlChange = async (url: string) => {
+    setFormData(prev => ({ ...prev, youtube_url: url }));
+    
+    // Only auto-fetch if this is a new video (not editing existing)
+    if (!video && url && url.includes('youtube.com')) {
+      setIsLoadingYouTubeData(true);
+      try {
+        const youtubeData = await youtubeService.get_video_data_from_url(url);
+        if (youtubeData.data) {
+          const data = youtubeData.data;
+          setFormData(prev => ({
+            ...prev,
+            video_title: data.title || prev.video_title,
+            video_description: data.description || prev.video_description,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube data:', error);
+        toast.error('Could not fetch video details from YouTube');
+      } finally {
+        setIsLoadingYouTubeData(false);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +121,8 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
         const response = await healingService.updateVideo(video.id, {
           youtube_url: formData.youtube_url,
           video_order: formData.video_order,
-          type: carouselNumber === 1 ? 'part1' : 'part2'
+          type: carouselNumber === 1 ? 'part1' : 'part2',
+          is_featured: formData.is_featured
         });
         if (response.error) {
           throw new Error(response.error);
@@ -94,7 +139,8 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
           youtube_url: formData.youtube_url,
           video_title: formData.video_title,
           video_description: formData.video_description,
-          video_order: formData.video_order
+          video_order: formData.video_order,
+          is_featured: formData.is_featured
         });
         if (response.error) {
           throw new Error(response.error);
@@ -135,7 +181,27 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
 
           <div className="p-6 space-y-4">
             {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={formData.youtube_url}
+                    onChange={(e) => handleYouTubeUrlChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] pr-10"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    required
+                  />
+                  {isLoadingYouTubeData && (
+                    <div className="absolute transform -translate-y-1/2 right-3 top-1/2">
+                      <FaSpinner className="animate-spin text-[#B8A692]" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-[#8F907E] mt-1">Paste any YouTube video URL. Title and description will be auto-filled.</p>
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Video Title *</label>
                 <input
@@ -146,20 +212,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
                   placeholder="e.g., Day 1: Starting Your Candida Cleanse Journey"
                   required
                 />
-                <p className="text-xs text-gray-600 mt-1">Clear, descriptive title for this healing video</p>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
-                <input
-                  type="url"
-                  value={formData.youtube_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, youtube_url: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  required
-                />
-                <p className="text-xs text-[#8F907E] mt-1">Paste any YouTube video URL. Thumbnail will be auto-generated.</p>
+                <p className="mt-1 text-xs text-gray-600">Clear, descriptive title for this healing video</p>
               </div>
 
               <div>
@@ -187,7 +240,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
                   max="5"
                   placeholder="1"
                 />
-                <p className="text-xs text-gray-600 mt-1">Order in the carousel (1-5)</p>
+                <p className="mt-1 text-xs text-gray-600">Order in the carousel (1-5)</p>
               </div>
 
               <div className="md:col-span-2">
@@ -198,13 +251,54 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
                   className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="Brief description of what this healing video covers..."
                 />
-                <p className="text-xs text-gray-600 mt-1">1-2 sentences about the video content and what viewers will learn</p>
+                <p className="mt-1 text-xs text-gray-600">1-2 sentences about the video content and what viewers will learn</p>
               </div>
             </div>
+
+            {/* Featured Video Settings */}
+            <div className="p-4 rounded-lg bg-gray-50">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_featured}
+                      onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
+                      className="mr-3 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-[#383B26]">Featured Video</span>
+                      <p className="text-xs text-gray-500">Display as the main featured video on the healing page</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div className="p-3 border border-blue-200 rounded-md bg-blue-50">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">Featured Video Behavior</h3>
+                    <div className="mt-1 text-sm text-blue-700">
+                      <p>Featured videos are displayed separately from carousel videos to avoid duplication. When a video is marked as featured:</p>
+                      <ul className="mt-1 space-y-1 list-disc list-inside">
+                        <li>It appears as the main hero video on the healing page</li>
+                        <li>It will NOT appear in the carousel below</li>
+                        <li>Only one video can be featured at a time</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+          <div className="flex justify-end p-6 space-x-3 border-t bg-gray-50">
             <button
               type="button"
               onClick={onClose}

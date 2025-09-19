@@ -2797,18 +2797,9 @@ const AdminContent: React.FC = () => {
               <div className="space-y-6">
                 {/* Carousel Headers */}
                 <div className="p-6 bg-white rounded-lg shadow-md">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-xl font-semibold text-[#383B26]">Carousel Headers</h2>
-                      <p className="text-[#8F907E] text-sm">Manage the titles and subtitles for video carousels</p>
-                    </div>
-                    <button
-                      onClick={() => setEditingCarouselHeaders(!editingCarouselHeaders)}
-                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
-                    >
-                      <FaEdit className="mr-2" />
-                      {editingCarouselHeaders ? 'Cancel' : 'Edit'}
-                    </button>
+                  <div className="mb-4">
+                    <h2 className="text-xl font-semibold text-[#383B26]">Carousel Headers</h2>
+                    <p className="text-[#8F907E] text-sm">Manage the titles and subtitles for video carousels</p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -2824,7 +2815,7 @@ const AdminContent: React.FC = () => {
                           isActive: true,
                           updated_at: new Date()
                         })}
-                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] transition-colors"
                       >
                         <FaEdit />
                       </button>
@@ -2841,7 +2832,7 @@ const AdminContent: React.FC = () => {
                           isActive: true,
                           updated_at: new Date()
                         })}
-                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] transition-colors"
                       >
                         <FaEdit />
                       </button>

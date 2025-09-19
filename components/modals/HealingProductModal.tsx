@@ -3,7 +3,7 @@ import { FaTimes, FaSave, FaHeartbeat } from 'react-icons/fa';
 import FileUpload from '../ui/FileUpload';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
-import { HealingProductRow, healingService } from '@/lib/services/healingService';
+import { HealingProductRow } from '@/lib/services/healingService';
 import toast from 'react-hot-toast';
 
 interface HealingProductModalProps {
@@ -75,27 +75,8 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
     }
 
     try {
-      if (product?.id) {
-        // Update existing product
-        const response = await healingService.update_healing_product(product.id, formData);
-        if (response.error) {
-          throw new Error(response.error);
-        }
-        if (!response.data) {
-          throw new Error('No data returned from update');
-        }
-        await onSave(response.data);
-      } else {
-        // Create new product
-        const response = await healingService.create_healing_product(formData);
-        if (response.error) {
-          throw new Error(response.error);
-        }
-        if (!response.data) {
-          throw new Error('No data returned from create');
-        }
-        await onSave(response.data);
-      }
+      // Pass form data to parent component for API handling
+      await onSave(formData as HealingProductRow);
       onClose();
       toast.success(`Product ${product ? 'updated' : 'created'} successfully!`);
     } catch (error) {

@@ -54,8 +54,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ...parsed,
         product_title: (parsed.name ?? parsed.product_title)!,
       }
-      const product = await storefrontService.create_storefront_product(payload)
-			return res.status(201).json({ product })
+      // Insert product directly into database to avoid circular dependency
+      const { data, error } = await supabaseAdmin
+        .from('storefront_products')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('Error creating storefront product:', error);
+        return res.status(500).json({ error: 'Failed to create product' });
+      }
+
+      return res.status(201).json({ product: data });
 		} catch (error) {
 			console.error('Error creating storefront product:', error)
 			return res.status(500).json({ error: 'Internal server error' })

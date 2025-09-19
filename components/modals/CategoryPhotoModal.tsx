@@ -139,24 +139,16 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                         );
                       }
                     })()}
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
                         onUpload={handleImageUpload}
-                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center gap-2"
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                         disabled={isUpdating}
                       >
-                        <FaUpload className="w-4 h-4" />
                         Change Photo
                       </FileUpload>
-                      <button
-                        onClick={handleRemoveImage}
-                        disabled={isUpdating}
-                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
                     </div>
                   </div>
                 ) : (
@@ -167,15 +159,27 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                       accept="image/*"
                       uploadType="image"
                       onUpload={handleImageUpload}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center gap-2 mx-auto"
+                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       disabled={isUpdating}
                     >
-                      <FaUpload className="w-4 h-4" />
                       Upload Category Photo
                     </FileUpload>
                   </div>
                 )}
               </div>
+              
+              {/* Remove button - separate from upload area */}
+              {selectedCategory.category_image_path && (
+                <div className="mt-3 text-center">
+                  <button
+                    onClick={handleRemoveImage}
+                    disabled={isUpdating}
+                    className="px-4 py-2 text-red-600 hover:text-red-800 text-sm disabled:opacity-50"
+                  >
+                    Remove Photo
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

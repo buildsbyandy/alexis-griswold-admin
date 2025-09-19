@@ -95,7 +95,7 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
           <div className="flex items-center justify-between p-6 border-b">
             <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
               <FaVideo className="mr-3 text-[#B8A692]" />
-              Edit Carousel Header
+              Edit {formData.title.trim() ? formData.title : getTypeDisplayName(formData.type)} Header
             </h2>
             <button
               type="button"
@@ -107,26 +107,18 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Carousel Type */}
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel Section *</label>
-              <select
-                value={formData.type}
-                onChange={(e) => {
-                  const newType = e.target.value as 'part1' | 'part2';
-                  setFormData(prev => ({
-                    ...prev,
-                    type: newType,
-                    title: prev.title || getDefaultTitle(newType),
-                    description: prev.description || getDefaultDescription(newType)
-                  }));
-                }}
-                className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                required
-              >
-                <option value="part1">Gut Healing Part 1: Candida Cleanse</option>
-                <option value="part2">Gut Healing Part 2: Rebuild & Repair</option>
-              </select>
+            {/* Carousel Section Info */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <label className="block text-sm font-medium text-[#383B26] mb-2">Editing Carousel Section:</label>
+              <div className="text-lg font-semibold text-[#B8A692]">
+                {getTypeDisplayName(formData.type)}
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                {formData.type === 'part1' 
+                  ? 'Candida Cleanse - Educational videos for cleansing process'
+                  : 'Rebuild & Repair - Videos focused on rebuilding gut health'
+                }
+              </p>
             </div>
 
             {/* Carousel Title */}

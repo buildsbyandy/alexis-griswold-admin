@@ -168,18 +168,6 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Vlog Title *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="e.g., Morning Routine | What I Eat in a Day"
-                  required
-                />
-                <p className="text-xs text-gray-600 mt-1">Engaging title that describes the vlog content</p>
-              </div>
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
                 <div className="relative">
                   <input
@@ -199,6 +187,18 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                 <p className="text-xs text-gray-600 mt-1">
                   {!vlog ? 'Paste YouTube URL to auto-fill title, description, and thumbnail' : 'Full YouTube URL - thumbnail and video info will be auto-extracted'}
                 </p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-[#383B26] mb-1">Vlog Title *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  placeholder="e.g., Morning Routine | What I Eat in a Day"
+                  required
+                />
+                <p className="text-xs text-gray-600 mt-1">Engaging title that describes the vlog content</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel *</label>
@@ -290,14 +290,16 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                 ) : (
                   <div className="text-center py-8">
                     <FaVideo className="mx-auto text-4xl text-gray-400 mb-4" />
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      onUpload={(url) => setFormData(prev => ({ ...prev, thumbnailUrl: url }))}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                    >
-                      Upload Thumbnail Image
-                    </FileUpload>
+                    <div className="flex justify-center">
+                      <FileUpload
+                        accept="image/*"
+                        uploadType="image"
+                        onUpload={(url) => setFormData(prev => ({ ...prev, thumbnailUrl: url }))}
+                        className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                      >
+                        Upload Thumbnail Image
+                      </FileUpload>
+                    </div>
                     <p className="text-sm text-gray-500 mt-2">Recommended: 1280x720 pixels</p>
                   </div>
                 )}
@@ -305,20 +307,42 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
             </div>
 
             {/* Settings */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isFeatured}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
-                    className="mr-3 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-[#383B26]">Featured Vlog</span>
-                    <p className="text-xs text-gray-500">Display as the main featured video on the vlogs page</p>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isFeatured}
+                      onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                      className="mr-3 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-[#383B26]">Featured Vlog</span>
+                      <p className="text-xs text-gray-500">Display as the main featured video on the vlogs page</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                </label>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">Featured Video Behavior</h3>
+                    <div className="mt-1 text-sm text-blue-700">
+                      <p>Featured videos are displayed separately from carousel videos to avoid duplication. When a video is marked as featured:</p>
+                      <ul className="mt-1 list-disc list-inside space-y-1">
+                        <li>It appears as the main hero video on the vlogs page</li>
+                        <li>It will NOT appear in the carousel below</li>
+                        <li>Only one video can be featured at a time</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -33,10 +33,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { youtube_url, video_order, carousel_number } = req.body as {
+      const { youtube_url, video_order, carousel_number, is_featured } = req.body as {
         youtube_url?: string;
         video_order?: number;
         carousel_number?: 1 | 2;
+        is_featured?: boolean;
       };
 
       const updatePayload: any = {};
@@ -68,6 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         updatePayload.carousel_id = target.data.id;
+      }
+
+      if (is_featured !== undefined) {
+        updatePayload.is_featured = is_featured;
       }
 
       updatePayload.updated_at = new Date().toISOString();
