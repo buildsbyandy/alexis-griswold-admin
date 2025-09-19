@@ -33,6 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('carousel_items')
           .select('*')
           .eq('carousel_id', carousel_id)
+          .eq('is_active', true) // Only return active items for public consumption
           .order('order_index', { ascending: true })
 
         if (error) {
@@ -51,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             carousels!inner(page, slug)
           `)
           .eq('carousels.page', page as PageType)
+          .eq('is_active', true) // Only return active items for public consumption
 
         if (slug && typeof slug === 'string') {
           query = query.eq('carousels.slug', slug)

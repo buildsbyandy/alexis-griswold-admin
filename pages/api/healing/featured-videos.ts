@@ -26,6 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('carousels.page', 'healing')
         .eq('kind', 'video')
         .eq('is_featured', true)
+        .eq('is_active', true) // Only return active items for public consumption
         .order('created_at', { ascending: false });
 
       if (error) {

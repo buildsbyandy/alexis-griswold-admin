@@ -42,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('kind', 'video')
         .in('carousels.slug', [HEALING_SLUGS[1], HEALING_SLUGS[2]])
         .eq('is_featured', false)  // Exclude featured videos from carousel
+        .eq('is_active', true) // Only return active items for public consumption
         .order('order_index', { ascending: true });
 
       if (itemsError) {

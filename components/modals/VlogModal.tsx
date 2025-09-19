@@ -74,14 +74,10 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     // Check if URL is a valid YouTube URL
     const isYouTubeUrl = url && (url.includes('youtube.com') || url.includes('youtu.be'));
 
-    console.log('handleYouTubeUrlChange called:', { url, vlog: !!vlog, isYouTubeUrl });
-
     // Only auto-fetch if this is a new vlog (not editing existing)
     if (!vlog && isYouTubeUrl) {
-      console.log('Triggering YouTube auto-fetch for URL:', url);
       setIsLoadingYouTubeData(true);
       try {
-        console.log('Making request to /api/youtube/metadata...');
         const response = await fetch('/api/youtube/metadata', {
           method: 'POST',
           headers: {
@@ -90,9 +86,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
           body: JSON.stringify({ url }),
         });
 
-        console.log('Response received:', response.status, response.ok);
         const result = await response.json();
-        console.log('Response data:', result);
 
         if (response.ok && result.data) {
           const data = result.data;
