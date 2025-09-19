@@ -92,6 +92,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (error.code === 'PGRST116') return res.status(404).json({ error: 'Vlog not found' })
         return res.status(500).json({ error: 'Failed to update vlog' })
       }
+
+      // If carousel is being updated, ensure carousel item exists
+      if (carousel !== undefined) {
+        const slug = carousel === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel'
+        
+        // Check if carousel item already exists
+        const { data: existingItem } = await supabaseAdmin
+          .from('carousel_items')
+          .select('id')
+          .eq('ref_id', id)
+          .eq('kind', 'video')
+          .single()
+
+        if (!existingItem) {
+          // Create carousel item if it doesn't exist
+          const { findCarouselByPageSlug, createCarousel, createCarouselItem } = await import('../../../lib/services/carouselService')
+          
+          let car = await findCarouselByPageSlug('vlogs', slug)
+          if (car.error) {
+            console.error('Error finding carousel:', car.error)
+          } else if (!car.data) {
+            const created = await createCarousel({ page: 'vlogs', slug, is_active: true })
+            if (created.error) {
+              console.error('Error creating carousel:', created.error)
+            } else {
+              car = { data: created.data }
+            }
+          }
+
+          if (car.data) {
+            const order_index = typeof display_order === 'number' ? display_order : 0
+            const caption = data.title || null
+            const itemRes = await createCarouselItem({
+              carousel_id: car.data.id,
+              kind: 'video',
+              order_index,
+              ref_id: id,
+              caption,
+              is_active: true,
+            })
+            if (itemRes.error) {
+              console.error('Error creating carousel item:', itemRes.error)
+            }
+          }
+        }
+      }
       
       return res.status(200).json({
         vlog: data as VlogRow,
