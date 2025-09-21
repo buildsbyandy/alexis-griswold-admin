@@ -10,6 +10,7 @@ interface FileUploadProps {
   className?: string;
   children?: React.ReactNode;
   disabled?: boolean;
+  folder?: string;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
@@ -18,7 +19,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   uploadType, 
   className = '',
   children,
-  disabled = false
+  disabled = false,
+  folder
 }) => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,10 +39,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
           result = await FileUploadService.uploadVideo(file);
           break;
         case 'image':
-          result = await FileUploadService.uploadImage(file);
+          result = await FileUploadService.uploadImage(file, folder);
           break;
         default:
-          result = await FileUploadService.uploadFile(file);
+          result = await FileUploadService.uploadFile(file, folder);
       }
 
       if (result.success && result.url) {

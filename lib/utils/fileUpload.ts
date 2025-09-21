@@ -84,7 +84,7 @@ export class FileUploadService {
     return this.uploadFile(file, 'videos', 'media');
   }
 
-  static async uploadImage(file: File): Promise<UploadResponse> {
+  static async uploadImage(file: File, folder: string = 'images'): Promise<UploadResponse> {
     // Get file extension for additional validation
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp'];
@@ -113,7 +113,7 @@ export class FileUploadService {
     if (!isImage) {
       return { success: false, error: `File must be an image. Supported formats: ${imageExtensions.join(', ').toUpperCase()}` };
     }
-    return this.uploadFile(file, 'images', 'media');
+    return this.uploadFile(file, folder, 'media');
   }
 }
 

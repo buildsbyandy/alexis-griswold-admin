@@ -320,6 +320,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
+                        folder="images/recipes"
                         onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
@@ -332,8 +333,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
+                      folder="images/recipes"
                       onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                     >
                       Upload Recipe Image
                     </FileUpload>
@@ -344,17 +346,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
             {/* Additional Images */}
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="mb-1">
                 <label className="block text-sm font-medium text-[#383B26]">Additional Images</label>
-                <FileUpload
-                  accept="image/*"
-                  uploadType="image"
-                  onUpload={addImage}
-                  className="px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center"
-                >
-                  <FaPlus className="mr-1" />
-                  Add Image
-                </FileUpload>
               </div>
               <p className="text-xs text-gray-600 mb-3">Additional photos showing the cooking process, final result, or different angles</p>
               
@@ -400,10 +393,10 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   <FileUpload
                     accept="image/*"
                     uploadType="image"
+                    folder="images/recipes"
                     onUpload={addImage}
                     className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                   >
-                    <FaPlus className="mr-2" />
                     Upload Additional Image
                   </FileUpload>
                 </div>

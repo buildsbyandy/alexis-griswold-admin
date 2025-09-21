@@ -174,6 +174,7 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
+                        folder="images/products"
                         onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
@@ -188,6 +189,7 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
+                        folder="images/products"
                         onUpload={(url) => setFormData(prev => ({ ...prev, product_image_path: url }))}
                         className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >

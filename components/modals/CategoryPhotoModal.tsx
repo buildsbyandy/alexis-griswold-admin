@@ -143,6 +143,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
+                        folder="images/categories"
                         onUpload={handleImageUpload}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                         disabled={isUpdating}
@@ -155,15 +156,16 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                   <div className="text-center py-8">
                     <FaImage className="mx-auto text-4xl text-gray-400 mb-4" />
                     <p className="text-gray-500 mb-4">No photo set for this category</p>
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      onUpload={handleImageUpload}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                      disabled={isUpdating}
-                    >
-                      Upload Category Photo
-                    </FileUpload>
+                      <FileUpload
+                        accept="image/*"
+                        uploadType="image"
+                        folder="images/categories"
+                        onUpload={handleImageUpload}
+                        className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                        disabled={isUpdating}
+                      >
+                        Upload Category Photo
+                      </FileUpload>
                   </div>
                 )}
               </div>
