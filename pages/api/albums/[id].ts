@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { album_title, album_category, album_date, album_order, album_description, is_featured, cover_image_path, photos } = req.body
+      const { album_title, album_date, album_order, album_description, is_visible, cover_image_path, photos } = req.body
 
       // Validate album_order if provided (0-5 range)
       if (album_order !== undefined) {
@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (album_date !== undefined) updateData.album_date = album_date
       if (cover_image_path !== undefined) updateData.cover_image_path = cover_image_path
       if (album_order !== undefined) updateData.album_order = album_order
-      if (is_featured !== undefined) updateData.is_visible = is_featured
+      if (is_visible !== undefined) updateData.is_visible = is_visible
       
       // Update album
       const { data: album, error: albumError } = await supabaseAdmin

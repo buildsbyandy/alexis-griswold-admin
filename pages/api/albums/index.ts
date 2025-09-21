@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     try {
-      const { album_title, album_category, album_date, album_order, album_description, is_featured, cover_image_path, photos } = req.body
+      const { album_title, album_date, album_order, album_description, is_visible, cover_image_path, photos } = req.body
 
       // Validate required fields
       if (!album_title?.trim()) {
@@ -82,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         album_date: album_date,
         cover_image_path: cover_image_path,
         album_order: requestedOrder,
-        is_visible: is_featured || false
+        is_visible: is_visible || false
       }
 
       const { data: album, error: albumError } = await supabaseAdmin

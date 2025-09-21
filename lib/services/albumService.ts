@@ -113,14 +113,13 @@ class AlbumService {
         throw new Error('Album date is required');
       }
 
-      // Map interface to API payload with snake_case fields
+      // Map interface to API payload with snake_case fields matching database schema
       const albumPayload = {
         album_title: input.title,
-        album_category: input.category || null,
         album_date: input.date,
         album_order: input.display_order || 0,
         album_description: input.description || null,
-        is_featured: input.is_featured || false,
+        is_visible: input.is_featured || false,
         cover_image_path: input.coverImage,
         photos: input.photos.map((photo, index) => ({
           photo_url: photo.src,
@@ -148,15 +147,14 @@ class AlbumService {
 
   async updateAlbum(id: string, input: Partial<PhotoAlbum>): Promise<boolean> {
     try {
-      // Map interface to API payload with snake_case fields
+      // Map interface to API payload with snake_case fields matching database schema
       const updatePayload: any = {};
       if (input.title !== undefined) updatePayload.album_title = input.title;
       if (input.description !== undefined) updatePayload.album_description = input.description;
       if (input.date !== undefined) updatePayload.album_date = input.date;
       if (input.coverImage !== undefined) updatePayload.cover_image_path = input.coverImage;
       if (input.display_order !== undefined) updatePayload.album_order = input.display_order;
-      if (input.is_featured !== undefined) updatePayload.is_featured = input.is_featured;
-      if (input.category !== undefined) updatePayload.album_category = input.category;
+      if (input.is_featured !== undefined) updatePayload.is_visible = input.is_featured;
 
       if (input.photos !== undefined) {
         updatePayload.photos = input.photos.map((photo, index) => ({
