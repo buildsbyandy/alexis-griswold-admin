@@ -78,7 +78,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Update other fields if provided
       if (carousel !== undefined) updateData.carousel = carousel
       if (is_featured !== undefined) updateData.is_featured = is_featured
-      if (display_order !== undefined) updateData.display_order = display_order
+
+      // Handle display_order with duplicate validation
+      if (display_order !== undefined) {
+        // Check for duplicate display_order (excluding current vlog)
+        const { data: duplicateCheck } = await supabaseAdmin
+          .from('vlogs')
+          .select('id')
+          .eq('display_order', display_order)
+          .neq('id', id)
+          .limit(1)
+
+        if (duplicateCheck && duplicateCheck.length > 0) {
+          return res.status(400).json({
+            error: `Display order ${display_order} is already in use. Please choose a different number.`
+          })
+        }
+        updateData.display_order = display_order
+      }
 
       const { data, error } = await supabaseAdmin
         .from('vlogs')

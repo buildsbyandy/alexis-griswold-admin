@@ -86,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const session = await getServerSession(req, res, authOptions)
     const email = session?.user?.email
     if (!email || !isAdminEmail(email)) return res.status(401).json({ error: 'Unauthorized' })
-    
+
     try {
       const { youtube_url, carousel, title: customTitle, description: customDescription, is_featured, display_order } = req.body as {
         youtube_url?: string
@@ -117,6 +117,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Video not found or private' })
       }
 
+      // Auto-assign display_order if not provided or validate if provided
+      let finalDisplayOrder = display_order
+      if (typeof display_order !== 'number' || display_order < 0) {
+        // Get the highest display_order for this carousel and increment
+        const { data: existingVlogs } = await supabaseAdmin
+          .from('vlogs')
+          .select('display_order')
+          .order('display_order', { ascending: false })
+          .limit(1)
+
+        finalDisplayOrder = existingVlogs?.[0]?.display_order ? existingVlogs[0].display_order + 1 : 1
+      } else {
+        // Check for duplicate display_order
+        const { data: duplicateCheck } = await supabaseAdmin
+          .from('vlogs')
+          .select('id')
+          .eq('display_order', display_order)
+          .limit(1)
+
+        if (duplicateCheck && duplicateCheck.length > 0) {
+          return res.status(400).json({
+            error: `Display order ${display_order} is already in use. Please choose a different number or leave blank for auto-assignment.`
+          })
+        }
+      }
+
       // Prepare vlog data - use custom title/description if provided, otherwise use YouTube data
       const vd = youtubeData.data
       const vlogData: VlogInsert = {
@@ -128,6 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         published_at: vd.published_at,
         duration: vd.duration,
         is_featured: is_featured || false,
+        display_order: finalDisplayOrder,
       }
 
       const { data: createdVlog, error } = await supabaseAdmin
@@ -155,7 +182,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Create carousel item referencing vlog
-      const order_index = typeof display_order === 'number' ? display_order : 0
+      const order_index = finalDisplayOrder
       const caption = createdVlog.title || null
       const itemRes = await createCarouselItem({
         carousel_id: car.data!.id,
