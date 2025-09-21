@@ -450,22 +450,31 @@ const AdminContent: React.FC = () => {
           throw new Error(errorData.error || 'Failed to create vlog');
         }
       }
-      
-      // Reload vlogs and stats
-      const vlogsList = await vlogService.getAllVlogs();
-      setVlogs(vlogsList);
-      
-      const vlogStatsData = await vlogService.getStats();
-      setVlogStats(prev => ({
-        totalVlogs: vlogStatsData.totalVlogs,
-        featuredVlogs: vlogStatsData.featuredVlogs,
-        totalAlbums: prev.totalAlbums,
-        totalPhotos: prev.totalPhotos,
-      }));
 
+      // Reset UI state immediately after successful API call
       setIsAddingVlog(false);
       setEditingVlog(null);
+
+      // Attempt data reload with separate error handling
+      try {
+        const vlogsList = await vlogService.getAllVlogs();
+        setVlogs(vlogsList);
+
+        const vlogStatsData = await vlogService.getStats();
+        setVlogStats(prev => ({
+          totalVlogs: vlogStatsData.totalVlogs,
+          featuredVlogs: vlogStatsData.featuredVlogs,
+          totalAlbums: prev.totalAlbums,
+          totalPhotos: prev.totalPhotos,
+        }));
+      } catch (reloadError) {
+        // Log reload errors but don't fail the entire operation
+        console.error('Warning: Failed to reload data after successful vlog operation:', reloadError);
+        // Vlog was still saved successfully, so we don't throw here
+      }
+
     } catch (error) {
+      // This catch block now only handles actual API failures
       console.error('Error saving vlog:', error);
       throw error;
     }

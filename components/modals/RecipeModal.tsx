@@ -352,39 +352,53 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <p className="text-xs text-gray-600 mb-3">Additional photos showing the cooking process, final result, or different angles</p>
               
               {formData.images.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {formData.images.map((imageUrl, index) => (
-                    <div key={index} className="relative group">
-                      {(() => {
-                        const parsedUrl = parseSupabaseUrl(imageUrl)
-                        if (parsedUrl) {
-                          return (
-                            <SecureImage
-                              bucket={parsedUrl.bucket}
-                              path={parsedUrl.path}
-                              alt={`Recipe step ${index + 1}`}
-                              width={300}
-                              height={200}
-                              className="w-full h-32 object-cover rounded border"
-                            />
-                          )
-                        } else {
-                          return (
-                            <div className="w-full h-32 bg-gray-200 rounded border flex items-center justify-center">
-                              <span className="text-gray-400 text-sm">Invalid image URL</span>
-                            </div>
-                          )
-                        }
-                      })()}
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                      >
-                        <FaTimes className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {formData.images.map((imageUrl, index) => (
+                      <div key={index} className="relative group">
+                        {(() => {
+                          const parsedUrl = parseSupabaseUrl(imageUrl)
+                          if (parsedUrl) {
+                            return (
+                              <SecureImage
+                                bucket={parsedUrl.bucket}
+                                path={parsedUrl.path}
+                                alt={`Recipe step ${index + 1}`}
+                                width={300}
+                                height={200}
+                                className="w-full h-32 object-cover rounded border"
+                              />
+                            )
+                          } else {
+                            return (
+                              <div className="w-full h-32 bg-gray-200 rounded border flex items-center justify-center">
+                                <span className="text-gray-400 text-sm">Invalid image URL</span>
+                              </div>
+                            )
+                          }
+                        })()}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                        >
+                          <FaTimes className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-center">
+                    <FileUpload
+                      accept="image/*"
+                      uploadType="image"
+                      folder="images/recipes"
+                      onUpload={addImage}
+                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add Another Image
+                    </FileUpload>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
@@ -397,6 +411,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                     onUpload={addImage}
                     className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                   >
+                    <FaPlus className="mr-2" />
                     Upload Additional Image
                   </FileUpload>
                 </div>
