@@ -228,7 +228,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   </button>
                 </div>
                 <p className="text-xs text-gray-600 mt-1">
-                  Paste YouTube URL and click "Fetch Data" to auto-fill title, description, and thumbnail
+                  Paste YouTube URL and click &quot;Fetch Data&quot; to auto-fill title, description, and thumbnail
                 </p>
               </div>
               <div className="md:col-span-2">
