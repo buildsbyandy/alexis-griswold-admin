@@ -182,7 +182,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Create carousel item referencing vlog
-      const order_index = finalDisplayOrder
+      const order_index = finalDisplayOrder || 0
       const caption = createdVlog.title || null
       const itemRes = await createCarouselItem({
         carousel_id: car.data!.id,
