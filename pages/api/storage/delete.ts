@@ -3,23 +3,22 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
+import { parseSupabaseUrl } from '@/util/imageUrl'
 
 export const config = { runtime: 'nodejs' }
 
-interface GetSignedUrlRequest {
-  bucket: string
-  path: string
-  expiresIn?: number
+interface DeleteRequest {
+  url: string
 }
 
-interface GetSignedUrlResponse {
-  signedUrl?: string
+interface DeleteResponse {
+  success?: boolean
   error?: string
 }
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<GetSignedUrlResponse>
+  res: NextApiResponse<DeleteResponse>
 ) {
   // Authentication check
   const session = await getServerSession(req, res, authOptions)
@@ -29,17 +28,25 @@ export default async function handler(
   }
 
   // Method check
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST')
+  if (req.method !== 'DELETE') {
+    res.setHeader('Allow', 'DELETE')
     return res.status(405).json({ error: 'Method Not Allowed' })
   }
 
-  const { bucket, path, expiresIn = 600 } = req.body as GetSignedUrlRequest
+  const { url } = req.body as DeleteRequest
 
   // Validate required parameters
-  if (!bucket || !path) {
-    return res.status(400).json({ error: 'Missing bucket or path' })
+  if (!url) {
+    return res.status(400).json({ error: 'Missing URL' })
   }
+
+  // Parse the Supabase URL to extract bucket and path
+  const parsedUrl = parseSupabaseUrl(url)
+  if (!parsedUrl) {
+    return res.status(400).json({ error: 'Invalid Supabase URL format' })
+  }
+
+  const { bucket, path } = parsedUrl
 
   // Whitelist allowed buckets for security
   const allowedBuckets = ['public_media', 'private_media', 'media'] // Keep 'media' for backward compatibility
@@ -47,28 +54,19 @@ export default async function handler(
     return res.status(400).json({ error: 'Invalid bucket' })
   }
 
-  // Validate expiresIn (max 1 hour for security)
-  if (expiresIn < 60 || expiresIn > 3600) {
-    return res.status(400).json({ error: 'expiresIn must be between 60 and 3600 seconds' })
-  }
-
   try {
-    const { data, error } = await supabaseAdmin.storage
+    const { error } = await supabaseAdmin.storage
       .from(bucket)
-      .createSignedUrl(path, expiresIn)
+      .remove([path])
 
     if (error) {
-      console.error('Supabase signed URL error:', error)
-      return res.status(500).json({ error: 'Failed to create signed URL' })
+      console.error('Supabase delete error:', error)
+      return res.status(500).json({ error: 'Failed to delete file' })
     }
 
-    if (!data?.signedUrl) {
-      return res.status(500).json({ error: 'No signed URL returned' })
-    }
-
-    return res.status(200).json({ signedUrl: data.signedUrl })
+    return res.status(200).json({ success: true })
   } catch (error) {
-    console.error('Unexpected error creating signed URL:', error)
+    console.error('Unexpected error deleting file:', error)
     return res.status(500).json({ error: 'Internal server error' })
   }
 }

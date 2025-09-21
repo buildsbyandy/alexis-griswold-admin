@@ -34,15 +34,48 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
     try {
       let result;
+
+      // Determine content type and status from folder context
+      let contentType: 'recipe' | 'product' | 'healing' | 'vlog' | 'general' = 'general';
+      let status: 'published' | 'draft' = 'draft'; // Default to draft for safety
+
+      // Map folder to content type
+      if (folder?.includes('recipe')) contentType = 'recipe';
+      else if (folder?.includes('product')) contentType = 'product';
+      else if (folder?.includes('healing')) contentType = 'healing';
+      else if (folder?.includes('vlog')) contentType = 'vlog';
+      else if (folder?.includes('thumbnail')) {
+        // Handle thumbnail uploads
+        if (folder.includes('vlogs')) contentType = 'vlog';
+        else if (folder.includes('healing')) contentType = 'healing';
+        else if (folder.includes('recipe')) contentType = 'recipe';
+      }
+
       switch (uploadType) {
         case 'video':
-          result = await FileUploadService.uploadVideo(file);
+          result = await FileUploadService.uploadVideo(file, contentType, status);
           break;
         case 'image':
-          result = await FileUploadService.uploadImage(file, folder);
+          if (folder === 'albums') {
+            result = await FileUploadService.uploadAlbumPhoto(file);
+          } else if (folder?.includes('thumbnail')) {
+            // Handle thumbnail uploads with content ID for proper naming
+            const contentId = `thumb-${Date.now()}`;
+            if (contentType === 'vlog' || contentType === 'healing') {
+              result = await FileUploadService.uploadThumbnail(file, contentType, contentId, status);
+            } else {
+              result = await FileUploadService.uploadImage(file, contentType, status);
+            }
+          } else {
+            result = await FileUploadService.uploadImage(file, contentType, status);
+          }
           break;
         default:
-          result = await FileUploadService.uploadFile(file, folder);
+          result = await FileUploadService.uploadFile(file, {
+            contentType,
+            status,
+            customPath: folder
+          });
       }
 
       if (result.success && result.url) {

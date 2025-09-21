@@ -7,6 +7,7 @@
  */
 
 import type { Database } from '@/types/supabase.generated';
+import { getMediaUrl, type ContentStatus as StorageContentStatus } from '@/lib/utils/storageHelpers';
 
 // Supabase table types for products and page content
 export type HealingProductRow = Database['public']['Tables']['healing_products']['Row'];
@@ -372,8 +373,39 @@ class HealingService {
     return this.listVideos();
   }
 
+  /**
+   * Maps healing product status to content status for bucket selection
+   */
+  getHealingProductContentStatus(product: HealingProductRow): StorageContentStatus {
+    // Healing products use 'is_active' toggle instead of status field
+    return product.is_active ? 'published' : 'draft';
+  }
 
+  /**
+   * Gets the appropriate media URL for healing product images
+   */
+  async getHealingProductImageUrl(imageUrl: string, product?: HealingProductRow): Promise<string | null> {
+    if (!imageUrl) return null;
 
+    // For existing products, determine if we should use signed URLs based on active status
+    const forceSignedUrl = product ? !product.is_active : false;
+    return await getMediaUrl(imageUrl, forceSignedUrl);
+  }
+
+  /**
+   * Gets all image URLs for a healing product with proper bucket handling
+   */
+  async getHealingProductImages(product: HealingProductRow): Promise<{ productImage: string | null; generalImage: string | null }> {
+    const productImage = product.product_image_path
+      ? await this.getHealingProductImageUrl(product.product_image_path, product)
+      : null;
+
+    const generalImage = product.image_path
+      ? await this.getHealingProductImageUrl(product.image_path, product)
+      : null;
+
+    return { productImage, generalImage };
+  }
 }
 
 export const healingService = new HealingService();

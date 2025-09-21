@@ -1,4 +1,5 @@
 import type { Database } from '@/types/supabase.generated'
+import { getThumbnailUrl, type ContentStatus } from '@/lib/utils/storageHelpers'
 
 type VlogRow = Database['public']['Tables']['vlogs']['Row']
 type VlogInsert = Database['public']['Tables']['vlogs']['Insert']
@@ -225,6 +226,31 @@ class VlogService {
 
   formatYouTubeUrl(youtubeId: string): string {
     return `https://www.youtube.com/watch?v=${youtubeId}`;
+  }
+
+  /**
+   * Determines vlog status based on published_at field and show on website toggle
+   */
+  getVlogStatus(vlog: VlogVideo): ContentStatus {
+    // If no published_at date, it's a draft
+    if (!vlog.published_at) return 'draft';
+
+    // If published_at is in the future, it's a draft
+    const publishDate = new Date(vlog.published_at);
+    if (publishDate > new Date()) return 'draft';
+
+    // If it's featured or has display order, it's published (shown on website)
+    if (vlog.is_featured || vlog.display_order > 0) return 'published';
+
+    // Default to draft for safety
+    return 'draft';
+  }
+
+  /**
+   * Gets the appropriate thumbnail URL with fallback logic
+   */
+  async getVlogThumbnailUrl(vlog: VlogVideo): Promise<string | null> {
+    return await getThumbnailUrl(vlog.thumbnail_url, vlog.youtube_id);
   }
 }
 

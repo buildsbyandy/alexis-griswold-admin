@@ -1,4 +1,5 @@
 import type { Database } from '@/types/supabase.generated'
+import { getMediaUrl } from '@/lib/utils/storageHelpers'
 
 type AlbumRow = Database['public']['Tables']['photo_albums']['Row']
 type AlbumInsert = Database['public']['Tables']['photo_albums']['Insert']
@@ -241,6 +242,32 @@ class AlbumService {
   async exportData(): Promise<string> {
     const albums = await this.getAllAlbums();
     return JSON.stringify({ albums }, null, 2);
+  }
+
+  /**
+   * Gets the appropriate media URL for album images (always public)
+   */
+  async getAlbumImageUrl(imageUrl: string): Promise<string | null> {
+    if (!imageUrl) return null;
+    // Albums are always public, so use direct URLs
+    return await getMediaUrl(imageUrl, false);
+  }
+
+  /**
+   * Gets all image URLs for an album with proper bucket handling
+   */
+  async getAlbumImages(album: PhotoAlbum): Promise<{ coverImage: string | null; photos: string[] }> {
+    const coverImage = album.coverImage
+      ? await this.getAlbumImageUrl(album.coverImage)
+      : null;
+
+    const photos: string[] = [];
+    for (const photo of album.photos) {
+      const photoUrl = await this.getAlbumImageUrl(photo.src);
+      if (photoUrl) photos.push(photoUrl);
+    }
+
+    return { coverImage, photos };
   }
 }
 

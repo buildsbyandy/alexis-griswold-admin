@@ -1,4 +1,5 @@
 import type { Database } from '@/types/supabase.generated'
+import { getMediaUrl, type ContentStatus } from '@/lib/utils/storageHelpers'
 
 type RecipeRow = Database['public']['Tables']['recipes']['Row']
 type RecipeInsert = Database['public']['Tables']['recipes']['Insert']
@@ -485,6 +486,45 @@ class RecipeService {
       beginners: recipes.filter(r => r.is_beginner).length,
       recipeOfWeek: recipes.filter(r => r.is_recipe_of_week).length
     };
+  }
+
+  /**
+   * Maps recipe status to content status for bucket selection
+   */
+  getRecipeContentStatus(recipe: Recipe): ContentStatus {
+    return recipe.status as ContentStatus;
+  }
+
+  /**
+   * Gets the appropriate media URL for recipe images
+   */
+  async getRecipeImageUrl(imageUrl: string, recipe?: Recipe): Promise<string | null> {
+    if (!imageUrl) return null;
+
+    // For existing recipes, determine if we should use signed URLs based on status
+    const forceSignedUrl = recipe ? recipe.status !== 'published' : false;
+    return await getMediaUrl(imageUrl, forceSignedUrl);
+  }
+
+  /**
+   * Gets all image URLs for a recipe with proper bucket handling
+   */
+  async getRecipeImages(recipe: Recipe): Promise<string[]> {
+    const imageUrls: string[] = [];
+
+    // Add hero image
+    if (recipe.hero_image_path) {
+      const heroUrl = await this.getRecipeImageUrl(recipe.hero_image_path, recipe);
+      if (heroUrl) imageUrls.push(heroUrl);
+    }
+
+    // Add additional images
+    for (const imagePath of recipe.images) {
+      const imageUrl = await this.getRecipeImageUrl(imagePath, recipe);
+      if (imageUrl) imageUrls.push(imageUrl);
+    }
+
+    return imageUrls;
   }
 }
 

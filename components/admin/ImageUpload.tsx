@@ -60,37 +60,31 @@ export default function ImageUpload({
   const canAddMore = value.length + uploadingFiles.length < maxImages
 
   async function uploadToSupabase(file: File, folder = 'recipes') {
-    const ext = file.name.slice(file.name.lastIndexOf('.')) || ''
-    const path = `${folder}/${crypto.randomUUID()}${ext}`
+    // Use the new FileUploadService which handles bucket logic
+    const { FileUploadService } = await import('@/lib/utils/fileUpload');
 
-    // 1) get a signed upload URL/token from our API
-    const res = await fetch('/api/storage/signed-upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bucket: 'media', path })
-    })
+    // Determine content type and status from folder/context
+    let contentType: 'recipe' | 'product' | 'healing' | 'general' = 'general';
+    let status: 'published' | 'draft' = 'draft'; // Default to draft for safety
 
-    if (!res.ok) {
-      const errorText = await res.text()
-      throw new Error(`Failed to get upload URL: ${errorText}`)
+    // Map folder to content type
+    if (folder.includes('recipe')) contentType = 'recipe';
+    else if (folder.includes('product')) contentType = 'product';
+    else if (folder.includes('healing')) contentType = 'healing';
+    else if (folder.includes('album')) {
+      // Special case for albums - always public
+      const result = await FileUploadService.uploadAlbumPhoto(file);
+      if (!result.success) throw new Error(result.error || 'Upload failed');
+      return { path: '', publicUrl: result.url! };
     }
 
-    const { uploadUrl, publicUrl } = await res.json()
+    const result = await FileUploadService.uploadImage(file, contentType, status);
 
-    // 2) upload directly to Supabase using the signed URL
-    const uploadRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type,
-      },
-    })
-
-    if (!uploadRes.ok) {
-      throw new Error(`Failed to upload file: ${uploadRes.statusText}`)
+    if (!result.success) {
+      throw new Error(result.error || 'Upload failed');
     }
 
-    return { path, publicUrl }
+    return { path: '', publicUrl: result.url! };
   }
 
   /**

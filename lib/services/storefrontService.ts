@@ -13,6 +13,7 @@ import type {
   ContentStatus
 } from '@/lib/types/storefront';
 import { listStorefrontItems } from '../services/carouselService';
+import { getMediaUrl, type ContentStatus as StorageContentStatus } from '@/lib/utils/storageHelpers';
 import slugify from '@/lib/utils/slugify';
 
 class StorefrontService {
@@ -485,6 +486,33 @@ class StorefrontService {
       is_visible: category.is_visible || undefined,
       sort_order: category.sort_order || undefined,
     };
+  }
+
+  /**
+   * Maps storefront product status to content status for bucket selection
+   */
+  getStorefrontProductContentStatus(product: StorefrontProductRow): StorageContentStatus {
+    return product.status as StorageContentStatus;
+  }
+
+  /**
+   * Gets the appropriate media URL for storefront product images
+   */
+  async getStorefrontProductImageUrl(imageUrl: string, product?: StorefrontProductRow): Promise<string | null> {
+    if (!imageUrl) return null;
+
+    // For existing products, determine if we should use signed URLs based on status
+    const forceSignedUrl = product ? product.status !== 'published' : false;
+    return await getMediaUrl(imageUrl, forceSignedUrl);
+  }
+
+  /**
+   * Gets the appropriate media URL for category images (always public since categories are visible)
+   */
+  async getCategoryImageUrl(imageUrl: string): Promise<string | null> {
+    if (!imageUrl) return null;
+    // Categories are always public, so use direct URLs
+    return await getMediaUrl(imageUrl, false);
   }
 }
 
