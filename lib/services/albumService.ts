@@ -10,12 +10,11 @@ export interface PhotoAlbum {
   id: string;
   title: string;
   description: string;
-  coverImage: string;
-  category: string;
-  photos: Photo[];
-  date: string;
-  is_featured: boolean;
-  display_order: number;
+  page_type: string | null; // Page context for carousel integration
+  cover_image_path: string | null;
+  images: string[]; // Array of image paths
+  order: number;
+  is_visible: boolean;
   created_at: Date;
   updated_at: Date;
 }

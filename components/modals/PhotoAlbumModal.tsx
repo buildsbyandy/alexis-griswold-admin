@@ -11,6 +11,7 @@ interface PhotoAlbumModalProps {
   onClose: () => void;
   album?: PhotoAlbum | null;
   onSave: (album: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  forcePageType?: string; // Auto-assign page_type for carousel context
 }
 
 type PhotoCategory = 'Home' | 'Lifestyle' | 'Food' | 'Travel' | 'Wellness' | 'Fitness';
@@ -19,7 +20,7 @@ const isValidCategory = (category: string): category is PhotoCategory => {
   return ['Home', 'Lifestyle', 'Food', 'Travel', 'Wellness', 'Fitness'].includes(category);
 };
 
-const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, album, onSave }) => {
+const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, album, onSave, forcePageType }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -80,9 +81,15 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     }
 
     try {
-      // Add required timestamp fields for the PhotoAlbum interface
+      // Map form data to PhotoAlbum interface
       const albumData = {
-        ...formData,
+        title: formData.title,
+        description: formData.description,
+        page_type: forcePageType || null, // Auto-assign page_type for carousel context
+        cover_image_path: formData.coverImage,
+        images: formData.photos.map(p => p.src), // Convert photos to image paths
+        order: formData.display_order,
+        is_visible: !formData.is_featured, // Map is_featured to is_visible (inverted logic)
         created_at: album ? album.created_at : new Date(),
         updated_at: new Date()
       };
@@ -90,6 +97,7 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
       onClose();
       toast.success(`Album ${album ? 'updated' : 'created'} successfully!`);
     } catch (error) {
+      console.error('Error saving album:', error);
       toast.error(`Failed to ${album ? 'update' : 'create'} album`);
     }
   };

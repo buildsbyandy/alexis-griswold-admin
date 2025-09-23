@@ -25,7 +25,7 @@ export const config = { runtime: 'nodejs' }
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const { carousel_id, page, slug } = req.query
+      const { carousel_id, page, slug, use_view } = req.query
 
       if (carousel_id && typeof carousel_id === 'string') {
         // Get items for specific carousel
@@ -44,33 +44,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (page && typeof page === 'string') {
-        // Get view items with carousel metadata
-        let query = supabase
-          .from('carousel_items')
-          .select(`
-            *,
-            carousels!inner(page, slug)
-          `)
-          .eq('carousels.page', page as PageType)
-          .eq('is_active', true) // Only return active items for public consumption
+        // Check if we should use the v_carousel_items view for mixed content
+        if (use_view === 'true') {
+          let query = supabase
+            .from('v_carousel_items')
+            .select('*')
+            .eq('carousel_page', page as PageType)
+            .eq('item_is_active', true) // Only return active items
 
-        if (slug && typeof slug === 'string') {
-          query = query.eq('carousels.slug', slug)
+          if (slug && typeof slug === 'string') {
+            query = query.eq('carousel_slug', slug)
+          }
+
+          const { data, error } = await query.order('item_order_index', { ascending: true })
+          if (error) {
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({ data: data || [] })
+        } else {
+          // Original logic for backward compatibility
+          let query = supabase
+            .from('carousel_items')
+            .select(`
+              *,
+              carousels!inner(page, slug)
+            `)
+            .eq('carousels.page', page as PageType)
+            .eq('is_active', true) // Only return active items for public consumption
+
+          if (slug && typeof slug === 'string') {
+            query = query.eq('carousels.slug', slug)
+          }
+
+          const { data, error } = await query.order('order_index', { ascending: true })
+          if (error) {
+            return res.status(500).json({ error: error.message })
+          }
+
+          // Transform the joined data to match the expected format
+          const transformed = (data || []).map(item => ({
+            ...item,
+            carousel_slug: item.carousels?.slug || null,
+            page: item.carousels?.page || null
+          }))
+
+          return res.status(200).json({ data: transformed })
         }
-
-        const { data, error } = await query.order('order_index', { ascending: true })
-        if (error) {
-          return res.status(500).json({ error: error.message })
-        }
-
-        // Transform the joined data to match the expected format
-        const transformed = (data || []).map(item => ({
-          ...item,
-          carousel_slug: item.carousels?.slug || null,
-          page: item.carousels?.page || null
-        }))
-
-        return res.status(200).json({ data: transformed })
       }
 
       return res.status(400).json({ error: 'Either carousel_id or page parameter is required' })
@@ -94,8 +114,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'carousel_id is required' })
       }
 
+      // Validate exclusivity: cannot have both youtube_id and album_id
+      const hasYoutube = !!input.youtube_id
+      const hasAlbum = !!input.album_id
+
+      if (hasYoutube && hasAlbum) {
+        return res.status(400).json({
+          error: 'Carousel items cannot have both YouTube video and album assigned. Please choose one content type.'
+        })
+      }
+
+      if (!hasYoutube && !hasAlbum) {
+        return res.status(400).json({
+          error: 'Carousel items must have either a YouTube video or album assigned.'
+        })
+      }
+
       const { data, error } = await supabase.from('carousel_items').insert(input).select('*').single()
       if (error) {
+        // Check for database constraint violations
+        if (error.message?.includes('check constraint') && error.message?.includes('youtube_album_exclusivity')) {
+          return res.status(400).json({
+            error: 'Database constraint violation: Cannot assign both YouTube video and album to the same carousel item.'
+          })
+        }
         return res.status(500).json({ error: error.message })
       }
 

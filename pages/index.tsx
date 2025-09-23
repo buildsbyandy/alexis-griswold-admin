@@ -15,7 +15,7 @@ import HealingProductModal from '../components/modals/HealingProductModal';
 import { type HealingProductRow } from '../lib/services/healingService';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
 import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
-import HealingVideoModal from '../components/modals/HealingVideoModal';
+import HealingCarouselModal from '../components/modals/HealingCarouselModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
 import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
@@ -102,7 +102,7 @@ const AdminContent: React.FC = () => {
   const [editingHealingFeaturedVideo, setEditingHealingFeaturedVideo] = useState<HealingFeaturedVideo | null>(null);
   const [healingVideos, setHealingVideos] = useState<HealingVideo[]>([]);
   const [editingHealingVideo, setEditingHealingVideo] = useState<HealingVideo | null>(null);
-  const [showHealingVideoModal, setShowHealingVideoModal] = useState(false);
+  const [showHealingCarouselModal, setShowHealingCarouselModal] = useState(false);
   const [sfProducts, setSfProducts] = useState<StorefrontProductRow[]>([]);
   const [editingSfProduct, setEditingSfProduct] = useState<StorefrontProductRow | null>(null);
   const [isAddingSfProduct, setIsAddingSfProduct] = useState(false);
@@ -558,42 +558,47 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveHealingVideo = async (videoData: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveCarouselItem = async (itemData: any) => {
     try {
-      // Map from HealingVideo interface to API format
-      const apiData = {
-        youtube_url: videoData.youtube_url,
-        carousel_number: videoData.carousel === 'part1' ? 1 : 2,
-        video_title: videoData.video_title,
-        video_description: videoData.video_description,
-        video_order: videoData.order,
-      };
+      if (itemData.type === 'video') {
+        // Handle video items
+        const videoData = itemData.data as Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>;
+        const apiData = {
+          youtube_url: videoData.youtube_url,
+          carousel_number: videoData.carousel === 'part1' ? 1 : 2,
+          video_title: videoData.video_title,
+          video_description: videoData.video_description,
+          video_order: videoData.order,
+        };
 
-      if (editingHealingVideo) {
-        // Update functionality - TODO: implement update API
-        throw new Error('Update functionality not yet implemented');
-      } else {
-        // Create new healing video via API
-        const response = await fetch('/api/healing/carousel-videos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(apiData)
-        });
+        if (editingHealingVideo) {
+          throw new Error('Update functionality not yet implemented');
+        } else {
+          const response = await fetch('/api/healing/carousel-videos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(apiData)
+          });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to create healing video');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create healing video');
+          }
         }
-      }
-      
-      // Reload videos
-      const videosList = await healingService.get_all_videos();
-      setHealingVideos(videosList);
 
-      setShowHealingVideoModal(false);
+        // Reload videos
+        const videosList = await healingService.get_all_videos();
+        setHealingVideos(videosList);
+      } else if (itemData.type === 'album') {
+        // Handle album items - this will be integrated when carousel system is ready
+        console.log('Album creation for healing carousel:', itemData.data);
+        toast.success('Album functionality will be available once carousel integration is complete');
+      }
+
+      setShowHealingCarouselModal(false);
       setEditingHealingVideo(null);
     } catch (error) {
-      console.error('Error saving healing video:', error);
+      console.error('Error saving carousel item:', error);
       throw error;
     }
   };
@@ -2858,15 +2863,15 @@ const AdminContent: React.FC = () => {
                         <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 1: Candida Cleanse</h3>
                         <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setEditingHealingVideo(null);
-                          setShowHealingVideoModal(true);
+                          setShowHealingCarouselModal(true);
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
                         <FaPlus className="mr-2" />
-                        Add Video
+                        Add Content
                       </button>
                     </div>
 
@@ -2894,7 +2899,7 @@ const AdminContent: React.FC = () => {
                                 <button
                                   onClick={() => {
                                     setEditingHealingVideo(video);
-                                    setShowHealingVideoModal(true);
+                                    setShowHealingCarouselModal(true);
                                   }}
                                   className="px-2 py-1 bg-[#B8A692] text-white rounded text-xs hover:bg-[#A0956C] flex items-center"
                                 >
@@ -2933,15 +2938,15 @@ const AdminContent: React.FC = () => {
                         <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 2: Rebuild & Repair</h3>
                         <p className="text-sm text-[#8F907E]">Videos focused on rebuilding gut health after cleansing</p>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setEditingHealingVideo(null);
-                          setShowHealingVideoModal(true);
+                          setShowHealingCarouselModal(true);
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
                         <FaPlus className="mr-2" />
-                        Add Video
+                        Add Content
                       </button>
                     </div>
 
@@ -2969,7 +2974,7 @@ const AdminContent: React.FC = () => {
                                 <button
                                   onClick={() => {
                                     setEditingHealingVideo(video);
-                                    setShowHealingVideoModal(true);
+                                    setShowHealingCarouselModal(true);
                                   }}
                                   className="px-2 py-1 bg-[#B8A692] text-white rounded text-xs hover:bg-[#A0956C] flex items-center"
                                 >
@@ -3550,15 +3555,15 @@ const AdminContent: React.FC = () => {
         onSave={handleSaveHealingFeaturedVideo}
       />
 
-      {/* Healing Video Modal */}
-      <HealingVideoModal
-        isOpen={showHealingVideoModal}
+      {/* Healing Carousel Modal */}
+      <HealingCarouselModal
+        isOpen={showHealingCarouselModal}
         onClose={() => {
-          setShowHealingVideoModal(false);
+          setShowHealingCarouselModal(false);
           setEditingHealingVideo(null);
         }}
-        video={editingHealingVideo}
-        onSave={handleSaveHealingVideo}
+        editingVideo={editingHealingVideo}
+        onSave={handleSaveCarouselItem}
       />
 
       {/* Storefront Product Modal */}

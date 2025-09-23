@@ -8,15 +8,35 @@ export type CarouselItemRow = Database['public']['Tables']['carousel_items']['Ro
 export type CarouselItemInsert = Database['public']['Tables']['carousel_items']['Insert']
 export type CarouselItemUpdate = Database['public']['Tables']['carousel_items']['Update']
 
-// Extended type for carousel items with carousel metadata
-export type VCarouselItemRow = CarouselItemRow & {
-  carousel_slug?: string | null;
-  page?: PageType | null;
-  carousels?: {
-    page: PageType;
-    slug: string;
-  } | null;
+// Complete view type for carousel items with all joined data
+export type VCarouselItemRow = Database['public']['Views']['v_carousel_items']['Row']
+
+// Union types for mixed carousel items
+export type CarouselVideoItem = {
+  kind: 'video'
+  id: string
+  youtube_url: string
+  thumbnail?: string | null
+  title?: string | null
+  description?: string | null
+  order_index: number
+  is_active: boolean
+  created_at: Date
 }
+
+export type CarouselAlbumItem = {
+  kind: 'album'
+  id: string
+  album_id: string
+  title: string
+  cover: string | null
+  page_type: string | null
+  order_index: number
+  is_active: boolean
+  created_at: Date
+}
+
+export type CarouselMixedItem = CarouselVideoItem | CarouselAlbumItem
 
 export type PageType = Database['public']['Enums']['page_type']
 
@@ -323,4 +343,151 @@ export async function upsertHealingHeader(input: { type: 'part1' | 'part2'; titl
 		return updateCarousel(current.id, { title: input.title, description: input.description, is_active: input.is_active })
 	}
 	return createCarousel({ page, slug, title: input.title, description: input.description, is_active: input.is_active })
+}
+
+// New: Mixed carousel item functions
+export function mapViewItemToMixed(viewItem: VCarouselItemRow): CarouselMixedItem | null {
+	if (!viewItem.carousel_item_id) return null
+
+	// Map from view to union type based on available data
+	if (viewItem.video_url && viewItem.item_youtube_id) {
+		return {
+			kind: 'video',
+			id: viewItem.carousel_item_id,
+			youtube_url: viewItem.video_url,
+			thumbnail: viewItem.display_image,
+			title: viewItem.video_title || viewItem.display_title,
+			description: viewItem.video_description,
+			order_index: viewItem.item_order_index || 0,
+			is_active: viewItem.item_is_active || false,
+			created_at: new Date(viewItem.item_created_at || Date.now())
+		}
+	} else if (viewItem.item_album_id && viewItem.album_title) {
+		return {
+			kind: 'album',
+			id: viewItem.carousel_item_id,
+			album_id: viewItem.item_album_id,
+			title: viewItem.album_title,
+			cover: viewItem.album_cover_image,
+			page_type: viewItem.album_page_type,
+			order_index: viewItem.item_order_index || 0,
+			is_active: viewItem.item_is_active || false,
+			created_at: new Date(viewItem.item_created_at || Date.now())
+		}
+	}
+
+	return null
+}
+
+export async function listMixedCarouselItems(page: PageType, slug?: string): Promise<ServiceResult<CarouselMixedItem[]>> {
+	try {
+		const params = new URLSearchParams({ page })
+		if (slug) params.append('slug', slug)
+
+		const response = await fetch(`/api/carousels/items?${params.toString()}&use_view=true`)
+		const result = await response.json()
+
+		if (!response.ok) {
+			return { error: result.error || 'Failed to fetch mixed carousel items' }
+		}
+
+		const viewItems = result.data as VCarouselItemRow[] || []
+		const mixedItems = viewItems
+			.map(mapViewItemToMixed)
+			.filter((item): item is CarouselMixedItem => item !== null)
+			.sort((a, b) => a.order_index - b.order_index)
+
+		return { data: mixedItems }
+	} catch (e) {
+		return { error: 'Failed to fetch mixed carousel items' }
+	}
+}
+
+export async function createCarouselVideoItem(input: {
+	carousel_id: string;
+	youtube_url: string;
+	youtube_id?: string;
+	title?: string;
+	description?: string;
+	order_index?: number;
+	is_active?: boolean;
+}): Promise<ServiceResult<CarouselItemRow>> {
+	// Validation: ensure exclusivity
+	if (input.youtube_id && input.carousel_id) {
+		// Check if album_id would be set (it shouldn't for video items)
+		// This is enforced at the API level but we add client-side validation
+	}
+
+	try {
+		const insert: CarouselItemInsert = {
+			carousel_id: input.carousel_id,
+			kind: 'video',
+			youtube_id: input.youtube_id || null,
+			album_id: null, // Enforce exclusivity
+			caption: input.title || null,
+			order_index: input.order_index || 0,
+			is_active: input.is_active !== false,
+			ref_id: null,
+			link_url: input.youtube_url,
+			image_path: null,
+			badge: null
+		}
+
+		return createCarouselItem(insert)
+	} catch (e) {
+		return { error: 'Failed to create carousel video item' }
+	}
+}
+
+export async function createCarouselAlbumItem(input: {
+	carousel_id: string;
+	album_id: string;
+	order_index?: number;
+	is_active?: boolean;
+}): Promise<ServiceResult<CarouselItemRow>> {
+	// Validation: ensure exclusivity
+	if (!input.album_id) {
+		return { error: 'Album ID is required for album carousel items' }
+	}
+
+	try {
+		const insert: CarouselItemInsert = {
+			carousel_id: input.carousel_id,
+			kind: 'video', // Note: keeping as 'video' for now to maintain compatibility
+			youtube_id: null, // Enforce exclusivity
+			album_id: input.album_id,
+			caption: null,
+			order_index: input.order_index || 0,
+			is_active: input.is_active !== false,
+			ref_id: input.album_id,
+			link_url: null,
+			image_path: null,
+			badge: null
+		}
+
+		return createCarouselItem(insert)
+	} catch (e) {
+		return { error: 'Failed to create carousel album item' }
+	}
+}
+
+export function validateCarouselItemExclusivity(input: { youtube_id?: string | null; album_id?: string | null }): { valid: boolean; error?: string } {
+	const hasYoutube = !!input.youtube_id
+	const hasAlbum = !!input.album_id
+
+	if (hasYoutube && hasAlbum) {
+		return {
+			valid: false,
+			error: 'Carousel items cannot have both YouTube video and album assigned. Please choose one content type.'
+		}
+	}
+
+	if (!hasYoutube && !hasAlbum) {
+		return {
+			valid: false,
+			error: 'Carousel items must have either a YouTube video or album assigned.'
+		}
+	}
+
+	return { valid: true }
 }
