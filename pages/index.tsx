@@ -3149,7 +3149,7 @@ const AdminContent: React.FC = () => {
                       <div className="flex items-center justify-center h-32 border-2 border-gray-200 border-dashed rounded-lg">
                         <div className="text-center">
                           <p className="text-sm text-gray-500">No TikTok videos yet</p>
-                          <p className="text-xs text-gray-400">Click "Add TikTok" to get started</p>
+                          <p className="text-xs text-gray-400">Click &quot;Add TikTok&quot; to get started</p>
                         </div>
                       </div>
                     </div>

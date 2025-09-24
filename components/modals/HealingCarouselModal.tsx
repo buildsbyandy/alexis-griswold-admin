@@ -64,7 +64,7 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
         setSelectedType(availableContentTypes[0]); // Default to first available type
       }
     }
-  }, [editingVideo, carouselContext]);
+  }, [editingVideo, carouselContext, availableContentTypes]);
 
   // Handle closing the modal - reset to type selector
   const handleClose = () => {
