@@ -179,6 +179,7 @@ const AdminContent: React.FC = () => {
   const [healingActiveTab, setHealingActiveTab] = useState<'hero' | 'carousels' | 'products'>('hero');
   const [editingHealingHero, setEditingHealingHero] = useState(false);
   const [editingCarouselHeaders, setEditingCarouselHeaders] = useState(false);
+  const [currentCarouselContext, setCurrentCarouselContext] = useState<'part1' | 'part2' | 'tiktoks'>('part1');
   const [showHealingFeaturedVideoSelector, setShowHealingFeaturedVideoSelector] = useState(false);
   const [showVlogFeaturedVideoSelector, setShowVlogFeaturedVideoSelector] = useState(false);
   const [healingHeroData, setHealingHeroData] = useState({
@@ -560,39 +561,106 @@ const AdminContent: React.FC = () => {
 
   const handleSaveCarouselItem = async (itemData: any) => {
     try {
+      // Use unified carousel service for ALL item types
+      const { findCarouselByPageSlug, createCarouselItem } = await import('../lib/services/carouselService');
+
+      // Map carousel context to slug
+      const slugMapping = {
+        'part1': 'healing-part-1',
+        'part2': 'healing-part-2',
+        'tiktoks': 'healing-tiktoks'
+      };
+
+      const carouselSlug = slugMapping[currentCarouselContext];
+      if (!carouselSlug) {
+        throw new Error(`Unknown carousel context: ${currentCarouselContext}`);
+      }
+
+      // Find the carousel
+      const carouselResult = await findCarouselByPageSlug('healing', carouselSlug);
+      if (carouselResult.error || !carouselResult.data) {
+        throw new Error(`Carousel ${carouselSlug} not found. Please ensure the carousel exists.`);
+      }
+
       if (itemData.type === 'video') {
-        // Handle video items
+        // Handle YouTube video items using unified system
         const videoData = itemData.data as Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>;
-        const apiData = {
-          youtube_url: videoData.youtube_url,
-          carousel_number: videoData.carousel === 'part1' ? 1 : 2,
-          video_title: videoData.video_title,
-          video_description: videoData.video_description,
-          video_order: videoData.order,
+
+        // Extract YouTube ID from URL
+        const extractYouTubeId = (url: string): string | null => {
+          const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+          const match = url.match(regex);
+          return match ? match[1] : null;
         };
 
-        if (editingHealingVideo) {
-          throw new Error('Update functionality not yet implemented');
-        } else {
-          const response = await fetch('/api/healing/carousel-videos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(apiData)
-          });
+        const createResult = await createCarouselItem({
+          carousel_id: carouselResult.data.id,
+          kind: 'video',
+          youtube_id: extractYouTubeId(videoData.youtube_url),
+          link_url: videoData.youtube_url,
+          caption: videoData.video_title || null,
+          order_index: videoData.order || 1,
+          is_active: true,
+          album_id: null,
+          ref_id: null,
+          image_path: null,
+          badge: null,
+          is_featured: videoData.is_featured || false,
+        });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create healing video');
-          }
+        if (createResult.error) {
+          throw new Error(createResult.error);
         }
 
-        // Reload videos
-        const videosList = await healingService.get_all_videos();
-        setHealingVideos(videosList);
+        toast.success('Video added successfully!');
       } else if (itemData.type === 'album') {
-        // Handle album items - this will be integrated when carousel system is ready
-        console.log('Album creation for healing carousel:', itemData.data);
-        toast.success('Album functionality will be available once carousel integration is complete');
+        // Handle album items using unified system
+        const albumData = itemData.data;
+
+        const createResult = await createCarouselItem({
+          carousel_id: carouselResult.data.id,
+          kind: 'video', // Note: using 'video' kind for album items per existing pattern
+          youtube_id: null,
+          link_url: null,
+          caption: albumData.title || null,
+          order_index: albumData.order || 1,
+          is_active: true,
+          album_id: albumData.id || null,
+          ref_id: albumData.id || null,
+          image_path: albumData.cover_image_path || null,
+          badge: null,
+          is_featured: false,
+        });
+
+        if (createResult.error) {
+          throw new Error(createResult.error);
+        }
+
+        toast.success('Album added successfully!');
+      } else if (itemData.type === 'tiktok') {
+        // Handle TikTok items using unified system
+        const tiktokData = itemData.data;
+
+        const createResult = await createCarouselItem({
+          carousel_id: carouselResult.data.id,
+          kind: 'tiktok',
+          link_url: tiktokData.link_url,
+          caption: tiktokData.caption || null,
+          order_index: tiktokData.order_index,
+          is_active: true,
+          album_id: null,
+          ref_id: null,
+          image_path: null,
+          youtube_id: null,
+          badge: null,
+          is_featured: null,
+        });
+
+        if (createResult.error) {
+          throw new Error(createResult.error);
+        }
+
+        toast.success('TikTok video added successfully!');
       }
 
       setShowHealingCarouselModal(false);
@@ -605,12 +673,43 @@ const AdminContent: React.FC = () => {
 
   const handleSaveCarouselHeader = async (headerData: Omit<CarouselHeader, 'id' | 'updated_at'>) => {
     try {
-      const success = await healingService.updateCarouselHeader(headerData);
-      if (!success) throw new Error('Failed to update carousel header');
-      
+      // Use unified carousel service for ALL carousels
+      const { findCarouselByPageSlug, updateCarousel } = await import('../lib/services/carouselService');
+
+      // Map carousel type to slug
+      const slugMapping = {
+        'part1': 'healing-part-1',
+        'part2': 'healing-part-2',
+        'tiktoks': 'healing-tiktoks'
+      };
+
+      const carouselSlug = slugMapping[headerData.type];
+      if (!carouselSlug) {
+        throw new Error(`Unknown carousel type: ${headerData.type}`);
+      }
+
+      // Find the carousel
+      const carouselResult = await findCarouselByPageSlug('healing', carouselSlug);
+      if (carouselResult.error || !carouselResult.data) {
+        throw new Error(`Carousel ${carouselSlug} not found. Please ensure the carousel exists in the database.`);
+      }
+
+      // Update the carousel title and description using unified system
+      const updateResult = await updateCarousel(carouselResult.data.id, {
+        title: headerData.title,
+        description: headerData.description,
+        is_active: headerData.isActive,
+      });
+
+      if (updateResult.error) {
+        throw new Error(updateResult.error);
+      }
+
       setEditingCarouselHeader(null);
+      toast.success('Carousel header updated successfully!');
     } catch (error) {
       console.error('Error saving carousel header:', error);
+      toast.error('Failed to update carousel header');
       throw error;
     }
   };
@@ -2816,7 +2915,7 @@ const AdminContent: React.FC = () => {
                     <p className="text-[#8F907E] text-sm">Manage the titles and subtitles for video carousels</p>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                     <div className="relative p-4 border rounded-lg group">
                       <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 1: Candida Cleanse</h3>
                       <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
@@ -2851,6 +2950,23 @@ const AdminContent: React.FC = () => {
                         <FaEdit />
                       </button>
                     </div>
+                    <div className="relative p-4 border rounded-lg group">
+                      <h3 className="font-medium text-[#383B26] mb-2">TikTok Inspirations</h3>
+                      <p className="text-sm text-[#8F907E]">Inspirational TikTok videos for motivation and healing</p>
+                      <button
+                        onClick={() => setEditingCarouselHeader({
+                          id: 'tiktoks',
+                          title: 'TikTok Inspirations',
+                          description: 'Inspirational TikTok videos for motivation and healing',
+                          type: 'tiktoks',
+                          isActive: true,
+                          updated_at: new Date()
+                        })}
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-[#B8A692] transition-colors"
+                      >
+                        <FaEdit />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2866,6 +2982,7 @@ const AdminContent: React.FC = () => {
                       <button
                         onClick={() => {
                           setEditingHealingVideo(null);
+                          setCurrentCarouselContext('part1');
                           setShowHealingCarouselModal(true);
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
@@ -2941,6 +3058,7 @@ const AdminContent: React.FC = () => {
                       <button
                         onClick={() => {
                           setEditingHealingVideo(null);
+                          setCurrentCarouselContext('part2');
                           setShowHealingCarouselModal(true);
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
@@ -3003,6 +3121,37 @@ const AdminContent: React.FC = () => {
                             </div>
                           </div>
                         ))}
+                    </div>
+                  </div>
+
+                  {/* TikTok Inspirations Carousel */}
+                  <div className="p-6 bg-white rounded-lg shadow-md">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#383B26]">TikTok Inspirations</h3>
+                        <p className="text-sm text-[#8F907E]">Inspirational TikTok videos for motivation and healing</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingHealingVideo(null);
+                          setCurrentCarouselContext('tiktoks');
+                          setShowHealingCarouselModal(true);
+                        }}
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                      >
+                        <FaPlus className="mr-2" />
+                        Add TikTok
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      {/* TikTok videos will be loaded here */}
+                      <div className="flex items-center justify-center h-32 border-2 border-gray-200 border-dashed rounded-lg">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-500">No TikTok videos yet</p>
+                          <p className="text-xs text-gray-400">Click "Add TikTok" to get started</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3563,6 +3712,7 @@ const AdminContent: React.FC = () => {
           setEditingHealingVideo(null);
         }}
         editingVideo={editingHealingVideo}
+        carouselContext={currentCarouselContext}
         onSave={handleSaveCarouselItem}
       />
 

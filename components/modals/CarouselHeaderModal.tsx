@@ -6,7 +6,7 @@ export interface CarouselHeader {
   id: string;
   title: string;
   description: string;
-  type: 'part1' | 'part2';
+  type: 'part1' | 'part2' | 'tiktoks';
   isActive: boolean;
   updated_at: Date;
 }
@@ -22,7 +22,7 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    type: 'part1' as 'part1' | 'part2',
+    type: 'part1' as 'part1' | 'part2' | 'tiktoks',
     isActive: true,
   });
 
@@ -71,18 +71,31 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
     }
   };
 
-  const getTypeDisplayName = (type: 'part1' | 'part2') => {
-    return type === 'part1' ? 'Gut Healing Part 1' : 'Gut Healing Part 2';
+  const getTypeDisplayName = (type: 'part1' | 'part2' | 'tiktoks') => {
+    switch (type) {
+      case 'part1': return 'Gut Healing Part 1';
+      case 'part2': return 'Gut Healing Part 2';
+      case 'tiktoks': return 'TikTok Inspirations';
+      default: return 'Carousel';
+    }
   };
 
-  const getDefaultTitle = (type: 'part1' | 'part2') => {
-    return type === 'part1' ? 'Gut Healing Part 1: Candida Cleanse' : 'Gut Healing Part 2: Rebuild & Repair';
+  const getDefaultTitle = (type: 'part1' | 'part2' | 'tiktoks') => {
+    switch (type) {
+      case 'part1': return 'Gut Healing Part 1: Candida Cleanse';
+      case 'part2': return 'Gut Healing Part 2: Rebuild & Repair';
+      case 'tiktoks': return 'TikTok Inspirations';
+      default: return 'Carousel';
+    }
   };
 
-  const getDefaultDescription = (type: 'part1' | 'part2') => {
-    return type === 'part1' 
-      ? 'Educational videos for candida cleansing process'
-      : 'Videos focused on rebuilding gut health after cleansing';
+  const getDefaultDescription = (type: 'part1' | 'part2' | 'tiktoks') => {
+    switch (type) {
+      case 'part1': return 'Educational videos for candida cleansing process';
+      case 'part2': return 'Videos focused on rebuilding gut health after cleansing';
+      case 'tiktoks': return 'Inspirational TikTok videos for motivation and healing';
+      default: return 'Carousel description';
+    }
   };
 
   if (!isOpen) return null;
@@ -114,9 +127,11 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
                 {getTypeDisplayName(formData.type)}
               </div>
               <p className="text-sm text-gray-600 mt-1">
-                {formData.type === 'part1' 
+                {formData.type === 'part1'
                   ? 'Candida Cleanse - Educational videos for cleansing process'
-                  : 'Rebuild & Repair - Videos focused on rebuilding gut health'
+                  : formData.type === 'part2'
+                  ? 'Rebuild & Repair - Videos focused on rebuilding gut health'
+                  : 'TikTok Inspirations - Motivational content for healing journey'
                 }
               </p>
             </div>
