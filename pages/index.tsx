@@ -917,41 +917,56 @@ const AdminContent: React.FC = () => {
   // Home content save functionality
   const handleSaveHomeContent = async (contentData: any) => {
     try {
+      // Merge text content from modal with existing video paths from parent state
+      const completeData = {
+        background_video_path: homePageContent.background_video_path || homePageContent.videoBackground,
+        fallback_image_path: homePageContent.fallback_image_path || homePageContent.fallbackImage,
+        hero_main_title: contentData.hero_main_title || contentData.heroMainTitle,
+        hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
+        video_title: contentData.video_title || contentData.videoTitle,
+        video_description: contentData.video_description || contentData.videoDescription,
+        videoOpacity: contentData.videoOpacity ?? 0.7
+      };
+
       const response = await fetch('/api/home', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          background_video_path: homePageContent.background_video_path || homePageContent.videoBackground,
-          fallback_image_path: homePageContent.fallback_image_path || homePageContent.fallbackImage,
-          hero_main_title: contentData.hero_main_title || contentData.heroMainTitle,
-          hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
-          video_title: contentData.video_title || contentData.videoTitle,
-          video_description: contentData.video_description || contentData.videoDescription,
-          videoOpacity: contentData.videoOpacity || homePageContent.videoOpacity || 0.7
-        })
+        body: JSON.stringify(completeData)
       });
-      
+
       if (response.ok) {
-        // Update local state with the new content
+        const responseData = await response.json();
+
+        // Update local state with saved content
         setHomePageContent(prev => ({
           ...prev,
-          hero_main_title: contentData.hero_main_title || contentData.heroMainTitle,
-          hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
-          video_title: contentData.video_title || contentData.videoTitle,
-          video_description: contentData.video_description || contentData.videoDescription,
-          videoOpacity: contentData.videoOpacity || prev.videoOpacity || 0.7,
-          heroMainTitle: contentData.hero_main_title || contentData.heroMainTitle,
-          heroSubtitle: contentData.hero_subtitle || contentData.heroSubtitle,
-          videoTitle: contentData.video_title || contentData.videoTitle,
-          videoDescription: contentData.video_description || contentData.videoDescription
+          hero_main_title: completeData.hero_main_title,
+          hero_subtitle: completeData.hero_subtitle,
+          video_title: completeData.video_title,
+          video_description: completeData.video_description,
+          videoOpacity: completeData.videoOpacity,
+          heroMainTitle: completeData.hero_main_title,
+          heroSubtitle: completeData.hero_subtitle,
+          videoTitle: completeData.video_title,
+          videoDescription: completeData.video_description
         }));
-        // Reload data to get any server-side updates
-        loadData();
+
+        // Update video history if provided in response
+        if (responseData.content?.video_history) {
+          setVideoHistory(Array.isArray(responseData.content.video_history)
+            ? responseData.content.video_history
+            : JSON.parse(responseData.content.video_history)
+          );
+        }
+
+        toast.success('Home content saved successfully!');
       } else {
-        throw new Error('Failed to save home content');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save home content');
       }
     } catch (error) {
       console.error('Home content save error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save. Please try again.');
       throw error; // Re-throw so modal can handle it
     }
   };
@@ -1358,44 +1373,14 @@ const AdminContent: React.FC = () => {
                             }
                           }
                           
-                          const updatedContent = { 
-                            ...homePageContent, 
+                          console.log('Video uploaded to:', url);
+                          const updatedContent = {
+                            ...homePageContent,
                             background_video_path: url,
-                            videoBackground: url // Keep both for compatibility
+                            videoBackground: url
                           };
-                          console.log('Updating homePageContent to:', updatedContent);
                           setHomePageContent(updatedContent);
-                          
-                          // Auto-save to database when video uploads
-                          try {
-                            console.log('Sending PUT request to /api/home...');
-                            const response = await fetch('/api/home', {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify(updatedContent)
-                            });
-                            
-                            if (response.ok) {
-                              const responseData = await response.json();
-                              console.log('API response success:', responseData);
-                              toast.success('Video uploaded and published successfully!');
-                              
-                              // Update video history from API response
-                              if (responseData.content?.video_history) {
-                                setVideoHistory(Array.isArray(responseData.content.video_history) 
-                                  ? responseData.content.video_history 
-                                  : JSON.parse(responseData.content.video_history)
-                                );
-                              }
-                            } else {
-                              const errorData = await response.json();
-                              console.error('API Error:', errorData);
-                              toast.error(`Failed to publish: ${errorData.error || 'Unknown error'}`);
-                            }
-                          } catch (error) {
-                            console.error('Auto-save error:', error);
-                            toast.error('Video uploaded but failed to publish. Please click "Save Changes" to publish.');
-                          }
+                          toast.success('Video ready. Save changes to apply.');
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
