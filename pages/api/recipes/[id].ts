@@ -5,12 +5,12 @@ import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
 import type { Database } from '@/types/supabase.generated'
 import {
-  findCarouselByPageSlug,
-  createCarousel,
-  getCarouselItems,
-  createCarouselItem,
-  deleteCarouselItem,
-} from '../../../lib/services/carouselService'
+  findCarouselByPageSlugDB,
+  createCarouselDB,
+  getCarouselItemsDB,
+  createCarouselItemDB,
+  deleteCarouselItemDB,
+} from '../../../lib/db/carousels'
 
 type RecipeRow = Database['public']['Tables']['recipes']['Row']
 type RecipeInsert = Database['public']['Tables']['recipes']['Insert']
@@ -20,25 +20,25 @@ export const config = { runtime: 'nodejs' }
 
 // Helper function to handle beginner recipe carousel integration
 async function handleBeginnerRecipeCarousel(recipeId: string, isBeginnerFlag: boolean, recipeTitle: string) {
-  // Find or create the beginner carousel
-  let carousel = await findCarouselByPageSlug('recipes', 'recipes-beginner')
+  // Find or create the beginner carousel - use DB functions
+  let carousel = await findCarouselByPageSlugDB('recipes', 'recipes-beginner')
   if (carousel.error) throw new Error(carousel.error)
   if (!carousel.data) {
-    const created = await createCarousel({ page: 'recipes', slug: 'recipes-beginner', is_active: true })
+    const created = await createCarouselDB({ page: 'recipes', slug: 'recipes-beginner', is_active: true })
     if (created.error) throw new Error(created.error)
     carousel = { data: created.data }
   }
 
   // Get current items to check if recipe is already in carousel
   if (!carousel.data) throw new Error('Beginner carousel not found')
-  const items = await getCarouselItems(carousel.data.id)
+  const items = await getCarouselItemsDB(carousel.data.id)
   if (items.error) throw new Error(items.error)
   const existingItem = (items.data || []).find(item => item.ref_id === recipeId)
 
   if (isBeginnerFlag) {
     // Add to carousel if not already there
     if (!existingItem) {
-      const result = await createCarouselItem({
+      const result = await createCarouselItemDB({
         carousel_id: carousel.data.id,
         kind: 'recipe',
         ref_id: recipeId,
@@ -51,7 +51,7 @@ async function handleBeginnerRecipeCarousel(recipeId: string, isBeginnerFlag: bo
   } else {
     // Remove from carousel if it exists
     if (existingItem) {
-      const result = await deleteCarouselItem(existingItem.id)
+      const result = await deleteCarouselItemDB(existingItem.id)
       if (result.error) throw new Error(result.error)
     }
   }
@@ -59,28 +59,28 @@ async function handleBeginnerRecipeCarousel(recipeId: string, isBeginnerFlag: bo
 
 // Helper function to handle recipe of the week carousel integration (single-item carousel)
 async function handleRecipeOfWeekCarousel(recipeId: string, isRecipeOfWeekFlag: boolean, recipeTitle: string) {
-  // Find or create the weekly pick carousel
-  let carousel = await findCarouselByPageSlug('recipes', 'recipes-weekly-pick')
+  // Find or create the weekly pick carousel - use DB functions
+  let carousel = await findCarouselByPageSlugDB('recipes', 'recipes-weekly-pick')
   if (carousel.error) throw new Error(carousel.error)
   if (!carousel.data) {
-    const created = await createCarousel({ page: 'recipes', slug: 'recipes-weekly-pick', is_active: true })
+    const created = await createCarouselDB({ page: 'recipes', slug: 'recipes-weekly-pick', is_active: true })
     if (created.error) throw new Error(created.error)
     carousel = { data: created.data }
   }
 
   // Get current items
   if (!carousel.data) throw new Error('Weekly pick carousel not found')
-  const items = await getCarouselItems(carousel.data.id)
+  const items = await getCarouselItemsDB(carousel.data.id)
   if (items.error) throw new Error(items.error)
 
   if (isRecipeOfWeekFlag) {
     // First, delete ALL existing items (enforce "only one" rule)
     for (const item of items.data || []) {
-      await deleteCarouselItem(item.id)
+      await deleteCarouselItemDB(item.id)
     }
 
     // Then create new item for this recipe
-    const result = await createCarouselItem({
+    const result = await createCarouselItemDB({
       carousel_id: carousel.data.id,
       kind: 'recipe',
       ref_id: recipeId,
@@ -93,7 +93,7 @@ async function handleRecipeOfWeekCarousel(recipeId: string, isRecipeOfWeekFlag: 
     // Remove this recipe from carousel if it exists
     const existingItem = (items.data || []).find(item => item.ref_id === recipeId)
     if (existingItem) {
-      const result = await deleteCarouselItem(existingItem.id)
+      const result = await deleteCarouselItemDB(existingItem.id)
       if (result.error) throw new Error(result.error)
     }
   }

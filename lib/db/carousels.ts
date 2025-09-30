@@ -109,6 +109,65 @@ export async function createCarouselItemDB(input: CarouselItemInsert): Promise<D
 }
 
 /**
+ * Create a carousel (database version)
+ */
+export async function createCarouselDB(input: { page: PageType; slug: string; title?: string | null; description?: string | null; is_active?: boolean }): Promise<DbResult<CarouselRow>> {
+  try {
+    console.log(`[DEBUG] createCarouselDB creating:`, input);
+
+    const { data, error } = await supabase
+      .from('carousels')
+      .insert({
+        page: input.page,
+        slug: input.slug,
+        title: input.title ?? null,
+        description: input.description ?? null,
+        is_active: input.is_active ?? true
+      })
+      .select('*')
+      .single()
+
+    if (error) {
+      console.log(`[DEBUG] Supabase error:`, error);
+      return { error: error.message }
+    }
+
+    console.log(`[DEBUG] Created carousel:`, data);
+    return { data }
+  } catch (e) {
+    console.log(`[DEBUG] Exception in createCarouselDB:`, e);
+    return { error: 'Failed to create carousel' }
+  }
+}
+
+/**
+ * Update a carousel item (database version)
+ */
+export async function updateCarouselItemDB(id: string, input: Partial<CarouselItemInsert>): Promise<DbResult<CarouselItemRow>> {
+  try {
+    console.log(`[DEBUG] updateCarouselItemDB updating item: ${id}`, input);
+
+    const { data, error } = await supabase
+      .from('carousel_items')
+      .update(input)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.log(`[DEBUG] Supabase error:`, error);
+      return { error: error.message }
+    }
+
+    console.log(`[DEBUG] Updated carousel item:`, data);
+    return { data }
+  } catch (e) {
+    console.log(`[DEBUG] Exception in updateCarouselItemDB:`, e);
+    return { error: 'Failed to update carousel item' }
+  }
+}
+
+/**
  * Delete a carousel item (database version)
  */
 export async function deleteCarouselItemDB(id: string): Promise<DbResult<null>> {
@@ -130,5 +189,57 @@ export async function deleteCarouselItemDB(id: string): Promise<DbResult<null>> 
   } catch (e) {
     console.log(`[DEBUG] Exception in deleteCarouselItemDB:`, e);
     return { error: 'Failed to delete carousel item' }
+  }
+}
+
+/**
+ * Update a carousel (database version)
+ */
+export async function updateCarouselDB(id: string, input: { title?: string | null; description?: string | null; is_active?: boolean }): Promise<DbResult<CarouselRow>> {
+  try {
+    console.log(`[DEBUG] updateCarouselDB updating carousel: ${id}`, input);
+
+    const { data, error } = await supabase
+      .from('carousels')
+      .update(input)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.log(`[DEBUG] Supabase error:`, error);
+      return { error: error.message }
+    }
+
+    console.log(`[DEBUG] Updated carousel:`, data);
+    return { data }
+  } catch (e) {
+    console.log(`[DEBUG] Exception in updateCarouselDB:`, e);
+    return { error: 'Failed to update carousel' }
+  }
+}
+
+/**
+ * Delete a carousel (database version)
+ */
+export async function deleteCarouselDB(id: string): Promise<DbResult<null>> {
+  try {
+    console.log(`[DEBUG] deleteCarouselDB deleting carousel: ${id}`);
+
+    const { error } = await supabase
+      .from('carousels')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.log(`[DEBUG] Supabase error:`, error);
+      return { error: error.message }
+    }
+
+    console.log(`[DEBUG] Deleted carousel: ${id}`);
+    return { data: null }
+  } catch (e) {
+    console.log(`[DEBUG] Exception in deleteCarouselDB:`, e);
+    return { error: 'Failed to delete carousel' }
   }
 }

@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../auth/[...nextauth]'
 import isAdminEmail from '../../../../lib/auth/isAdminEmail'
-import { updateStorefrontItem, deleteStorefrontItem } from '../../../../lib/services/carouselService'
+import { updateCarouselItemDB, deleteCarouselItemDB, findCarouselByPageSlugDB } from '../../../../lib/db/carousels'
 import { z } from 'zod'
 
 export const config = { runtime: 'nodejs' }
@@ -24,7 +24,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         slug: z.enum(['storefront-favorites','storefront-top-picks']).optional(),
       })
       const { order_index, slug } = BodySchema.parse(req.body)
-      const updated = await updateStorefrontItem(id, { order_index, slug: slug as Slug | undefined })
+
+      // Build update payload
+      const update: any = {}
+      if (order_index !== undefined) update.order_index = order_index
+
+      // Handle slug change by looking up the target carousel
+      if (slug) {
+        const car = await findCarouselByPageSlugDB('storefront', slug)
+        if (car.error || !car.data) return res.status(404).json({ error: car.error || 'Target carousel not found' })
+        update.carousel_id = car.data.id
+      }
+
+      const updated = await updateCarouselItemDB(id, update)
       if (updated.error) return res.status(500).json({ error: updated.error })
       return res.status(200).json({ item: updated.data })
     } catch (error) {
@@ -34,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
-      const deleted = await deleteStorefrontItem(id)
+      const deleted = await deleteCarouselItemDB(id)
       if (deleted.error) return res.status(500).json({ error: deleted.error })
       return res.status(200).json({ success: true })
     } catch (error) {

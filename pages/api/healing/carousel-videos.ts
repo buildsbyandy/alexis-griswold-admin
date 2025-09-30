@@ -10,11 +10,11 @@ import { authOptions } from '../auth/[...nextauth]';
 import isAdminEmail from '../../../lib/auth/isAdminEmail';
 import { youtubeService } from '../../../lib/services/youtubeService';
 import {
-  findCarouselByPageSlug,
-  createCarousel,
-  getCarouselItems,
-  createCarouselItem,
-} from '../../../lib/services/carouselService';
+  findCarouselByPageSlugDB,
+  createCarouselDB,
+  getCarouselItemsDB,
+  createCarouselItemDB,
+} from '../../../lib/db/carousels';
 import supabaseAdmin from '../../../lib/supabase';
 
 export const config = { runtime: 'nodejs' };
@@ -115,18 +115,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const requestedOrder = order_index || 1;
       if (requestedOrder < 1 || requestedOrder > 5) return res.status(400).json({ error: 'order_index must be between 1 and 5' });
 
-      // Resolve target carousel by slug (create if missing)
+      // Resolve target carousel by slug (create if missing) - use DB functions
       const slug = carousel_slug;
-      let carousel = await findCarouselByPageSlug('healing', slug);
+      let carousel = await findCarouselByPageSlugDB('healing', slug);
       if (carousel.error) return res.status(500).json({ error: carousel.error });
       if (!carousel.data) {
-        const created = await createCarousel({ page: 'healing', slug, title: null, description: null, is_active: true });
+        const created = await createCarouselDB({ page: 'healing', slug, title: null, description: null, is_active: true });
         if (created.error) return res.status(500).json({ error: created.error });
         carousel = { data: created.data };
       }
 
       // Enforce order uniqueness
-      const itemsRes = await getCarouselItems(carousel.data!.id);
+      const itemsRes = await getCarouselItemsDB(carousel.data!.id);
       if (itemsRes.error) return res.status(500).json({ error: itemsRes.error });
       if ((itemsRes.data || []).some(i => (i.order_index || 0) === requestedOrder)) {
         return res.status(409).json({ error: `Order ${requestedOrder} is already taken in this carousel. Please choose a different order (1-5).` });
@@ -139,7 +139,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (meta.data) itemCaption = meta.data.title;
       }
 
-      const insertRes = await createCarouselItem({
+      const insertRes = await createCarouselItemDB({
         carousel_id: carousel.data!.id,
         kind: 'video',
         order_index: requestedOrder,

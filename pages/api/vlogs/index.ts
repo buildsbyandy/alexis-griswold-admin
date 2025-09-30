@@ -4,7 +4,7 @@ import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabaseAdmin from '@/lib/supabase'
 import { youtubeService } from '../../../lib/services/youtubeService'
-import { findCarouselByPageSlug, createCarousel, createCarouselItem } from '../../../lib/services/carouselService'
+import { findCarouselByPageSlugDB, createCarouselDB, createCarouselItemDB } from '../../../lib/db/carousels'
 import type { Database } from '@/types/supabase.generated'
 
 type VlogRow = Database['public']['Tables']['vlogs']['Row']
@@ -142,20 +142,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
       }
 
-      // Ensure carousel exists
+      // Ensure carousel exists - use DB functions to avoid authentication issues
       const slug = carousel === 'vlogs-ag-vlogs' ? 'vlogs-ag-vlogs' : 'vlogs-main-channel'
-      let car = await findCarouselByPageSlug('vlogs', slug)
+      let car = await findCarouselByPageSlugDB('vlogs', slug)
       if (car.error) return res.status(500).json({ error: car.error })
       if (!car.data) {
-        const created = await createCarousel({ page: 'vlogs', slug, is_active: true })
+        const carouselTitle = carousel === 'vlogs-ag-vlogs' ? 'AG Vlogs' : 'Main Channel'
+        const created = await createCarouselDB({
+          page: 'vlogs',
+          slug,
+          title: carouselTitle,
+          is_active: true
+        })
         if (created.error) return res.status(500).json({ error: created.error })
         car = { data: created.data }
       }
 
-      // Create carousel item referencing vlog
+      // Create carousel item referencing vlog - use DB function to avoid authentication issues
       const order_index = 0 // Default order for carousel items
       const caption = createdVlog.title || null
-      const itemRes = await createCarouselItem({
+      const itemRes = await createCarouselItemDB({
         carousel_id: car.data!.id,
         kind: 'video',
         order_index,

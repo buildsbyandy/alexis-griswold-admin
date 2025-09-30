@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
-import { listViewItems, findCarouselByPageSlug, createCarousel, createCarouselItem } from '../../../lib/services/carouselService'
+import { listViewItems } from '../../../lib/services/carouselService'
+import { findCarouselByPageSlugDB, createCarouselDB, createCarouselItemDB } from '../../../lib/db/carousels'
 import supabaseAdmin from '@/lib/supabase'
 
 export const config = { runtime: 'nodejs' }
@@ -72,16 +73,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const slug = (carousel_slug && (VLOG_SLUGS as readonly string[]).includes(carousel_slug)) ? carousel_slug : 'vlogs-main-channel'
-      let car = await findCarouselByPageSlug('vlogs', slug)
+      let car = await findCarouselByPageSlugDB('vlogs', slug)
       if (car.error) return res.status(500).json({ error: car.error })
       if (!car.data) {
-        const created = await createCarousel({ page: 'vlogs', slug, is_active: true })
+        const created = await createCarouselDB({ page: 'vlogs', slug, is_active: true })
         if (created.error) return res.status(500).json({ error: created.error })
         car = { data: created.data }
       }
 
       const idx = typeof order_index === 'number' ? order_index : 0
-      const inserted = await createCarouselItem({ carousel_id: car.data!.id, kind: 'video', order_index: idx, youtube_id: vlogData.youtube_id, caption: caption ?? null, is_active: true })
+      const inserted = await createCarouselItemDB({ carousel_id: car.data!.id, kind: 'video', order_index: idx, youtube_id: vlogData.youtube_id, caption: caption ?? null, is_active: true })
       if (inserted.error) return res.status(500).json({ error: inserted.error })
       return res.status(201).json({ item: inserted.data })
     } catch (error) {

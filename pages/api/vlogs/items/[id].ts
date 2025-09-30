@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../auth/[...nextauth]'
 import isAdminEmail from '../../../../lib/auth/isAdminEmail'
-import { updateCarouselItem, findCarouselByPageSlug, getCarouselItems, deleteCarouselItem } from '../../../../lib/services/carouselService'
+import { updateCarouselItemDB, findCarouselByPageSlugDB, getCarouselItemsDB, deleteCarouselItemDB } from '../../../../lib/db/carousels'
 
 export const config = { runtime: 'nodejs' }
 
@@ -25,11 +25,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (carousel_slug) {
-        const car = await findCarouselByPageSlug('vlogs', carousel_slug)
+        const car = await findCarouselByPageSlugDB('vlogs', carousel_slug)
         if (car.error || !car.data) return res.status(404).json({ error: car.error || 'Target carousel not found' })
 
         if (typeof order_index === 'number') {
-          const items = await getCarouselItems(car.data.id)
+          const items = await getCarouselItemsDB(car.data.id)
           if (items.error) return res.status(500).json({ error: items.error })
           if ((items.data || []).some(i => i.order_index === order_index && i.id !== id)) {
             return res.status(409).json({ error: `order_index ${order_index} already taken in ${carousel_slug}` })
@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       update.updated_at = new Date().toISOString()
 
-      const updated = await updateCarouselItem(id, update)
+      const updated = await updateCarouselItemDB(id, update)
       if (updated.error) return res.status(500).json({ error: updated.error })
       return res.status(200).json({ item: updated.data })
     } catch (error) {
@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
-      const deleted = await deleteCarouselItem(id)
+      const deleted = await deleteCarouselItemDB(id)
       if (deleted.error) return res.status(500).json({ error: deleted.error })
       return res.status(200).json({ success: true })
     } catch (error) {

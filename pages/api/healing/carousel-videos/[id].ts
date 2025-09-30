@@ -9,11 +9,11 @@ import { authOptions } from '../../auth/[...nextauth]';
 import isAdminEmail from '../../../../lib/auth/isAdminEmail';
 import { youtubeService } from '../../../../lib/services/youtubeService';
 import {
-  updateCarouselItem,
-  deleteCarouselItem,
-  findCarouselByPageSlug,
-  getCarouselItems,
-} from '../../../../lib/services/carouselService';
+  updateCarouselItemDB,
+  deleteCarouselItemDB,
+  findCarouselByPageSlugDB,
+  getCarouselItemsDB,
+} from '../../../../lib/db/carousels';
 
 export const config = { runtime: 'nodejs' };
 
@@ -56,12 +56,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (carousel_slug !== undefined) {
-        const target = await findCarouselByPageSlug('healing', carousel_slug);
+        const target = await findCarouselByPageSlugDB('healing', carousel_slug);
         if (target.error || !target.data) return res.status(404).json({ error: target.error || 'Target carousel not found' });
 
         // Ensure requested order unique within new carousel
         if (updatePayload.order_index !== undefined) {
-          const items = await getCarouselItems(target.data.id);
+          const items = await getCarouselItemsDB(target.data.id);
           if (items.error) return res.status(500).json({ error: items.error });
           if ((items.data || []).some(i => i.order_index === updatePayload.order_index && i.id !== id)) {
             return res.status(409).json({ error: `Order ${updatePayload.order_index} is already taken in this carousel.` });
@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       updatePayload.updated_at = new Date().toISOString();
 
-      const updated = await updateCarouselItem(id, updatePayload);
+      const updated = await updateCarouselItemDB(id, updatePayload);
       if (updated.error) return res.status(500).json({ error: updated.error });
       return res.status(200).json({ data: updated.data });
     } catch (error) {
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
-      const deleted = await deleteCarouselItem(id);
+      const deleted = await deleteCarouselItemDB(id);
       if (deleted.error) return res.status(500).json({ error: deleted.error });
       return res.status(200).json({ data: { success: true } });
     } catch (error) {
