@@ -113,6 +113,7 @@ export class FileUploadService {
 
   /**
    * Upload video with content-aware bucket selection
+   * Uses resumable uploads for files over 6MB (Supabase recommendation)
    */
   static async uploadVideo(
     file: File,
@@ -138,11 +139,92 @@ export class FileUploadService {
       return { success: false, error: `File must be a video. Supported formats: ${videoExtensions.join(', ').toUpperCase()}` };
     }
 
+    // Use resumable upload for videos over 6MB (Supabase recommendation)
+    const RESUMABLE_THRESHOLD = 6 * 1024 * 1024; // 6MB
+    if (file.size > RESUMABLE_THRESHOLD) {
+      return this.uploadVideoResumable(file, contentType, status);
+    }
+
     return this.uploadFile(file, {
       contentType,
       mediaType: 'video',
       status
     });
+  }
+
+  /**
+   * Upload video using resumable (TUS) protocol for large files
+   * Delegates to server-side API to use Supabase admin client
+   */
+  private static async uploadVideoResumable(
+    file: File,
+    contentType: ContentType = 'general',
+    status: ContentStatus = 'draft'
+  ): Promise<UploadResponse> {
+    try {
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExtension}`;
+
+      // Get storage path based on content type and status
+      const { bucket, folder } = getStoragePath(contentType, 'video', status);
+      const filePath = `${folder}/${fileName}`;
+
+      console.log('Starting resumable upload:', {
+        fileName,
+        filePath,
+        bucket,
+        fileSize: file.size,
+        fileType: file.type
+      });
+
+      // Request resumable upload URL from server
+      const urlResponse = await fetch('/api/storage/resumable-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bucket,
+          path: filePath,
+          contentType: file.type
+        })
+      });
+
+      if (!urlResponse.ok) {
+        const error = await urlResponse.json();
+        throw new Error(error.error || 'Failed to get resumable upload URL');
+      }
+
+      const { uploadUrl } = await urlResponse.json();
+
+      // Upload directly to Supabase using TUS protocol
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+          'x-upsert': 'true', // Allow overwriting if file exists
+        }
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Resumable upload failed:', errorText);
+        throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
+
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${filePath}`;
+      console.log('Resumable upload successful:', publicUrl);
+
+      return {
+        success: true,
+        url: publicUrl
+      };
+    } catch (error) {
+      console.error('Resumable upload error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Resumable upload failed'
+      };
+    }
   }
 
   /**
