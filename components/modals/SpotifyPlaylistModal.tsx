@@ -33,7 +33,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
     card_color: '#2D2D2D',
     spotify_url: '',
     is_active: true,
-    playlist_order: 0
+    order_index: 0
   });
 
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -46,7 +46,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
         card_color: playlist.card_color,
         spotify_url: playlist.spotify_url,
         is_active: playlist.is_active,
-        playlist_order: playlist.playlist_order
+        order_index: playlist.order_index
       });
     } else {
       // Reset form for new playlist
@@ -56,7 +56,7 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
         card_color: '#2D2D2D',
         spotify_url: '',
         is_active: true,
-        playlist_order: 0
+        order_index: 0
       });
     }
   }, [playlist]);
@@ -229,8 +229,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.playlist_order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, playlist_order: parseInt(e.target.value) || 0 }))}
+                  value={formData.order_index}
+                  onChange={(e) => setFormData(prev => ({ ...prev, order_index: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="0"
                 />

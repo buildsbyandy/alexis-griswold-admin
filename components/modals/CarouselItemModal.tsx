@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import type { CarouselMixedItem, PageType } from '../../lib/services/carouselService';
 import type { HealingVideo } from '../../lib/services/healingService';
 import type { PhotoAlbum } from '../../lib/services/albumService';
+import { youtubeService } from '../../lib/services/youtubeService';
 
 export type CarouselItemType = 'video' | 'album';
 
@@ -51,15 +52,20 @@ const CarouselItemModal: React.FC<CarouselItemModalProps> = ({
 
   const handleVideoSave = async (videoData: Omit<HealingVideo, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      // Extract YouTube ID and generate thumbnail
+      const videoIdResult = youtubeService.extract_video_id(videoData.youtube_url);
+      const thumbnailUrl = videoIdResult.data ?
+        youtubeService.generate_thumbnail_url(videoIdResult.data).data : null;
+
       // Map video data to carousel item format
       const carouselItem: CarouselMixedItem = {
         kind: 'video',
         id: item?.id || '', // Will be set by service
         youtube_url: videoData.youtube_url,
-        thumbnail: videoData.thumbnail_url,
-        title: videoData.title,
-        description: videoData.description,
-        order_index: videoData.order || 0,
+        thumbnail: thumbnailUrl,
+        title: videoData.video_title,
+        description: videoData.video_description,
+        order_index: videoData.order_index || 0,
         is_active: true,
         created_at: new Date()
       };
@@ -81,11 +87,11 @@ const CarouselItemModal: React.FC<CarouselItemModalProps> = ({
         kind: 'album',
         id: item?.id || '', // Will be set by service
         album_id: '', // This will need to be handled by the album creation process
-        title: albumData.title,
+        title: albumData.album_title,
         cover: albumData.cover_image_path || null,
         page_type: pageType,
-        order_index: albumData.order || 0,
-        is_active: albumData.is_visible,
+        order_index: albumData.album_order || 0,
+        is_active: albumData.is_visible ?? true,
         created_at: new Date()
       };
 
@@ -181,14 +187,14 @@ const CarouselItemModal: React.FC<CarouselItemModalProps> = ({
           }}
           video={item?.kind === 'video' ? {
             id: item.id,
-            title: item.title || '',
-            description: item.description || '',
+            video_title: item.title || '',
+            video_description: item.description || '',
             youtube_url: item.youtube_url,
-            thumbnail_url: item.thumbnail || '',
-            order: item.order_index,
-            is_featured: false,
-            created_at: item.created_at,
-            updated_at: new Date()
+            youtube_id: youtubeService.extract_video_id(item.youtube_url).data || null,
+            order_index: item.order_index,
+            // Legacy is_featured field removed,
+            created_at: item.created_at instanceof Date ? item.created_at.toISOString() : item.created_at,
+            updated_at: new Date().toISOString()
           } : null}
           onSave={handleVideoSave}
         />
@@ -198,20 +204,21 @@ const CarouselItemModal: React.FC<CarouselItemModalProps> = ({
       {showAlbumModal && (
         <PhotoAlbumModal
           isOpen={showAlbumModal}
+          carouselId={carouselId}
           onClose={() => {
             setShowAlbumModal(false);
             if (!item) onClose(); // Close parent if creating new item
           }}
           album={item?.kind === 'album' ? {
             id: item.album_id,
-            title: item.title,
-            description: '',
-            page_type: item.page_type || pageType,
+            album_title: item.title,
+            album_description: '',
+            // page_type removed - now managed by carousel_page in unified system
             cover_image_path: item.cover,
-            images: [],
-            order: item.order_index,
+            album_date: null,
+            album_order: item.order_index,
             is_visible: item.is_active,
-            created_at: item.created_at,
+            created_at: item.created_at instanceof Date ? item.created_at : new Date(item.created_at),
             updated_at: new Date()
           } : null}
           onSave={handleAlbumSave}

@@ -14,7 +14,6 @@ import SpotifyPlaylistModal from '../components/modals/SpotifyPlaylistModal';
 import HealingProductModal from '../components/modals/HealingProductModal';
 import { type HealingProductRow } from '../lib/services/healingService';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
-import HealingFeaturedVideoModal, { type HealingFeaturedVideo } from '../components/modals/HealingFeaturedVideoModal';
 import HealingCarouselModal from '../components/modals/HealingCarouselModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
@@ -44,6 +43,7 @@ const AdminContent: React.FC = () => {
   // All useState hooks at the top level
   const [activeTab, setActiveTab] = useState<AdminTab>('home');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [featuredRecipeId, setFeaturedRecipeId] = useState<string | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
   const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
@@ -71,12 +71,13 @@ const AdminContent: React.FC = () => {
     youtube_url: '',
     video_title: '',
     video_description: '',
-    video_order: 0,
+    // Legacy video_order field removed - order managed by carousel system
     video_thumbnail_url: ''
   });
   const [isLoadingRecipeContent, setIsLoadingRecipeContent] = useState(false);
   const [isSavingRecipeContent, setIsSavingRecipeContent] = useState(false);
   const [vlogs, setVlogs] = useState<VlogVideo[]>([]);
+  const [featuredVlogId, setFeaturedVlogId] = useState<string | null>(null);
   const [editingVlog, setEditingVlog] = useState<VlogVideo | null>(null);
   const [isAddingVlog, setIsAddingVlog] = useState(false);
   const [vlogActiveTab, setVlogActiveTab] = useState<'hero' | 'videos' | 'gallery' | 'spotify'>('hero');
@@ -99,7 +100,6 @@ const AdminContent: React.FC = () => {
   const [editingHealingProduct, setEditingHealingProduct] = useState<HealingProductRow | null>(null);
   const [isAddingHealingProduct, setIsAddingHealingProduct] = useState(false);
   const [editingCarouselHeader, setEditingCarouselHeader] = useState<CarouselHeader | null>(null);
-  const [editingHealingFeaturedVideo, setEditingHealingFeaturedVideo] = useState<HealingFeaturedVideo | null>(null);
   const [healingVideos, setHealingVideos] = useState<HealingVideo[]>([]);
   const [editingHealingVideo, setEditingHealingVideo] = useState<HealingVideo | null>(null);
   const [showHealingCarouselModal, setShowHealingCarouselModal] = useState(false);
@@ -122,6 +122,7 @@ const AdminContent: React.FC = () => {
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
   const [photoAlbums, setPhotoAlbums] = useState<PhotoAlbum[]>([]);
+  const [vlogsPhotoGalleryCarouselId, setVlogsPhotoGalleryCarouselId] = useState<string>('');
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
@@ -179,7 +180,7 @@ const AdminContent: React.FC = () => {
   const [healingActiveTab, setHealingActiveTab] = useState<'hero' | 'carousels' | 'products'>('hero');
   const [editingHealingHero, setEditingHealingHero] = useState(false);
   const [editingCarouselHeaders, setEditingCarouselHeaders] = useState(false);
-  const [currentCarouselContext, setCurrentCarouselContext] = useState<'part1' | 'part2' | 'tiktoks'>('part1');
+  const [currentCarouselContext, setCurrentCarouselContext] = useState<'part1' | 'part2' | 'tiktoks' | 'featured'>('part1');
   const [showHealingFeaturedVideoSelector, setShowHealingFeaturedVideoSelector] = useState(false);
   const [showVlogFeaturedVideoSelector, setShowVlogFeaturedVideoSelector] = useState(false);
   const [healingHeroData, setHealingHeroData] = useState({
@@ -190,6 +191,10 @@ const AdminContent: React.FC = () => {
     featuredVideoTitle: 'Healing Journey Introduction',
     featuredVideoDate: '2024-01-15'
   });
+
+  // Featured video loaded from carousel system
+  const [healingFeaturedVideo, setHealingFeaturedVideo] = useState<HealingVideo | null>(null);
+  const [loadingFeaturedVideo, setLoadingFeaturedVideo] = useState(false);
 
   // Vlog stats state
   const [vlogStats, setVlogStats] = useState({ totalVlogs: 0, featuredVlogs: 0, totalAlbums: 0, totalPhotos: 0 });
@@ -373,7 +378,7 @@ const AdminContent: React.FC = () => {
 
   const handleCreateHeroVideo = async () => {
     try {
-      const { youtube_url, video_title, video_description, video_order, video_thumbnail_url } = newHeroVideo;
+      const { youtube_url, video_title, video_description, video_thumbnail_url } = newHeroVideo;
       if (!youtube_url.trim()) {
         toast.error('YouTube URL is required');
         return;
@@ -390,7 +395,7 @@ const AdminContent: React.FC = () => {
           youtube_url,
           video_title,
           video_description: video_description || null,
-          video_order: typeof video_order === 'number' ? video_order : 0,
+          // Legacy video_order field removed - order managed by carousel system
           video_thumbnail_url: video_thumbnail_url || null
         })
       });
@@ -401,7 +406,7 @@ const AdminContent: React.FC = () => {
       }
 
       setShowAddHeroVideo(false);
-      setNewHeroVideo({ youtube_url: '', video_title: '', video_description: '', video_order: 0, video_thumbnail_url: '' });
+      setNewHeroVideo({ youtube_url: '', video_title: '', video_description: '', video_thumbnail_url: '' });
       await loadRecipeHeroVideos();
       toast.success('Hero video added');
     } catch (error) {
@@ -416,11 +421,11 @@ const AdminContent: React.FC = () => {
       // Map from VlogVideo interface to API format
       const apiData = {
         youtube_url: vlogData.youtube_url,
-        carousel: vlogData.carousel,
+        carousel: vlogData.carousel || 'vlogs-main-channel', // Default to vlogs-main-channel if undefined
         title: vlogData.title,
         description: vlogData.description,
-        is_featured: vlogData.is_featured,
-        display_order: vlogData.display_order,
+        // Legacy is_featured field removed - featured status managed by carousel system
+        order_index: vlogData.order_index,
         thumbnail_url: vlogData.thumbnail_url,
         published_at: vlogData.published_at,
         duration: vlogData.duration
@@ -481,13 +486,13 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveAlbum = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleSaveAlbum = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex?: number) => {
     try {
       if (editingAlbum) {
         const success = await albumService.updateAlbum(editingAlbum.id, albumData);
         if (!success) throw new Error('Failed to update album');
       } else {
-        const success = await albumService.addAlbum(albumData);
+        const success = await albumService.addAlbum(albumData, carouselId, orderIndex);
         if (!success) throw new Error('Failed to create album');
       }
 
@@ -495,11 +500,12 @@ const AdminContent: React.FC = () => {
       const allAlbums = await albumService.getAllAlbums();
       setPhotoAlbums(allAlbums);
       const vlogStatsData = await vlogService.getStats();
+      const albumStats = await albumService.getStats();
       setVlogStats(prev => ({
         totalVlogs: vlogStatsData.totalVlogs,
         featuredVlogs: vlogStatsData.featuredVlogs,
-        totalAlbums: prev.totalAlbums,
-        totalPhotos: prev.totalPhotos,
+        totalAlbums: albumStats.totalAlbums,
+        totalPhotos: albumStats.totalPhotos
       }));
 
       setEditingAlbum(null);
@@ -568,7 +574,8 @@ const AdminContent: React.FC = () => {
       const slugMapping = {
         'part1': 'healing-part-1',
         'part2': 'healing-part-2',
-        'tiktoks': 'healing-tiktoks'
+        'tiktoks': 'healing-tiktoks',
+        'featured': 'healing-featured'
       };
 
       const carouselSlug = slugMapping[currentCarouselContext];
@@ -605,14 +612,30 @@ const AdminContent: React.FC = () => {
           ref_id: null,
           image_path: null,
           badge: null,
-          is_featured: videoData.is_featured || false,
+          // Legacy is_featured field removed - featured status managed by carousel system
         });
 
         if (createResult.error) {
           throw new Error(createResult.error);
         }
 
-        toast.success('Video added successfully!');
+        // If this is for featured video management, set it as the featured video
+        if (currentCarouselContext === 'featured' && createResult.data) {
+          try {
+            const setFeaturedResult = await healingService.set_featured_video(createResult.data.id);
+            if (setFeaturedResult.error) {
+              console.warn('Video created but failed to set as featured:', setFeaturedResult.error);
+              toast.success('Video added successfully, but failed to set as featured');
+            } else {
+              toast.success('Video added and set as featured successfully!');
+            }
+          } catch (featuredError) {
+            console.warn('Video created but failed to set as featured:', featuredError);
+            toast.success('Video added successfully, but failed to set as featured');
+          }
+        } else {
+          toast.success('Video added successfully!');
+        }
       } else if (itemData.type === 'album') {
         // Handle album items using unified system
         const albumData = itemData.data;
@@ -629,7 +652,7 @@ const AdminContent: React.FC = () => {
           ref_id: albumData.id || null,
           image_path: albumData.cover_image_path || null,
           badge: null,
-          is_featured: false,
+          // Legacy is_featured field removed - featured status managed by carousel system
         });
 
         if (createResult.error) {
@@ -653,7 +676,7 @@ const AdminContent: React.FC = () => {
           image_path: null,
           youtube_id: null,
           badge: null,
-          is_featured: null,
+          // Legacy is_featured field removed - featured status managed by carousel system
         });
 
         if (createResult.error) {
@@ -665,6 +688,11 @@ const AdminContent: React.FC = () => {
 
       setShowHealingCarouselModal(false);
       setEditingHealingVideo(null);
+
+      // Refresh featured video data if we were working with featured context
+      if (currentCarouselContext === 'featured') {
+        await loadHealingFeaturedVideo();
+      }
     } catch (error) {
       console.error('Error saving carousel item:', error);
       throw error;
@@ -714,25 +742,6 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const handleSaveHealingFeaturedVideo = async (videoData: Omit<HealingFeaturedVideo, 'id' | 'updated_at'>) => {
-    try {
-      // Map HealingFeaturedVideo properties to the expected API format
-      const apiData = {
-        hero_video_title: videoData.video_title,
-        hero_video_subtitle: videoData.video_description,
-        hero_video_date: videoData.video_order?.toString(),
-        hero_video_youtube_url: videoData.youtube_url
-      };
-      
-      const result = await healingService.upsert_featured_video(apiData);
-      if (result.error) throw new Error(result.error);
-      
-      setEditingHealingFeaturedVideo(null);
-    } catch (error) {
-      console.error('Error saving healing featured video:', error);
-      throw error;
-    }
-  };
 
   const handleSaveStorefrontProduct = async (productData: StorefrontProductFormData) => {
     try {
@@ -749,7 +758,7 @@ const AdminContent: React.FC = () => {
           image_alt: productData.image_alt,
           description: productData.description,
           tags: productData.tags,
-          is_favorite: productData.is_favorite,
+          // Legacy is_favorite field removed - featured status managed by carousel system
           status: productData.status,
           sort_weight: productData.sort_weight,
         };
@@ -775,7 +784,7 @@ const AdminContent: React.FC = () => {
           image_alt: productData.image_alt,
           description: productData.description,
           tags: productData.tags,
-          is_favorite: productData.is_favorite,
+          // Legacy is_favorite field removed - featured status managed by carousel system
           status: productData.status,
           sort_weight: productData.sort_weight,
         };
@@ -807,17 +816,34 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  // Featured video selection handlers
+  // Featured video management functions
+  const loadHealingFeaturedVideo = async () => {
+    try {
+      setLoadingFeaturedVideo(true);
+      const featuredVideoResult = await healingService.get_featured_video();
+      if (featuredVideoResult.data) {
+        setHealingFeaturedVideo(featuredVideoResult.data);
+      } else {
+        setHealingFeaturedVideo(null);
+      }
+    } catch (error) {
+      console.error('Error loading featured video:', error);
+      setHealingFeaturedVideo(null);
+    } finally {
+      setLoadingFeaturedVideo(false);
+    }
+  };
+
   const handleSelectHealingFeaturedVideo = async (video: HealingVideo) => {
     try {
-      // Update the healing hero data with the selected video
+      // Update the healing hero data with the selected video (for legacy modal)
       setHealingHeroData(prev => ({
         ...prev,
         featuredVideoId: video.youtube_id || video.id,
         featuredVideoTitle: video.video_title,
         featuredVideoDate: new Date().toISOString().split('T')[0]
       }));
-      
+
       toast.success('Featured video updated successfully!');
     } catch (error) {
       console.error('Error updating featured video:', error);
@@ -827,23 +853,40 @@ const AdminContent: React.FC = () => {
 
   const handleSelectVlogFeaturedVideo = async (video: VlogVideo) => {
     try {
-      // Extract YouTube ID from URL if youtube_id is missing
-      let youtubeId = video.youtube_id;
-      if (!youtubeId && video.youtube_url) {
-        const videoIdResult = youtubeService.extract_video_id(video.youtube_url);
-        youtubeId = videoIdResult.data || null;
-      }
+      // Use the new API to set the featured vlog
+      const response = await fetch('/api/vlogs/featured', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vlogId: video.id })
+      });
 
-      // Update the vlog hero data with the selected video
-      setVlogHeroData(prev => ({
-        ...prev,
-        featuredVideoId: youtubeId || video.id,
-        featuredVideoTitle: video.title,
-        featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0],
-        featuredVideoThumbnail: youtubeId ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg` : ''
-      }));
-      
-      toast.success('Featured video updated successfully!');
+      if (response.ok) {
+        // Update the vlog hero data with the selected video
+        setVlogHeroData(prev => ({
+          ...prev,
+          featuredVideoId: video.id,
+          featuredVideoTitle: video.title,
+          featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0],
+          featuredVideoThumbnail: video.thumbnail_url
+        }));
+
+        // Reload vlogs and stats to reflect the new featured status
+        const vlogsList = await vlogService.getAllVlogs();
+        setVlogs(vlogsList);
+
+        const vlogStatsData = await vlogService.getStats();
+        setVlogStats(prev => ({
+          totalVlogs: vlogStatsData.totalVlogs,
+          featuredVlogs: vlogStatsData.featuredVlogs,
+          totalAlbums: prev.totalAlbums,
+          totalPhotos: prev.totalPhotos,
+        }));
+
+        toast.success('Featured video updated successfully!');
+        setShowVlogFeaturedVideoSelector(false);
+      } else {
+        toast.error('Failed to update featured video');
+      }
     } catch (error) {
       console.error('Error updating featured video:', error);
       toast.error('Failed to update featured video');
@@ -926,6 +969,14 @@ const AdminContent: React.FC = () => {
         const recipesList = await recipeService.getAllRecipes();
         setRecipes(recipesList);
 
+        // Load featured recipe
+        const featuredRecipe = await recipeService.getFeaturedRecipe();
+        if (featuredRecipe) {
+          setFeaturedRecipeId(featuredRecipe.id);
+        } else {
+          setFeaturedRecipeId(null);
+        }
+
         // Load recipe page content
         await loadRecipePageContent();
         await loadRecipeHeroVideos();
@@ -966,8 +1017,50 @@ const AdminContent: React.FC = () => {
         const vlogsList = await vlogService.getAllVlogs();
         setVlogs(vlogsList);
 
+        // Load featured vlog for hero section
+        const featuredVlog = await vlogService.getFeaturedVlog();
+        if (featuredVlog) {
+          setFeaturedVlogId(featuredVlog.id);
+          setVlogHeroData(prev => ({
+            ...prev,
+            featuredVideoId: featuredVlog.id,
+            featuredVideoTitle: featuredVlog.title,
+            featuredVideoThumbnail: featuredVlog.thumbnail_url,
+            featuredVideoDate: featuredVlog.published_at
+          }));
+        } else {
+          setFeaturedVlogId(null);
+          // Clear featured video data if none is selected
+          setVlogHeroData(prev => ({
+            ...prev,
+            featuredVideoId: '',
+            featuredVideoTitle: '',
+            featuredVideoThumbnail: '',
+            featuredVideoDate: ''
+          }));
+        }
+
         const albumsList = await albumService.getAllAlbums();
         setPhotoAlbums(albumsList);
+
+        // Initialize or find the vlogs photo gallery carousel
+        const { findCarouselByPageSlug, createCarousel } = await import('../lib/services/carouselService');
+        let vlogsGalleryCarousel = await findCarouselByPageSlug('vlogs', 'vlogs-photo-gallery');
+
+        if (!vlogsGalleryCarousel.data) {
+          // Create the carousel if it doesn't exist
+          const created = await createCarousel({
+            page: 'vlogs',
+            slug: 'vlogs-photo-gallery',
+            title: 'Photo Gallery',
+            is_active: true
+          });
+          if (!created.error && created.data) {
+            setVlogsPhotoGalleryCarouselId(created.data.id);
+          }
+        } else {
+          setVlogsPhotoGalleryCarouselId(vlogsGalleryCarousel.data.id);
+        }
       } catch (error) {
         console.error('Error loading vlog data:', error);
         errors.push('Failed to load vlog data');
@@ -980,6 +1073,12 @@ const AdminContent: React.FC = () => {
 
       const healingVideosList = await healingService.get_all_videos();
         setHealingVideos(healingVideosList);
+
+        // Load featured video from carousel system
+        const featuredVideoResult = await healingService.get_featured_video();
+        if (featuredVideoResult.data) {
+          setHealingFeaturedVideo(featuredVideoResult.data);
+        }
       } catch (error) {
         console.error('Error loading healing data:', error);
         errors.push('Failed to load healing data');
@@ -1720,13 +1819,56 @@ const AdminContent: React.FC = () => {
                           {/* Action Buttons */}
                           <div className="flex space-x-2">
                             <button
+                              onClick={async () => {
+                                try {
+                                  const isFeatured = featuredRecipeId === recipe.id;
+                                  let success = false;
+
+                                  if (isFeatured) {
+                                    // Remove from featured
+                                    success = await recipeService.removeFeaturedRecipe();
+                                    if (success) {
+                                      setFeaturedRecipeId(null);
+                                      toast.success('Recipe removed from featured');
+                                    }
+                                  } else {
+                                    // Set as featured
+                                    success = await recipeService.setFeaturedRecipe(recipe.id);
+                                    if (success) {
+                                      setFeaturedRecipeId(recipe.id);
+                                      toast.success('Recipe set as weekly pick');
+                                    }
+                                  }
+
+                                  if (!success) {
+                                    if (isFeatured) {
+                                      toast.error('Failed to remove featured recipe');
+                                    } else {
+                                      toast.error('Failed to set featured recipe');
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error('Error toggling featured recipe:', error);
+                                  toast.error('Failed to update featured recipe');
+                                }
+                              }}
+                              className={`px-3 py-1 rounded text-sm transition-colors ${
+                                featuredRecipeId === recipe.id
+                                  ? 'text-yellow-500 bg-yellow-50 hover:text-yellow-600 hover:bg-yellow-100'
+                                  : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'
+                              }`}
+                              title={featuredRecipeId === recipe.id ? "Remove from weekly pick" : "Set as weekly pick"}
+                            >
+                              <FaStar />
+                            </button>
+                            <button
                               onClick={() => setEditingRecipe(recipe)}
                               className="flex-1 px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center justify-center"
                             >
                               <FaEdit className="mr-1" />
                               Edit
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRecipe(recipe.id)}
                               className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600"
                             >
@@ -1921,7 +2063,7 @@ const AdminContent: React.FC = () => {
                               </h4>
                               <p className="text-sm text-gray-600 mt-1">{video.youtube_url}</p>
                               <p className="text-xs text-gray-500 mt-1">
-                                Order: {video.video_order} • 
+                                {/* Legacy video_order field removed - order managed by carousel system */}
                                 {video.is_active ? (
                                   <span className="text-green-600 ml-1">Active</span>
                                 ) : (
@@ -2085,8 +2227,9 @@ const AdminContent: React.FC = () => {
                           <label className="block text-sm font-medium text-[#383B26] mb-1">Order</label>
                           <input
                             type="number"
-                            value={newHeroVideo.video_order}
-                            onChange={(e) => setNewHeroVideo(v => ({ ...v, video_order: parseInt(e.target.value || '0', 10) }))}
+                            value={0}
+                            onChange={() => {}} // Legacy video_order field removed - order managed by carousel system
+                            disabled
                             className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                             min={0}
                           />
@@ -2366,7 +2509,7 @@ const AdminContent: React.FC = () => {
                         <div className="flex items-center space-x-4 text-xs text-[#8F907E] mt-1">
                           <span>{vlog.duration}</span>
                           <span>{vlog.published_at}</span>
-                          {vlog.is_featured && <span className="px-2 py-1 text-yellow-800 bg-yellow-100 rounded">Featured</span>}
+                          {/* Legacy is_featured field removed - featured status managed by carousel system */}
                         </div>
                       </div>
                     </div>
@@ -2374,10 +2517,77 @@ const AdminContent: React.FC = () => {
                       <button
                         onClick={() => setEditingVlog(vlog)}
                         className="p-2 text-[#B8A692] hover:bg-gray-100 rounded"
+                        title="Edit vlog"
                       >
                         <FaEdit />
                       </button>
-                      <button 
+                      <button
+                        onClick={async () => {
+                          try {
+                            const isFeatured = featuredVlogId === vlog.id;
+                            let success = false;
+
+                            if (isFeatured) {
+                              // Remove from featured
+                              success = await vlogService.removeFeaturedVlog();
+                              if (success) {
+                                setFeaturedVlogId(null);
+                                setVlogHeroData(prev => ({
+                                  ...prev,
+                                  featuredVideoId: '',
+                                  featuredVideoTitle: '',
+                                  featuredVideoThumbnail: '',
+                                  featuredVideoDate: ''
+                                }));
+                                toast.success('Vlog removed from featured');
+                              }
+                            } else {
+                              // Set as featured
+                              success = await vlogService.setFeaturedVlog(vlog.id);
+                              if (success) {
+                                setFeaturedVlogId(vlog.id);
+                                setVlogHeroData(prev => ({
+                                  ...prev,
+                                  featuredVideoId: vlog.id,
+                                  featuredVideoTitle: vlog.title,
+                                  featuredVideoThumbnail: vlog.thumbnail_url,
+                                  featuredVideoDate: vlog.published_at
+                                }));
+                                toast.success('Vlog set as featured');
+                              }
+                            }
+
+                            if (success) {
+                              // Reload stats
+                              const vlogStatsData = await vlogService.getStats();
+                              setVlogStats(prev => ({
+                                totalVlogs: vlogStatsData.totalVlogs,
+                                featuredVlogs: vlogStatsData.featuredVlogs,
+                                totalAlbums: prev.totalAlbums,
+                                totalPhotos: prev.totalPhotos,
+                              }));
+                            } else {
+                              if (isFeatured) {
+                                toast.error('Failed to remove featured vlog');
+                              } else {
+                                toast.error('Failed to set featured vlog');
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error toggling featured vlog:', error);
+                            toast.error('Failed to update featured vlog');
+                          }
+                        }}
+                        className={`p-2 rounded transition-colors ${
+                          featuredVlogId === vlog.id
+                            ? 'text-yellow-500 bg-yellow-50 hover:text-yellow-600 hover:bg-yellow-100'
+                            : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'
+                        }`}
+                        title={featuredVlogId === vlog.id ? "Remove from featured" : "Set as featured vlog"}
+                      >
+                        <FaStar />
+                      </button>
+                      <button
                         onClick={async () => {
                           if (confirm('Are you sure you want to delete this vlog?')) {
                             try {
@@ -2386,7 +2596,7 @@ const AdminContent: React.FC = () => {
                                 // Reload vlogs and stats after deletion
                                 const vlogsList = await vlogService.getAllVlogs();
                                 setVlogs(vlogsList);
-                                
+
                                 const vlogStatsData = await vlogService.getStats();
                                 setVlogStats(prev => ({
                                   totalVlogs: vlogStatsData.totalVlogs,
@@ -2394,7 +2604,7 @@ const AdminContent: React.FC = () => {
                                   totalAlbums: prev.totalAlbums,
                                   totalPhotos: prev.totalPhotos,
                                 }));
-                                
+
                                 toast.success('Vlog deleted successfully');
                               } else {
                                 toast.error('Failed to delete vlog');
@@ -2406,6 +2616,7 @@ const AdminContent: React.FC = () => {
                           }
                         }}
                         className="p-2 text-red-600 rounded hover:bg-red-50"
+                        title="Delete vlog"
                       >
                         <FaTrash />
                       </button>
@@ -2443,29 +2654,29 @@ const AdminContent: React.FC = () => {
                       {/* Album Cover */}
                       <div className="relative">
                         <Image
-                          src={album.coverImage}
-                          alt={album.title}
+                          src={album.cover_image_path || ''}
+                          alt={album.album_title}
                           className="object-cover w-full h-48"
                           width={400}
                           height={192}
                         />
-                        {album.is_featured && (
-                          <span className="absolute flex items-center px-2 py-1 text-xs text-white bg-yellow-500 rounded top-2 left-2">
+                        {album.is_visible && (
+                          <span className="absolute flex items-center px-2 py-1 text-xs text-white bg-green-500 rounded top-2 left-2">
                             <FaStar className="mr-1" />
-                            Featured
+                            Visible
                           </span>
                         )}
                         <span className="absolute top-2 right-2 bg-[#B8A692] text-white px-2 py-1 rounded text-xs">
-                          {album.category}
+                          Album
                         </span>
                       </div>
-                      
+
                       {/* Album Info */}
                       <div className="p-4">
-                        <h3 className="font-semibold text-[#383B26] mb-2">{album.title}</h3>
-                        <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{album.description}</p>
+                        <h3 className="font-semibold text-[#383B26] mb-2">{album.album_title}</h3>
+                        <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{album.album_description}</p>
                         <p className="text-xs text-[#8F907E] mb-3">
-                          {album.photos.length} photos • {album.date}
+                          {album.album_date}
                         </p>
                         
                         {/* Action Buttons */}
@@ -2616,7 +2827,7 @@ const AdminContent: React.FC = () => {
                               <FaMusic className="mb-2 text-3xl opacity-70" />
                               <div className="px-2 text-center">
                                 <p className="text-sm font-medium">{playlist.playlist_title}</p>
-                                <p className="text-xs opacity-80">Order: {playlist.playlist_order}</p>
+                                <p className="text-xs opacity-80">Order: {playlist.order_index}</p>
                               </div>
                               {!playlist.is_active && (
                                 <div className="absolute top-2 right-2">
@@ -2632,7 +2843,7 @@ const AdminContent: React.FC = () => {
                           <div className="p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-gray-600">Order: {playlist.playlist_order}</p>
+                                <p className="text-sm text-gray-600">Order: {playlist.order_index}</p>
                                 <a 
                                   href={playlist.spotify_url} 
                                   target="_blank" 
@@ -2707,20 +2918,20 @@ const AdminContent: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Main Channel:</span>
-                    <span className={`font-medium ${vlogs.filter(v => v.carousel === 'main-channel').length >= 6 ? 'text-red-600' : 'text-green-600'}`}>
-                      {vlogs.filter(v => v.carousel === 'main-channel').length}/6
+                    <span className={`font-medium ${vlogs.filter(v => v.carousel === 'vlogs-main-channel').length >= 6 ? 'text-red-600' : 'text-green-600'}`}>
+                      {vlogs.filter(v => v.carousel === 'vlogs-main-channel').length}/6
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">AG Vlogs:</span>
-                    <span className={`font-medium ${vlogs.filter(v => v.carousel === 'ag-vlogs').length >= 6 ? 'text-red-600' : 'text-green-600'}`}>
-                      {vlogs.filter(v => v.carousel === 'ag-vlogs').length}/6
+                    <span className={`font-medium ${vlogs.filter(v => v.carousel === 'vlogs-ag-vlogs').length >= 6 ? 'text-red-600' : 'text-green-600'}`}>
+                      {vlogs.filter(v => v.carousel === 'vlogs-ag-vlogs').length}/6
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#8F907E]">Featured:</span>
-                    <span className={`font-medium ${vlogs.filter(v => v.is_featured).length >= 1 ? 'text-amber-600' : 'text-green-600'}`}>
-                      {vlogs.filter(v => v.is_featured).length}/1
+                    <span className="font-medium text-green-600">
+                      {/* Legacy is_featured field removed - featured status managed by carousel system */} 0/1
                     </span>
                   </div>
                 </div>
@@ -2873,31 +3084,59 @@ const AdminContent: React.FC = () => {
                     <div>
                       <h3 className="font-medium text-[#383B26] mb-3">Featured Video</h3>
                       <div className="p-4 rounded-lg bg-gray-50">
-                        <div className="flex items-center justify-center h-32 mb-3 bg-gray-200 rounded">
-                          <div className="text-center text-gray-500">
-                            <FaVideo className="mx-auto mb-2 text-xl" />
-                            <p className="text-sm">Video Preview</p>
+                        {loadingFeaturedVideo ? (
+                          <div className="flex items-center justify-center h-32 mb-3 bg-gray-200 rounded">
+                            <div className="text-center text-gray-500">
+                              <FaVideo className="mx-auto mb-2 text-xl animate-pulse" />
+                              <p className="text-sm">Loading featured video...</p>
+                            </div>
                           </div>
-                        </div>
+                        ) : healingFeaturedVideo ? (
+                          <div className="mb-3">
+                            <div className="relative overflow-hidden rounded">
+                              <Image
+                                src={`https://img.youtube.com/vi/${healingFeaturedVideo.youtube_id}/maxresdefault.jpg`}
+                                alt={healingFeaturedVideo.video_title}
+                                className="object-cover w-full h-32"
+                                width={400}
+                                height={128}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black bg-opacity-50 opacity-0 hover:opacity-100">
+                                <FaVideo className="text-2xl text-white" />
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-32 mb-3 bg-gray-200 rounded">
+                            <div className="text-center text-gray-500">
+                              <FaVideo className="mx-auto mb-2 text-xl" />
+                              <p className="text-sm">No featured video set</p>
+                            </div>
+                          </div>
+                        )}
                         <div className="space-y-1">
-                          {healingHeroData.featuredVideoTitle ? (
+                          {healingFeaturedVideo ? (
                             <>
-                              <p className="text-sm"><strong>Current:</strong> {healingHeroData.featuredVideoTitle}</p>
-                              <p className="text-sm text-[#8F907E]">Published: {healingHeroData.featuredVideoDate}</p>
-                              <p className="text-sm text-[#8F907E]">ID: {healingHeroData.featuredVideoId}</p>
+                              <p className="text-sm"><strong>Current:</strong> {healingFeaturedVideo.video_title}</p>
+                              <p className="text-sm text-[#8F907E]">Description: {healingFeaturedVideo.video_description || 'No description'}</p>
+                              <p className="text-sm text-[#8F907E]">YouTube ID: {healingFeaturedVideo.youtube_id}</p>
                             </>
                           ) : (
                             <>
                               <p className="text-sm"><strong>Current:</strong> No featured video selected</p>
-                              <p className="text-sm text-[#8F907E]">Click below to select a featured video from your carousel</p>
+                              <p className="text-sm text-[#8F907E]">Use the button below to select a YouTube video as the featured video</p>
                             </>
                           )}
                         </div>
-                        <button 
-                          onClick={() => setShowHealingFeaturedVideoSelector(true)}
+                        <button
+                          onClick={() => {
+                            setEditingHealingVideo(null);
+                            setCurrentCarouselContext('featured'); // Use featured context for featured video management
+                            setShowHealingCarouselModal(true);
+                          }}
                           className="w-full mt-3 px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] text-sm"
                         >
-                          Change Featured Video
+                          Add/Change Featured Video
                         </button>
                       </div>
                     </div>
@@ -3664,6 +3903,8 @@ const AdminContent: React.FC = () => {
         }}
         album={editingAlbum}
         onSave={handleSaveAlbum}
+        carouselId={vlogsPhotoGalleryCarouselId}
+        forcePageType="vlogs"
       />
 
       {/* Spotify Playlist Modal */}
@@ -3696,13 +3937,6 @@ const AdminContent: React.FC = () => {
         onSave={handleSaveCarouselHeader}
       />
 
-      {/* Healing Featured Video Modal */}
-      <HealingFeaturedVideoModal
-        isOpen={!!editingHealingFeaturedVideo}
-        onClose={() => setEditingHealingFeaturedVideo(null)}
-        currentVideo={editingHealingFeaturedVideo}
-        onSave={handleSaveHealingFeaturedVideo}
-      />
 
       {/* Healing Carousel Modal */}
       <HealingCarouselModal

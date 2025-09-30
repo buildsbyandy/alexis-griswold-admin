@@ -278,11 +278,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Delete from Supabase Storage
     try {
       // Extract the file path from the full URL
-      // Video URLs look like: https://oycmdmrnschixthatslb.supabase.co/storage/v1/object/public/media/videos/1757204630212-rat8oyrm9.mp4
+      // Video URLs look like: https://oycmdmrnschixthatslb.supabase.co/storage/v1/object/public/public/videos/home/1757204630212-rat8oyrm9.mp4
       const url = new URL(videoPath);
       const pathParts = url.pathname.split('/');
-      const bucket = pathParts[3]; // 'media'
-      const filePath = pathParts.slice(4).join('/'); // 'videos/1757204630212-rat8oyrm9.mp4'
+      const bucket = pathParts[3]; // 'public' or 'private'
+      const filePath = pathParts.slice(4).join('/'); // 'videos/home/1757204630212-rat8oyrm9.mp4'
       
       console.log('Deleting file from storage:', { bucket, filePath });
       

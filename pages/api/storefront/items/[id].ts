@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 export const config = { runtime: 'nodejs' }
 
-type Slug = 'favorites' | 'top-picks'
+type Slug = 'storefront-favorites' | 'storefront-top-picks'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions)
@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const BodySchema = z.object({
         order_index: z.number().int().min(0).optional(),
-        slug: z.enum(['favorites','top-picks']).optional(),
+        slug: z.enum(['storefront-favorites','storefront-top-picks']).optional(),
       })
       const { order_index, slug } = BodySchema.parse(req.body)
       const updated = await updateStorefrontItem(id, { order_index, slug: slug as Slug | undefined })

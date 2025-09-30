@@ -8,7 +8,7 @@ import type { HealingVideo } from '../../lib/services/healingService';
 import type { PhotoAlbum } from '../../lib/services/albumService';
 
 export type ContentType = 'video' | 'album' | 'tiktok';
-export type CarouselContext = 'part1' | 'part2' | 'tiktoks';
+export type CarouselContext = 'part1' | 'part2' | 'tiktoks' | 'featured';
 
 export interface TikTokVideo {
   link_url: string;
@@ -42,6 +42,8 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
         return ['album']; // Only albums for carousels 1 & 2
       case 'tiktoks':
         return ['tiktok']; // Only TikTok for carousel 3
+      case 'featured':
+        return ['video']; // Only YouTube videos for featured video management
       default:
         return ['video', 'album']; // Fallback to original behavior
     }
@@ -75,11 +77,11 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
     onClose();
   };
 
-  const handleVideoSave = async (videoData: Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>) => {
-    await onSave({ type: 'video', data: videoData });
+  const handleVideoSave = async (videoData: any) => {
+    await onSave(videoData);
   };
 
-  const handleAlbumSave = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleAlbumSave = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex?: number) => {
     await onSave({ type: 'album', data: albumData });
   };
 
@@ -96,6 +98,7 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
         case 'part1': return 'Healing Carousel Part 1';
         case 'part2': return 'Healing Carousel Part 2';
         case 'tiktoks': return 'TikTok Inspirations Carousel';
+        case 'featured': return 'Featured Video Manager';
         default: return 'Healing Carousel';
       }
     };
@@ -128,7 +131,12 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
                   <FaVideo className="text-2xl text-[#B8A692] mr-4" />
                   <div className="text-left">
                     <div className="font-semibold text-[#383B26]">YouTube Video</div>
-                    <div className="text-sm text-gray-600">Add a healing video from YouTube</div>
+                    <div className="text-sm text-gray-600">
+                      {carouselContext === 'featured'
+                        ? 'Add a YouTube video as the featured video'
+                        : 'Add a healing video from YouTube'
+                      }
+                    </div>
                   </div>
                 </button>
               )}
@@ -180,6 +188,7 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
           onClose={handleClose}
           video={editingVideo}
           onSave={handleVideoSave}
+          carouselContext={carouselContext}
         />
       )}
 
@@ -190,6 +199,7 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
           album={null}
           onSave={handleAlbumSave}
           forcePageType="healing"
+          carouselId="healing-placeholder-carousel-id" // TODO: This should be properly initialized like the vlogs carousel
         />
       )}
 

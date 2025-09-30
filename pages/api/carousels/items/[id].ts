@@ -4,6 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]'
 import isAdminEmail from '../../../../lib/auth/isAdminEmail'
 import supabase from '@/lib/supabase'
 import type { Database } from '@/types/supabase.generated'
+import { deleteCarouselItemDB } from '@/lib/db/carousels'
 
 export type CarouselItemRow = Database['public']['Tables']['carousel_items']['Row']
 export type CarouselItemUpdate = Database['public']['Tables']['carousel_items']['Update']
@@ -65,9 +66,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const { error } = await supabase.from('carousel_items').delete().eq('id', id)
-      if (error) {
-        return res.status(500).json({ error: error.message })
+      const result = await deleteCarouselItemDB(id)
+      if (result.error) {
+        return res.status(500).json({ error: result.error })
       }
 
       return res.status(200).json({ data: null })

@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `)
         .eq('carousels.page', 'healing')
         .eq('kind', 'video')
-        .eq('is_featured', true)
+        // Note: Featured videos now managed through dedicated carousels
         .eq('is_active', true) // Only return active items for public consumption
         .order('created_at', { ascending: false });
 
@@ -52,14 +52,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           youtube_id: youtubeId,
           video_title: title,
           video_description: description || null,
-          video_order: item.order_index || 1,
+          // Legacy video_order field removed - using order_index directly
           created_at: item.created_at || '',
           updated_at: item.updated_at || '',
           // extra fields for UI convenience
           carousel: item.carousels?.slug === 'healing-part-1' ? 'part1' : 'part2',
           isActive: item.is_active ?? true,
-          order: item.order_index || 1,
-          is_featured: true,
+          order: item.order_index || 1
+          // Legacy is_featured field removed - featured status implied by carousel membership
         };
       }));
 

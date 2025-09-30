@@ -12,26 +12,274 @@ import type {
   StorefrontCategoryFormData,
   ContentStatus
 } from '@/lib/types/storefront';
-import { listStorefrontItems } from '../services/carouselService';
+import {
+  listStorefrontItems,
+  findCarouselByPageSlug,
+  createCarousel,
+  createCarouselItem,
+  deleteCarouselItem,
+  listViewItems
+} from '../services/carouselService';
 import { getMediaUrl, type ContentStatus as StorageContentStatus } from '@/lib/utils/storageHelpers';
 import slugify from '@/lib/utils/slugify';
 
 class StorefrontService {
+  // Featured categories carousel management
+  async list_featured_categories(): Promise<Array<{ id: string; ref_id: string; category_name: string | null; slug: string | null; order_index: number | null }>> {
+    try {
+      const viewResult = await listViewItems('storefront', 'featured-categories');
+      if (viewResult.error) {
+        console.error('Error fetching featured categories:', viewResult.error);
+        return [];
+      }
+
+      const carouselItems = viewResult.data || [];
+
+      // Get category metadata for carousel items that have ref_ids (category IDs)
+      const categoryIds = carouselItems
+        .map(item => item.item_ref_id)
+        .filter(Boolean) as string[];
+
+      if (categoryIds.length === 0) {
+        return [];
+      }
+
+      // Fetch category metadata
+      const response = await fetch(`/api/storefront/categories/metadata?ids=${categoryIds.join(',')}`);
+      if (!response.ok) {
+        console.error('Failed to fetch category metadata');
+        return [];
+      }
+
+      const { categories } = await response.json();
+      const categoryMap = new Map<string, StorefrontCategoryRow>(categories.map((c: StorefrontCategoryRow) => [c.id, c]));
+
+      // Combine carousel items with category metadata
+      return carouselItems
+        .map(item => {
+          if (!item.item_ref_id) return null;
+          const category = categoryMap.get(item.item_ref_id);
+          if (!category) return null;
+
+          return {
+            id: item.carousel_item_id!,
+            ref_id: category.id,
+            category_name: category.category_name,
+            slug: category.slug,
+            order_index: item.item_order_index || 0
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => a.order_index - b.order_index);
+    } catch (error) {
+      console.error('Error fetching featured categories:', error);
+      return [];
+    }
+  }
+
+  async set_featured_category(categoryId: string, featured: boolean): Promise<boolean> {
+    try {
+      // Ensure the featured categories carousel exists
+      let carouselResult = await findCarouselByPageSlug('storefront', 'featured-categories');
+      if (carouselResult.error) {
+        throw new Error('Failed to find featured categories carousel: ' + carouselResult.error);
+      }
+
+      if (!carouselResult.data) {
+        // Create the carousel if it doesn't exist
+        const createResult = await createCarousel({
+          page: 'storefront',
+          slug: 'featured-categories',
+          title: 'Featured Categories',
+          description: 'Featured categories on the storefront',
+          is_active: true
+        });
+        if (createResult.error) {
+          throw new Error('Failed to create featured categories carousel: ' + createResult.error);
+        }
+        carouselResult = { data: createResult.data };
+      }
+
+      if (featured) {
+        // Fetch the category to get its slug for URL construction
+        const response = await fetch(`/api/storefront/categories`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch categories');
+        }
+        const { categories } = await response.json();
+        const category = categories.find((c: StorefrontCategoryRow) => c.id === categoryId);
+
+        if (!category) {
+          throw new Error('Category not found');
+        }
+
+        // Construct the category URL for the public site
+        const categoryUrl = `/storefront/${category.slug}`;
+
+        // Add category to featured carousel
+        const createItemResult = await createCarouselItem({
+          carousel_id: carouselResult.data!.id,
+          kind: 'external',
+          link_url: categoryUrl,
+          caption: null,
+          order_index: 0,
+          is_active: true,
+        });
+        return !createItemResult.error;
+      } else {
+        // Remove category from featured carousel
+        const viewResult = await listViewItems('storefront', 'featured-categories');
+        if (viewResult.error) {
+          throw new Error('Failed to fetch carousel items: ' + viewResult.error);
+        }
+
+        const carouselItem = viewResult.data?.find(item => item.item_ref_id === categoryId);
+        if (carouselItem && carouselItem.carousel_item_id) {
+          const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
+          return !deleteResult.error;
+        }
+        return true; // Already not featured
+      }
+    } catch (error) {
+      console.error('Error setting featured category:', error);
+      return false;
+    }
+  }
+
+  // Featured products within category management
+  async list_featured_products_for_category(categorySlug: string): Promise<Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>> {
+    try {
+      const carouselSlug = `${categorySlug}-featured`;
+      const viewResult = await listViewItems('storefront', carouselSlug);
+      if (viewResult.error) {
+        console.error('Error fetching featured products for category:', viewResult.error);
+        return [];
+      }
+
+      const carouselItems = viewResult.data || [];
+
+      // Get product metadata for carousel items that have ref_ids (product IDs)
+      const productIds = carouselItems
+        .map(item => item.item_ref_id)
+        .filter(Boolean) as string[];
+
+      if (productIds.length === 0) {
+        return [];
+      }
+
+      // Fetch product metadata
+      const response = await fetch(`/api/storefront/products/metadata?ids=${productIds.join(',')}`);
+      if (!response.ok) {
+        console.error('Failed to fetch product metadata');
+        return [];
+      }
+
+      const { products } = await response.json();
+      const productMap = new Map<string, StorefrontProductRow>(products.map((p: StorefrontProductRow) => [p.id, p]));
+
+      // Combine carousel items with product metadata
+      return carouselItems
+        .map(item => {
+          if (!item.item_ref_id) return null;
+          const product = productMap.get(item.item_ref_id);
+          if (!product) return null;
+
+          return {
+            id: item.carousel_item_id!,
+            ref_id: product.id,
+            product_title: product.product_title,
+            order_index: item.item_order_index || 0
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => a.order_index - b.order_index);
+    } catch (error) {
+      console.error('Error fetching featured products for category:', error);
+      return [];
+    }
+  }
+
+  async add_featured_product_to_category(categorySlug: string, productId: string, orderIndex?: number): Promise<boolean> {
+    try {
+      const carouselSlug = `${categorySlug}-featured`;
+
+      // Ensure the category-specific featured products carousel exists
+      let carouselResult = await findCarouselByPageSlug('storefront', carouselSlug);
+      if (carouselResult.error) {
+        throw new Error('Failed to find category featured products carousel: ' + carouselResult.error);
+      }
+
+      if (!carouselResult.data) {
+        // Create the carousel if it doesn't exist
+        const createResult = await createCarousel({
+          page: 'storefront',
+          slug: carouselSlug,
+          title: `Featured Products - ${categorySlug}`,
+          description: `Featured products for the ${categorySlug} category`,
+          is_active: true
+        });
+        if (createResult.error) {
+          throw new Error('Failed to create category featured products carousel: ' + createResult.error);
+        }
+        carouselResult = { data: createResult.data };
+      }
+
+      // Add product to featured carousel
+      const createItemResult = await createCarouselItem({
+        carousel_id: carouselResult.data!.id,
+        kind: 'product',
+        ref_id: productId,
+        caption: null,
+        order_index: orderIndex || 0,
+        is_active: true,
+        youtube_id: null,
+        album_id: null,
+        link_url: null,
+        image_path: null,
+        badge: null
+      });
+      return !createItemResult.error;
+    } catch (error) {
+      console.error('Error adding featured product to category:', error);
+      return false;
+    }
+  }
+
+  async remove_featured_product_from_category(categorySlug: string, productId: string): Promise<boolean> {
+    try {
+      const carouselSlug = `${categorySlug}-featured`;
+      const viewResult = await listViewItems('storefront', carouselSlug);
+      if (viewResult.error) {
+        throw new Error('Failed to fetch carousel items: ' + viewResult.error);
+      }
+
+      const carouselItem = viewResult.data?.find(item => item.item_ref_id === productId);
+      if (carouselItem && carouselItem.carousel_item_id) {
+        const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
+        return !deleteResult.error;
+      }
+      return true; // Already not featured
+    } catch (error) {
+      console.error('Error removing featured product from category:', error);
+      return false;
+    }
+  }
+
   // Carousel items (favorites, top-picks)
   async list_favorites(): Promise<Array<{ id: string; ref_id: string; product_title: string | null; image_path: string | null; amazon_url: string | null }>> {
-    const res = await listStorefrontItems('favorites')
+    const res = await listStorefrontItems('storefront-favorites')
     if (res.error) throw new Error(res.error)
     return (res.data || []).map(i => ({ id: i.id, ref_id: i.ref_id || '', product_title: i.product_title, image_path: i.image_path, amazon_url: i.amazon_url }))
   }
 
   async list_top_picks(): Promise<Array<{ id: string; ref_id: string; order_index: number | null; product_title: string | null; image_path: string | null; amazon_url: string | null }>> {
-    const res = await listStorefrontItems('top-picks')
+    const res = await listStorefrontItems('storefront-top-picks')
     if (res.error) throw new Error(res.error)
     return (res.data || []).map(i => ({ id: i.id, ref_id: i.ref_id || '', order_index: i.order_index ?? 0, product_title: i.product_title, image_path: i.image_path, amazon_url: i.amazon_url }))
   }
 
   // --- Storefront item mutations (Favorites, Top Picks) ---
-  private async fetchItemForProduct(slug: 'favorites' | 'top-picks', productId: string): Promise<{ id: string } | null> {
+  private async fetchItemForProduct(slug: 'storefront-favorites' | 'storefront-top-picks', productId: string): Promise<{ id: string } | null> {
     const res = await fetch(`/api/storefront/items?slug=${slug}`)
     if (!res.ok) return null
     const data = await res.json()
@@ -40,12 +288,12 @@ class StorefrontService {
   }
 
   async set_favorite(productId: string, on: boolean): Promise<boolean> {
-    const existing = await this.fetchItemForProduct('favorites', productId)
+    const existing = await this.fetchItemForProduct('storefront-favorites', productId)
     if (on) {
       if (existing) return true
       const res = await fetch('/api/storefront/items', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, slug: 'favorites' })
+        body: JSON.stringify({ product_id: productId, slug: 'storefront-favorites' })
       })
       return res.ok
     } else {
@@ -56,12 +304,12 @@ class StorefrontService {
   }
 
   async set_top_pick(productId: string, on: boolean, orderIndex?: number): Promise<boolean> {
-    const existing = await this.fetchItemForProduct('top-picks', productId)
+    const existing = await this.fetchItemForProduct('storefront-top-picks', productId)
     if (on) {
       if (!existing) {
         const res = await fetch('/api/storefront/items', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: productId, slug: 'top-picks', order_index: orderIndex ?? 0 })
+          body: JSON.stringify({ product_id: productId, slug: 'storefront-top-picks', order_index: orderIndex ?? 0 })
         })
         return res.ok
       }
@@ -81,7 +329,7 @@ class StorefrontService {
   }
 
   async update_top_pick_order(productId: string, orderIndex: number): Promise<boolean> {
-    const existing = await this.fetchItemForProduct('top-picks', productId)
+    const existing = await this.fetchItemForProduct('storefront-top-picks', productId)
     if (!existing) return false
     const res = await fetch(`/api/storefront/items/${existing.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -266,7 +514,7 @@ class StorefrontService {
         slug: input.slug,
         category_description: input.category_description || null,
         category_image_path: input.category_image_path || null,
-        is_featured: input.is_featured || null,
+        // Legacy is_featured field removed - featured status managed by carousel system
         is_visible: input.is_visible || null,
         sort_order: input.sort_order || null
       };
@@ -300,9 +548,11 @@ class StorefrontService {
       if (input.slug !== undefined) dbPayload.slug = input.slug;
       if (input.category_description !== undefined) dbPayload.category_description = input.category_description;
       if (input.category_image_path !== undefined) dbPayload.category_image_path = input.category_image_path;
-      if (input.is_featured !== undefined) dbPayload.is_featured = input.is_featured;
+      // Legacy is_featured field removed - featured status managed by carousel system
       if (input.is_visible !== undefined) dbPayload.is_visible = input.is_visible;
       if (input.sort_order !== undefined) dbPayload.sort_order = input.sort_order;
+
+      // Legacy is_featured field removed - featured status managed by carousel system
 
       const response = await fetch('/api/storefront/categories', {
         method: 'PUT',
@@ -482,7 +732,7 @@ class StorefrontService {
       slug: category.slug,
       category_description: category.category_description || undefined,
       category_image_path: category.category_image_path || undefined,
-      is_featured: category.is_featured || undefined,
+      // Legacy is_featured field removed - featured status managed by carousel system
       is_visible: category.is_visible || undefined,
       sort_order: category.sort_order || undefined,
     };

@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         slug: z.string().trim().min(1).max(100),
         category_description: z.string().trim().max(1000).optional(),
         category_image_path: z.string().trim().optional(),
-        is_featured: z.boolean().optional(),
+        // is_featured: z.boolean().optional(), // Now handled by carousel system
         is_visible: z.boolean().optional(),
         sort_order: z.number().int().min(0).optional(),
       });
@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         slug: parsed.slug,
         category_description: parsed.category_description ?? null,
         category_image_path: parsed.category_image_path ?? null,
-        is_featured: parsed.is_featured ?? false,
+        // is_featured field removed - featured status now handled by carousel system
         is_visible: parsed.is_visible ?? true,
         sort_order: parsed.sort_order ?? undefined,
       };
@@ -111,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         slug: z.string().trim().min(1).max(100).optional(),
         category_description: z.string().trim().max(1000).nullable().optional(),
         category_image_path: z.string().trim().nullable().optional(),
-        is_featured: z.boolean().nullable().optional(),
+        // is_featured: z.boolean().nullable().optional(), // Now handled by carousel system
         is_visible: z.boolean().nullable().optional(),
         sort_order: z.number().int().min(0).nullable().optional(),
       });

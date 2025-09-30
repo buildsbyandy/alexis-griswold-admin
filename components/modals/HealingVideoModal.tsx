@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaVideo, FaSpinner } from 'react-icons/fa';
+import { FaTimes, FaSave, FaVideo, FaSpinner, FaYoutube } from 'react-icons/fa';
+import Image from 'next/image';
 import type { HealingVideo, HealingCarouselType } from '../../lib/services/healingService';
 import { healingService } from '../../lib/services/healingService';
 import toast from 'react-hot-toast';
+
+export type CarouselContext = 'part1' | 'part2' | 'tiktoks' | 'featured';
 
 interface HealingVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   video?: HealingVideo | null;
-  onSave: (video: HealingVideo) => Promise<void>;
-  carouselNumber?: number;
+  onSave: (video: any) => Promise<void>; // Updated to handle unified data structure
+  carouselContext?: CarouselContext; // Replaces carouselNumber
 }
 
 const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
@@ -17,43 +20,45 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
   onClose,
   video,
   onSave,
-  carouselNumber: propCarouselNumber
+  carouselContext = 'part1'
 }) => {
   const [formData, setFormData] = useState({
     youtube_url: '',
-    video_title: '',
+    caption: '',
     video_description: '',
-    video_order: 1,
-    is_featured: false,
+    order_index: 1,
   });
 
-  const [carouselNumber, setCarouselNumber] = useState(1);
   const [isLoadingYouTubeData, setIsLoadingYouTubeData] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [thumbnail_url, setThumbnail_url] = useState('');
 
   useEffect(() => {
     if (video) {
+      const url = video.youtube_url || '';
       setFormData({
-        youtube_url: video.youtube_url || '',
-        video_title: video.video_title || '',
+        youtube_url: url,
+        caption: video.video_title || '',
         video_description: video.video_description || '',
-        video_order: video.video_order || 1,
-        is_featured: video.is_featured || false,
+        order_index: video.order_index || 1,
       });
+
+      // Set thumbnail
+      const videoId = extractYouTubeId(url);
+      if (videoId) {
+        setThumbnail_url(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+      }
     } else {
       // Reset form for new video
       setFormData({
         youtube_url: '',
-        video_title: '',
+        caption: '',
         video_description: '',
-        video_order: 1,
-        is_featured: false,
+        order_index: 1,
       });
+      setThumbnail_url('');
     }
-
-    if (propCarouselNumber) {
-      setCarouselNumber(propCarouselNumber);
-    }
-  }, [video, propCarouselNumber]);
+  }, [video]);
 
   // Extract YouTube video ID from URL
   const extractYouTubeId = (url: string): string | null => {
@@ -68,9 +73,16 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
     return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
   };
 
-  // Handle YouTube URL change (no auto-fetch)
+  // Handle YouTube URL change and auto-generate thumbnail
   const handleYouTubeUrlChange = (url: string) => {
     setFormData(prev => ({ ...prev, youtube_url: url }));
+
+    const videoId = extractYouTubeId(url);
+    if (videoId) {
+      setThumbnail_url(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+    } else {
+      setThumbnail_url('');
+    }
   };
 
   // Manual fetch YouTube metadata
@@ -104,7 +116,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
         const data = result.data;
         setFormData(prev => ({
           ...prev,
-          video_title: data.title || prev.video_title,
+          caption: data.title || prev.caption,
           video_description: data.description || prev.video_description,
         }));
         toast.success('YouTube data loaded successfully!');
@@ -134,7 +146,7 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.video_title.trim()) {
+    if (!formData.caption.trim()) {
       toast.error('Video title is required');
       return;
     }
@@ -152,40 +164,19 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
     }
 
     try {
-      if (video?.id) {
-        // Update existing video
-        const response = await healingService.updateVideo(video.id, {
+      // Create unified video data for the new carousel system
+      const videoData = {
+        type: 'video' as const,
+        data: {
           youtube_url: formData.youtube_url,
-          video_order: formData.video_order,
-          type: carouselNumber === 1 ? 'part1' : 'part2',
-          is_featured: formData.is_featured
-        });
-        if (response.error) {
-          throw new Error(response.error);
-        }
-        if (!response.data) {
-          throw new Error('Update failed');
-        }
-        // For updates, we don't call onSave since updateVideo only returns a boolean
-        // The parent component should handle refreshing the data
-      } else {
-        // Create new video
-        const response = await healingService.createVideo({
-          type: carouselNumber === 1 ? 'part1' : 'part2',
-          youtube_url: formData.youtube_url,
-          video_title: formData.video_title,
+          caption: formData.caption,
           video_description: formData.video_description,
-          video_order: formData.video_order,
-          is_featured: formData.is_featured
-        });
-        if (response.error) {
-          throw new Error(response.error);
+          order_index: formData.order_index,
+          carouselContext
         }
-        if (!response.data) {
-          throw new Error('No data returned from create');
-        }
-        await onSave(response.data);
-      }
+      };
+
+      await onSave(videoData);
       onClose();
       toast.success(`Video ${video ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -196,15 +187,29 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
 
   if (!isOpen) return null;
 
+  const videoId = extractYouTubeId(formData.youtube_url);
+
+  // Get modal title based on context
+  const getModalTitle = () => {
+    switch (carouselContext) {
+      case 'featured':
+        return video ? 'Edit Featured Video' : 'Add Featured Video';
+      case 'part1':
+      case 'part2':
+      default:
+        return video ? 'Edit Healing Video' : 'Add New Healing Video';
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
             <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
               <FaVideo className="mr-3 text-[#B8A692]" />
-              {video ? 'Edit Healing Video' : 'Add New Healing Video'}
+              {getModalTitle()}
             </h2>
             <button
               type="button"
@@ -215,72 +220,114 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
             </button>
           </div>
 
-          <div className="p-6 space-y-4">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[#383B26] mb-1">YouTube URL *</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="url"
-                      value={formData.youtube_url}
-                      onChange={(e) => handleYouTubeUrlChange(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      required
-                    />
-                  </div>
+          <div className="p-6 space-y-6">
+            {/* YouTube URL */}
+            <div>
+              <label className="block text-sm font-medium text-[#383B26] mb-1 flex items-center">
+                <FaYoutube className="mr-2 text-red-600" />
+                YouTube Video URL *
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="url"
+                    value={formData.youtube_url}
+                    onChange={(e) => handleYouTubeUrlChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    required
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchYouTubeMetadata}
+                  disabled={isLoadingYouTubeData || !formData.youtube_url}
+                  className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isLoadingYouTubeData ? (
+                    <FaSpinner className="animate-spin" />
+                  ) : (
+                    <FaVideo />
+                  )}
+                  {isLoadingYouTubeData ? 'Loading...' : 'Fetch Data'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Paste the full YouTube video URL</p>
+            </div>
+
+            {/* Video Preview */}
+            {videoId && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-[#383B26]">Video Preview</label>
                   <button
                     type="button"
-                    onClick={fetchYouTubeMetadata}
-                    disabled={isLoadingYouTubeData || !formData.youtube_url}
-                    className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                    onClick={() => setIsPreviewMode(!isPreviewMode)}
+                    className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                   >
-                    {isLoadingYouTubeData ? (
-                      <FaSpinner className="animate-spin" />
-                    ) : (
-                      <FaVideo />
-                    )}
-                    {isLoadingYouTubeData ? 'Loading...' : 'Fetch Data'}
+                    {isPreviewMode ? 'Show Thumbnail' : 'Show Video'}
                   </button>
                 </div>
-                <p className="text-xs text-[#8F907E] mt-1">Paste YouTube URL and click &quot;Fetch Data&quot; to auto-fill title and description</p>
-              </div>
 
+                <div className="border rounded-lg overflow-hidden">
+                  {isPreviewMode ? (
+                    <iframe
+                      width="100%"
+                      height="315"
+                      src={`https://www.youtube.com/embed/${videoId}`}
+                      title="Video preview"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <Image
+                      src={thumbnail_url}
+                      alt="Video thumbnail"
+                      className="w-full h-auto"
+                      width={480}
+                      height={360}
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder-video-thumbnail.png';
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Video Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Video Title *</label>
                 <input
                   type="text"
-                  value={formData.video_title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, video_title: e.target.value }))}
+                  value={formData.caption}
+                  onChange={(e) => setFormData(prev => ({ ...prev, caption: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="e.g., Day 1: Starting Your Candida Cleanse Journey"
+                  placeholder="Enter video title"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-600">Clear, descriptive title for this healing video</p>
               </div>
 
+              {/* Show carousel context info (read-only) */}
               <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Carousel *</label>
-                <select
-                  value={carouselNumber}
-                  onChange={(e) => setCarouselNumber(parseInt(e.target.value))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  required
-                >
-                  <option value={1}>Gut Healing Part 1: Candida Cleanse</option>
-                  <option value={2}>Gut Healing Part 2: Rebuild & Repair</option>
-                </select>
-                <p className="text-xs text-[#8F907E] mt-1">Choose which carousel this video belongs to.</p>
+                <label className="block text-sm font-medium text-[#383B26] mb-1">Target Location</label>
+                <div className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+                  {carouselContext === 'featured' && 'Featured Video (Hero Section)'}
+                  {carouselContext === 'part1' && 'Gut Healing Part 1: Candida Cleanse'}
+                  {carouselContext === 'part2' && 'Gut Healing Part 2: Rebuild & Repair'}
+                </div>
+                <p className="text-xs text-[#8F907E] mt-1">This video will be added to the selected location.</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.video_order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, video_order: parseInt(e.target.value) || 1 }))}
+                  value={formData.order_index}
+                  onChange={(e) => setFormData(prev => ({ ...prev, order_index: parseInt(e.target.value) || 1 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="1"
                   max="5"
@@ -298,46 +345,6 @@ const HealingVideoModal: React.FC<HealingVideoModalProps> = ({
                   placeholder="Brief description of what this healing video covers..."
                 />
                 <p className="mt-1 text-xs text-gray-600">1-2 sentences about the video content and what viewers will learn</p>
-              </div>
-            </div>
-
-            {/* Featured Video Settings */}
-            <div className="p-4 rounded-lg bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_featured}
-                      onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
-                      className="mr-3 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-[#383B26]">Featured Video</span>
-                      <p className="text-xs text-gray-500">Display as the main featured video on the healing page</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-              <div className="p-3 border border-blue-200 rounded-md bg-blue-50">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className="w-5 h-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">Featured Video Behavior</h3>
-                    <div className="mt-1 text-sm text-blue-700">
-                      <p>Featured videos are displayed separately from carousel videos to avoid duplication. When a video is marked as featured:</p>
-                      <ul className="mt-1 space-y-1 list-disc list-inside">
-                        <li>It appears as the main hero video on the healing page</li>
-                        <li>It will NOT appear in the carousel below</li>
-                        <li>Only one video can be featured at a time</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

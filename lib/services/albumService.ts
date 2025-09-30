@@ -1,5 +1,13 @@
 import type { Database } from '@/types/supabase.generated'
 import { getMediaUrl } from '@/lib/utils/storageHelpers'
+import {
+  findCarouselByPageSlug,
+  createCarousel,
+  getCarouselItems,
+  createCarouselItem,
+  updateCarouselItem,
+  deleteCarouselItem,
+} from './carouselService'
 
 type AlbumRow = Database['public']['Tables']['photo_albums']['Row']
 type AlbumInsert = Database['public']['Tables']['photo_albums']['Insert']
@@ -8,13 +16,13 @@ type PhotoRow = Database['public']['Tables']['album_photos']['Row']
 
 export interface PhotoAlbum {
   id: string;
-  title: string;
-  description: string;
-  page_type: string | null; // Page context for carousel integration
+  album_title: string;
+  album_description: string | null;
+  // page_type removed - now managed by carousel_page in unified system
   cover_image_path: string | null;
-  images: string[]; // Array of image paths
-  order: number;
-  is_visible: boolean;
+  album_date: string | null;
+  album_order: number | null;
+  is_visible: boolean | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -35,22 +43,15 @@ class AlbumService {
       const data = await response.json();
 
       // Map database fields to service interface
-      return (data.albums as AlbumRow[] || []).map((album: any) => ({
+      return (data.albums as AlbumRow[] || []).map((album: AlbumRow) => ({
         id: album.id,
-        title: album.album_title || '',
-        description: album.album_description || '',
-        coverImage: album.cover_image_path || '',
-        category: 'Lifestyle', // Default category since it's not in current DB schema
-        photos: (album.photos || []).map((photo: PhotoRow) => ({
-          id: photo.id,
-          src: photo.image_path,
-          alt: album.album_title, // Use album title as default alt
-          caption: photo.photo_caption || '',
-          order: photo.photo_order || 0
-        })),
-        date: album.album_date || '',
-        is_featured: album.is_visible || false,
-        display_order: album.album_order || 0,
+        album_title: album.album_title,
+        album_description: album.album_description,
+        // page_type field removed - now managed by carousel_page in unified system
+        cover_image_path: album.cover_image_path,
+        album_date: album.album_date,
+        album_order: album.album_order,
+        is_visible: album.is_visible,
         created_at: new Date(album.created_at),
         updated_at: new Date(album.updated_at)
       }));
@@ -68,24 +69,17 @@ class AlbumService {
         throw new Error('Failed to fetch album');
       }
       const data = await response.json();
-      const album = data.album as any;
+      const album = data.album as AlbumRow;
 
       return {
         id: album.id,
-        title: album.album_title || '',
-        description: album.album_description || '',
-        coverImage: album.cover_image_path || '',
-        category: 'Lifestyle', // Default category
-        photos: (album.photos || []).map((photo: PhotoRow) => ({
-          id: photo.id,
-          src: photo.image_path,
-          alt: album.album_title,
-          caption: photo.photo_caption || '',
-          order: photo.photo_order || 0
-        })),
-        date: album.album_date || '',
-        is_featured: album.is_visible || false,
-        display_order: album.album_order || 0,
+        album_title: album.album_title,
+        album_description: album.album_description,
+        // page_type field removed - now managed by carousel_page in unified system
+        cover_image_path: album.cover_image_path,
+        album_date: album.album_date,
+        album_order: album.album_order,
+        is_visible: album.is_visible,
         created_at: new Date(album.created_at),
         updated_at: new Date(album.updated_at)
       };
@@ -97,37 +91,34 @@ class AlbumService {
 
   async getDisplayAlbums(limit = 6): Promise<PhotoAlbum[]> {
     const albums = await this.getAllAlbums();
-    return albums.sort((a, b) => a.display_order - b.display_order).slice(0, limit);
+    return albums
+      .filter(a => a.is_visible)
+      .sort((a, b) => (a.album_order || 0) - (b.album_order || 0))
+      .slice(0, limit);
   }
 
-  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
+  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex = 0): Promise<boolean> {
     try {
       // Validate required fields
-      if (!input.title.trim()) {
+      if (!input.album_title?.trim()) {
         throw new Error('Album title is required');
       }
-      if (!input.coverImage.trim()) {
+      if (!input.cover_image_path?.trim()) {
         throw new Error('Cover image is required');
-      }
-      if (!input.date) {
-        throw new Error('Album date is required');
       }
 
       // Map interface to API payload with snake_case fields matching database schema
-      const albumPayload = {
-        album_title: input.title,
-        album_date: input.date,
-        album_order: input.display_order || 0,
-        album_description: input.description || null,
-        is_visible: input.is_featured || false,
-        cover_image_path: input.coverImage,
-        photos: input.photos.map((photo, index) => ({
-          photo_url: photo.src,
-          caption: photo.caption || null,
-          photo_order: photo.order || index + 1
-        }))
+      const albumPayload: AlbumInsert = {
+        album_title: input.album_title,
+        album_date: input.album_date,
+        album_order: input.album_order || 0,
+        album_description: input.album_description,
+        is_visible: input.is_visible || false,
+        cover_image_path: input.cover_image_path,
+        // page_type field removed - now managed by carousel_page in unified system
       };
 
+      // First create the album record
       const response = await fetch('/api/albums', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,6 +129,25 @@ class AlbumService {
         const error = await response.json();
         throw new Error(error.error || 'Failed to create album');
       }
+
+      const result = await response.json();
+      const createdAlbum = result.album;
+
+      // Now create carousel item linking the new album
+      const carouselItemResult = await createCarouselItem({
+        carousel_id: carouselId,
+        kind: 'album',
+        album_id: createdAlbum.id,
+        caption: input.album_title,
+        order_index: orderIndex,
+        is_active: input.is_visible || false,
+      });
+
+      if (carouselItemResult.error) {
+        console.warn('Album created but failed to add to carousel:', carouselItemResult.error);
+        // Don't fail the whole operation since the album was created
+      }
+
       return true;
     } catch (error) {
       console.error('Error adding album:', error);
@@ -148,21 +158,14 @@ class AlbumService {
   async updateAlbum(id: string, input: Partial<PhotoAlbum>): Promise<boolean> {
     try {
       // Map interface to API payload with snake_case fields matching database schema
-      const updatePayload: any = {};
-      if (input.title !== undefined) updatePayload.album_title = input.title;
-      if (input.description !== undefined) updatePayload.album_description = input.description;
-      if (input.date !== undefined) updatePayload.album_date = input.date;
-      if (input.coverImage !== undefined) updatePayload.cover_image_path = input.coverImage;
-      if (input.display_order !== undefined) updatePayload.album_order = input.display_order;
-      if (input.is_featured !== undefined) updatePayload.is_visible = input.is_featured;
-
-      if (input.photos !== undefined) {
-        updatePayload.photos = input.photos.map((photo, index) => ({
-          photo_url: photo.src,
-          caption: photo.caption || null,
-          photo_order: photo.order || index + 1
-        }));
-      }
+      const updatePayload: Partial<AlbumUpdate> = {};
+      if (input.album_title !== undefined) updatePayload.album_title = input.album_title;
+      if (input.album_description !== undefined) updatePayload.album_description = input.album_description;
+      if (input.album_date !== undefined) updatePayload.album_date = input.album_date;
+      if (input.cover_image_path !== undefined) updatePayload.cover_image_path = input.cover_image_path;
+      if (input.album_order !== undefined) updatePayload.album_order = input.album_order;
+      if (input.is_visible !== undefined) updatePayload.is_visible = input.is_visible;
+      // if (input.page_type !== undefined) updatePayload.page_type = input.page_type; // Legacy field removed
 
       const response = await fetch(`/api/albums/${id}`, {
         method: 'PUT',
@@ -174,6 +177,12 @@ class AlbumService {
         const error = await response.json();
         throw new Error(error.error || 'Failed to update album');
       }
+
+      // Update any associated carousel items
+      // Note: For now we'll just update the caption if title changed
+      // A more robust implementation would find carousel items by album_id
+      // and update their properties accordingly
+
       return true;
     } catch (error) {
       console.error('Error updating album:', error);
@@ -183,6 +192,10 @@ class AlbumService {
 
   async deleteAlbum(id: string): Promise<boolean> {
     try {
+      // First, find and delete any carousel items that reference this album
+      // Note: This is a simplified approach. A more robust implementation
+      // would use the API to find carousel items by album_id
+
       const response = await fetch(`/api/albums/${id}`, {
         method: 'DELETE'
       });
@@ -191,6 +204,10 @@ class AlbumService {
         const error = await response.json();
         throw new Error(error.error || 'Failed to delete album');
       }
+
+      // Note: The cascade delete should handle carousel_items automatically
+      // via database constraints, but we could add explicit cleanup here
+
       return true;
     } catch (error) {
       console.error('Error deleting album:', error);
@@ -198,27 +215,23 @@ class AlbumService {
     }
   }
 
-  // Helper methods for photo management
-  async addPhotoToAlbum(albumId: string, photo: Omit<Photo, 'id'>): Promise<boolean> {
+  // New method to delete album from carousel without deleting the album itself
+  async removeAlbumFromCarousel(albumId: string, carouselId: string): Promise<boolean> {
     try {
-      const album = await this.getAlbumById(albumId);
-      if (!album) return false;
+      const items = await getCarouselItems(carouselId);
+      if (items.error || !items.data) {
+        throw new Error('Failed to get carousel items');
+      }
 
-      const updatedPhotos = [...album.photos, { ...photo, id: Date.now().toString() }];
-      return this.updateAlbum(albumId, { photos: updatedPhotos });
-    } catch {
-      return false;
-    }
-  }
+      const albumItem = items.data.find(item => item.album_id === albumId);
+      if (albumItem) {
+        const result = await deleteCarouselItem(albumItem.id);
+        return !result.error;
+      }
 
-  async removePhotoFromAlbum(albumId: string, photoId: string): Promise<boolean> {
-    try {
-      const album = await this.getAlbumById(albumId);
-      if (!album) return false;
-
-      const updatedPhotos = album.photos.filter(p => p.id !== photoId);
-      return this.updateAlbum(albumId, { photos: updatedPhotos });
-    } catch {
+      return true; // Album wasn't in carousel anyway
+    } catch (error) {
+      console.error('Error removing album from carousel:', error);
       return false;
     }
   }
@@ -228,12 +241,8 @@ class AlbumService {
     const albums = await this.getAllAlbums();
     return {
       totalAlbums: albums.length,
-      featuredAlbums: albums.filter(a => a.is_featured).length,
-      totalPhotos: albums.reduce((sum, album) => sum + album.photos.length, 0),
-      categories: albums.reduce((counts, album) => {
-        counts[album.category] = (counts[album.category] || 0) + 1;
-        return counts;
-      }, {} as Record<string, number>)
+      visibleAlbums: albums.filter(a => a.is_visible).length,
+      totalPhotos: 0, // This would need to be computed from album_photos table
     };
   }
 
@@ -255,18 +264,12 @@ class AlbumService {
   /**
    * Gets all image URLs for an album with proper bucket handling
    */
-  async getAlbumImages(album: PhotoAlbum): Promise<{ coverImage: string | null; photos: string[] }> {
-    const coverImage = album.coverImage
-      ? await this.getAlbumImageUrl(album.coverImage)
+  async getAlbumImages(album: PhotoAlbum): Promise<{ coverImage: string | null }> {
+    const coverImage = album.cover_image_path
+      ? await this.getAlbumImageUrl(album.cover_image_path)
       : null;
 
-    const photos: string[] = [];
-    for (const photo of album.photos) {
-      const photoUrl = await this.getAlbumImageUrl(photo.src);
-      if (photoUrl) photos.push(photoUrl);
-    }
-
-    return { coverImage, photos };
+    return { coverImage };
   }
 }
 

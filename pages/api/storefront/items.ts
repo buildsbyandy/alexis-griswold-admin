@@ -7,13 +7,13 @@ import { z } from 'zod'
 
 export const config = { runtime: 'nodejs' }
 
-type Slug = 'favorites' | 'top-picks'
+type Slug = 'storefront-favorites' | 'storefront-top-picks'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const slug = (req.query.slug as Slug) || 'favorites'
-      if (slug !== 'favorites' && slug !== 'top-picks') return res.status(400).json({ error: 'Invalid slug' })
+      const slug = (req.query.slug as Slug) || 'storefront-favorites'
+      if (slug !== 'storefront-favorites' && slug !== 'storefront-top-picks') return res.status(400).json({ error: 'Invalid slug' })
       const result = await listStorefrontItems(slug)
       if (result.error) return res.status(500).json({ error: result.error })
       return res.status(200).json({ items: result.data || [] })
@@ -30,11 +30,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const BodySchema = z.object({
         product_id: z.string().min(1),
-        slug: z.enum(['favorites','top-picks']).optional(),
+        slug: z.enum(['storefront-favorites','storefront-top-picks']).optional(),
         order_index: z.number().int().min(0).optional(),
       })
       const { product_id, slug, order_index } = BodySchema.parse(req.body)
-      const targetSlug: Slug = slug === 'top-picks' ? 'top-picks' : 'favorites'
+      const targetSlug: Slug = slug === 'storefront-top-picks' ? 'storefront-top-picks' : 'storefront-favorites'
       const created = await createStorefrontItem(targetSlug, product_id, order_index)
       if (created.error) return res.status(500).json({ error: created.error })
       return res.status(201).json({ item: created.data })

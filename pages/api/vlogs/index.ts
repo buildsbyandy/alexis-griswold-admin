@@ -61,14 +61,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const result = (vlogRows as VlogRow[]).map((v) => {
         const it = itemByRef.get(v.id)
         const carouselSlug = it?.carousel_slug || null
-        const display_order = it?.order_index ?? 0
+        const order_index = it?.order_index ?? 0
         
         return {
           ...v,
           // Show which carousel this vlog appears in (if any)
-          carousel: carouselSlug === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel',
-          // Show the display order within the carousel
-          display_order,
+          carousel: carouselSlug === 'vlogs-ag-vlogs' ? 'vlogs-ag-vlogs' : 'vlogs-main-channel',
+          // Show the order index within the carousel
+          order_index,
           // Additional carousel metadata for admin interface
           is_in_carousel: !!it,
           carousel_slug: carouselSlug
@@ -88,13 +88,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!email || !isAdminEmail(email)) return res.status(401).json({ error: 'Unauthorized' })
 
     try {
-      const { youtube_url, carousel, title: customTitle, description: customDescription, is_featured, display_order } = req.body as {
+      const { youtube_url, carousel, title: customTitle, description: customDescription } = req.body as {
         youtube_url?: string
-        carousel?: 'main-channel' | 'ag-vlogs'
+        carousel?: 'vlogs-main-channel' | 'vlogs-ag-vlogs'
         title?: string
         description?: string
-        is_featured?: boolean
-        display_order?: number
       }
 
       // Validate required fields
@@ -117,32 +115,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Video not found or private' })
       }
 
-      // Auto-assign display_order if not provided or validate if provided
-      let finalDisplayOrder = display_order
-      if (typeof display_order !== 'number' || display_order < 0) {
-        // Get the highest display_order for this carousel and increment
-        const { data: existingVlogs } = await supabaseAdmin
-          .from('vlogs')
-          .select('display_order')
-          .order('display_order', { ascending: false })
-          .limit(1)
-
-        finalDisplayOrder = existingVlogs?.[0]?.display_order ? existingVlogs[0].display_order + 1 : 1
-      } else {
-        // Check for duplicate display_order
-        const { data: duplicateCheck } = await supabaseAdmin
-          .from('vlogs')
-          .select('id')
-          .eq('display_order', display_order)
-          .limit(1)
-
-        if (duplicateCheck && duplicateCheck.length > 0) {
-          return res.status(400).json({
-            error: `Display order ${display_order} is already in use. Please choose a different number or leave blank for auto-assignment.`
-          })
-        }
-      }
-
       // Prepare vlog data - use custom title/description if provided, otherwise use YouTube data
       const vd = youtubeData.data
       const vlogData: VlogInsert = {
@@ -153,8 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         thumbnail_url: vd.thumbnail_url,
         published_at: vd.published_at,
         duration: vd.duration,
-        is_featured: is_featured || false,
-        display_order: finalDisplayOrder,
+        // carousel, is_featured, display_order fields removed - managed by carousel system
       }
 
       const { data: createdVlog, error } = await supabaseAdmin
@@ -172,7 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Ensure carousel exists
-      const slug = carousel === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel'
+      const slug = carousel === 'vlogs-ag-vlogs' ? 'vlogs-ag-vlogs' : 'vlogs-main-channel'
       let car = await findCarouselByPageSlug('vlogs', slug)
       if (car.error) return res.status(500).json({ error: car.error })
       if (!car.data) {
@@ -182,20 +153,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Create carousel item referencing vlog
-      const order_index = finalDisplayOrder || 0
+      const order_index = 0 // Default order for carousel items
       const caption = createdVlog.title || null
       const itemRes = await createCarouselItem({
         carousel_id: car.data!.id,
         kind: 'video',
         order_index,
-        ref_id: createdVlog.id,
+        youtube_id: createdVlog.youtube_id,
         caption,
         is_active: true,
       })
       if (itemRes.error) return res.status(500).json({ error: itemRes.error })
 
       return res.status(201).json({
-        vlog: { ...createdVlog, carousel: slug, display_order: order_index } as VlogRow,
+        vlog: { ...createdVlog, carousel: slug, order_index: order_index } as VlogRow,
         message: 'Vlog created successfully with YouTube metadata'
       })
       

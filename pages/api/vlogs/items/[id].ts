@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { order_index, carousel_slug } = req.body as { order_index?: number; carousel_slug?: 'main-channel' | 'ag-vlogs' }
+      const { order_index, carousel_slug } = req.body as { order_index?: number; carousel_slug?: 'vlogs-main-channel' | 'vlogs-ag-vlogs' }
 
       const update: any = {}
       if (typeof order_index === 'number') {

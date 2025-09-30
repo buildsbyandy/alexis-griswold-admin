@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('carousels.page', 'healing')
         .eq('kind', 'video')
         .in('carousels.slug', [HEALING_SLUGS[1], HEALING_SLUGS[2]])
-        .eq('is_featured', false)  // Exclude featured videos from carousel
+        // Note: All carousel videos are regular videos (featured videos managed separately)
         .eq('is_active', true) // Only return active items for public consumption
         .order('order_index', { ascending: true });
 
@@ -50,37 +50,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to fetch healing carousel items' });
       }
 
-      // Normalize to UI shape expected (legacy fields)
-      const normalized = await Promise.all((carouselItems || []).map(async (item) => {
+      // Return raw carousel_items data directly (no normalization)
+      const items = await Promise.all((carouselItems || []).map(async (item) => {
         const youtubeId = item.youtube_id || '';
         const url = youtubeService.format_youtube_url(youtubeId).data || '';
-        let title = item.caption || '';
+        let caption = item.caption || '';
         let description = '';
         const meta = await youtubeService.get_video_data(youtubeId);
         if (meta.data) {
-          title = title || meta.data.title;
+          caption = caption || meta.data.title;
           description = meta.data.description;
         }
         return {
           id: item.id!,
           carousel_id: item.carousel_id,
-          youtube_url: url,
+          link_url: url,
           youtube_id: youtubeId,
-          video_title: title,
+          caption: caption,
           video_description: description || null,
-          video_order: item.order_index || 1,
+          order_index: item.order_index || 1,
+          is_active: item.is_active ?? true,
+          // Legacy fields removed - featured status managed by carousel system
           created_at: item.created_at || '',
           updated_at: item.updated_at || '',
-          // extra fields for UI convenience (ignored by types)
+          // UI convenience fields
           carousel: item.carousels?.slug === HEALING_SLUGS[1] ? 'part1' : 'part2',
-          isActive: item.is_active ?? true,
-          order: item.order_index || 1,
         };
       }));
 
-      // Sort by part then order to mimic previous behavior
-      normalized.sort((a, b) => (a.carousel === 'part1' ? 0 : 1) - (b.carousel === 'part1' ? 0 : 1) || a.video_order - b.video_order);
-      return res.status(200).json({ data: normalized });
+      // Sort by carousel then order
+      items.sort((a, b) => (a.carousel === 'part1' ? 0 : 1) - (b.carousel === 'part1' ? 0 : 1) || a.order_index - b.order_index);
+      return res.status(200).json({ data: items });
     } catch (error) {
       console.error('Error in healing carousel videos GET:', error);
       return res.status(500).json({ error: 'Internal server error' });
@@ -89,30 +89,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const { carousel_number, youtube_url, video_title, video_description, video_order, is_featured } = req.body as {
-        carousel_number?: 1 | 2;
+      const { carousel_slug, youtube_url, link_url, caption, video_description, order_index } = req.body as {
+        carousel_slug?: string;
         youtube_url?: string;
-        video_title?: string;
+        link_url?: string;
+        caption?: string;
         video_description?: string;
-        video_order?: number;
-        is_featured?: boolean;
+        order_index?: number;
       };
 
-      if (!youtube_url) return res.status(400).json({ error: 'youtube_url is required' });
-      if (!carousel_number || (carousel_number !== 1 && carousel_number !== 2)) return res.status(400).json({ error: 'carousel_number must be 1 or 2' });
+      const video_url = youtube_url || link_url;
+      if (!video_url) return res.status(400).json({ error: 'youtube_url or link_url is required' });
+      if (!carousel_slug) return res.status(400).json({ error: 'carousel_slug is required' });
+      if (!Object.values(HEALING_SLUGS).includes(carousel_slug)) {
+        return res.status(400).json({ error: 'carousel_slug must be healing-part-1 or healing-part-2' });
+      }
 
-      const urlValidation = youtubeService.validate_youtube_url(youtube_url);
+      const urlValidation = youtubeService.validate_youtube_url(video_url);
       if (urlValidation.error) return res.status(400).json({ error: urlValidation.error });
 
-      const idRes = youtubeService.extract_video_id(youtube_url);
+      const idRes = youtubeService.extract_video_id(video_url);
       if (idRes.error) return res.status(400).json({ error: idRes.error });
       const youtube_id = idRes.data!;
 
-      const requestedOrder = video_order || 1;
-      if (requestedOrder < 1 || requestedOrder > 5) return res.status(400).json({ error: 'video_order must be between 1 and 5' });
+      const requestedOrder = order_index || 1;
+      if (requestedOrder < 1 || requestedOrder > 5) return res.status(400).json({ error: 'order_index must be between 1 and 5' });
 
       // Resolve target carousel by slug (create if missing)
-      const slug = HEALING_SLUGS[carousel_number];
+      const slug = carousel_slug;
       let carousel = await findCarouselByPageSlug('healing', slug);
       if (carousel.error) return res.status(500).json({ error: carousel.error });
       if (!carousel.data) {
@@ -125,14 +129,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const itemsRes = await getCarouselItems(carousel.data!.id);
       if (itemsRes.error) return res.status(500).json({ error: itemsRes.error });
       if ((itemsRes.data || []).some(i => (i.order_index || 0) === requestedOrder)) {
-        return res.status(409).json({ error: `Video order ${requestedOrder} is already taken in carousel ${carousel_number}. Please choose a different order (1-5).` });
+        return res.status(409).json({ error: `Order ${requestedOrder} is already taken in this carousel. Please choose a different order (1-5).` });
       }
 
       // Determine caption (short) and derive metadata for response
-      let caption = video_title || '';
-      if (!caption) {
+      let itemCaption = caption || '';
+      if (!itemCaption) {
         const meta = await youtubeService.get_video_data(youtube_id);
-        if (meta.data) caption = meta.data.title;
+        if (meta.data) itemCaption = meta.data.title;
       }
 
       const insertRes = await createCarouselItem({
@@ -140,28 +144,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         kind: 'video',
         order_index: requestedOrder,
         youtube_id,
-        caption: caption || null,
+        caption: itemCaption || null,
         is_active: true,
-        is_featured: is_featured || false,
+        // Legacy fields removed - featured status managed by carousel system
       });
       if (insertRes.error) return res.status(500).json({ error: insertRes.error });
 
-      // Build normalized response
+      // Build unified response (no normalization)
       const meta = await youtubeService.get_video_data(youtube_id);
-      const url = youtubeService.format_youtube_url(youtube_id).data || youtube_url;
       const response = {
         id: insertRes.data!.id,
         carousel_id: carousel.data!.id,
-        youtube_url: url,
+        link_url: video_url,
         youtube_id,
-        video_title: caption || meta.data?.title || 'Untitled Video',
+        caption: itemCaption || meta.data?.title || 'Untitled Video',
         video_description: video_description || meta.data?.description || null,
-        video_order: requestedOrder,
+        order_index: requestedOrder,
+        is_active: insertRes.data!.is_active,
+        // Legacy fields removed - featured status managed by carousel system
         created_at: insertRes.data!.created_at,
         updated_at: insertRes.data!.updated_at,
-        carousel: carousel_number === 1 ? 'part1' : 'part2',
-        isActive: insertRes.data!.is_active,
-        order: requestedOrder,
+        carousel: slug === HEALING_SLUGS[1] ? 'part1' : 'part2',
       };
 
       return res.status(201).json({ data: response });

@@ -16,11 +16,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method Not Allowed' })
   }
 
-  const { path, contentType, bucket = 'public_media' } = req.body as { path: string; contentType?: string; bucket?: string }
+  const { path, contentType, bucket = 'public' } = req.body as { path: string; contentType?: string; bucket?: string }
   if (!path) return res.status(400).json({ error: 'Missing path' })
 
   // Whitelist allowed buckets for security
-  const allowedBuckets = ['public_media', 'private_media', 'media'] // Keep 'media' for backward compatibility
+  const allowedBuckets = ['public', 'private', 'media'] // Keep 'media' for backward compatibility
   if (!allowedBuckets.includes(bucket)) {
     return res.status(400).json({ error: 'Invalid bucket' })
   }

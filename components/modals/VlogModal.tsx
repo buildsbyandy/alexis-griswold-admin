@@ -21,8 +21,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
     youtubeUrl: '',
     thumbnailUrl: '',
     publishedAt: '',
-    carousel: 'main-channel' as VlogCarouselType,
-    isFeatured: false,
+    carousel: 'vlogs-main-channel' as VlogCarouselType,
     order: 0,
   });
   const [isLoadingYouTubeData, setIsLoadingYouTubeData] = useState(false);
@@ -36,8 +35,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
         thumbnailUrl: vlog.thumbnail_url,
         publishedAt: vlog.published_at,
         carousel: vlog.carousel,
-        isFeatured: vlog.is_featured,
-        order: vlog.display_order,
+        order: vlog.order_index,
       });
     } else {
       // Reset form for new vlog
@@ -47,8 +45,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
         youtubeUrl: '',
         thumbnailUrl: '',
         publishedAt: new Date().toISOString().split('T')[0], // Default to today
-        carousel: 'main-channel',
-        isFeatured: false,
+        carousel: 'vlogs-main-channel',
         order: 0,
       });
     }
@@ -161,8 +158,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
       published_at: formData.publishedAt,
       duration: '', // Duration will be auto-populated by YouTube API
       carousel: formData.carousel,
-      is_featured: formData.isFeatured,
-      display_order: formData.order,
+      order_index: formData.order,
       created_at: vlog ? vlog.created_at : new Date(),
       updated_at: new Date()
     };
@@ -251,8 +247,8 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   required
                 >
-                  <option value="main-channel">{vlogService.CAROUSELS['main-channel'].displayName}</option>
-                  <option value="ag-vlogs">{vlogService.CAROUSELS['ag-vlogs'].displayName}</option>
+                  <option value="vlogs-main-channel">{vlogService.CAROUSELS['vlogs-main-channel'].displayName}</option>
+                  <option value="vlogs-ag-vlogs">{vlogService.CAROUSELS['vlogs-ag-vlogs'].displayName}</option>
                 </select>
                 <p className="text-xs text-[#8F907E] mt-1">Choose which video carousel this will appear in.</p>
               </div>
@@ -351,45 +347,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
               </div>
             </div>
 
-            {/* Settings */}
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isFeatured}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
-                      className="mr-3 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-[#383B26]">Featured Vlog</span>
-                      <p className="text-xs text-gray-500">Display as the main featured video on the vlogs page</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">Featured Video Behavior</h3>
-                    <div className="mt-1 text-sm text-blue-700">
-                      <p>Featured videos are displayed separately from carousel videos to avoid duplication. When a video is marked as featured:</p>
-                      <ul className="mt-1 list-disc list-inside space-y-1">
-                        <li>It appears as the main hero video on the vlogs page</li>
-                        <li>It will NOT appear in the carousel below</li>
-                        <li>Only one video can be featured at a time</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Note: Featured vlog functionality now managed through carousel system */}
           </div>
 
           {/* Footer */}

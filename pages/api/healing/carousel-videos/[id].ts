@@ -33,30 +33,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { youtube_url, video_order, carousel_number, is_featured } = req.body as {
+      const { youtube_url, link_url, order_index, carousel_slug } = req.body as {
         youtube_url?: string;
-        video_order?: number;
-        carousel_number?: 1 | 2;
-        is_featured?: boolean;
+        link_url?: string;
+        order_index?: number;
+        carousel_slug?: string;
       };
 
       const updatePayload: any = {};
 
-      if (youtube_url !== undefined) {
-        const idRes = youtubeService.extract_video_id(youtube_url);
+      const video_url = youtube_url || link_url;
+      if (video_url !== undefined) {
+        const idRes = youtubeService.extract_video_id(video_url);
         if (idRes.error) return res.status(400).json({ error: idRes.error });
         updatePayload.youtube_id = idRes.data;
+        updatePayload.link_url = video_url;
       }
 
-      if (video_order !== undefined) {
-        if (video_order < 1 || video_order > 5) return res.status(400).json({ error: 'video_order must be between 1 and 5' });
-        updatePayload.order_index = video_order;
+      if (order_index !== undefined) {
+        if (order_index < 1 || order_index > 5) return res.status(400).json({ error: 'order_index must be between 1 and 5' });
+        updatePayload.order_index = order_index;
       }
 
-      if (carousel_number !== undefined) {
-        if (carousel_number < 1 || carousel_number > 2) return res.status(400).json({ error: 'carousel_number must be 1 or 2' });
-        const slug = carousel_number === 1 ? 'healing-part-1' : 'healing-part-2';
-        const target = await findCarouselByPageSlug('healing', slug);
+      if (carousel_slug !== undefined) {
+        const target = await findCarouselByPageSlug('healing', carousel_slug);
         if (target.error || !target.data) return res.status(404).json({ error: target.error || 'Target carousel not found' });
 
         // Ensure requested order unique within new carousel
@@ -64,15 +64,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const items = await getCarouselItems(target.data.id);
           if (items.error) return res.status(500).json({ error: items.error });
           if ((items.data || []).some(i => i.order_index === updatePayload.order_index && i.id !== id)) {
-            return res.status(409).json({ error: `Video order ${updatePayload.order_index} is already taken in this carousel.` });
+            return res.status(409).json({ error: `Order ${updatePayload.order_index} is already taken in this carousel.` });
           }
         }
 
         updatePayload.carousel_id = target.data.id;
-      }
-
-      if (is_featured !== undefined) {
-        updatePayload.is_featured = is_featured;
       }
 
       updatePayload.updated_at = new Date().toISOString();

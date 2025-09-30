@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { youtube_url, title: customTitle, description: customDescription, carousel, is_featured, display_order } = req.body
+      const { youtube_url, title: customTitle, description: customDescription, carousel } = req.body
 
       let updateData: VlogUpdate = {
         updated_at: new Date().toISOString()
@@ -76,26 +76,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Update other fields if provided
-      if (carousel !== undefined) updateData.carousel = carousel
-      if (is_featured !== undefined) updateData.is_featured = is_featured
-
-      // Handle display_order with duplicate validation
-      if (display_order !== undefined) {
-        // Check for duplicate display_order (excluding current vlog)
-        const { data: duplicateCheck } = await supabaseAdmin
-          .from('vlogs')
-          .select('id')
-          .eq('display_order', display_order)
-          .neq('id', id)
-          .limit(1)
-
-        if (duplicateCheck && duplicateCheck.length > 0) {
-          return res.status(400).json({
-            error: `Display order ${display_order} is already in use. Please choose a different number.`
-          })
-        }
-        updateData.display_order = display_order
-      }
+      // carousel field removed - now managed by carousel system
+      // Note: is_featured and display_order are legacy fields - not updated via API
 
       const { data, error } = await supabaseAdmin
         .from('vlogs')
@@ -112,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // If carousel is being updated, ensure carousel item exists
       if (carousel !== undefined) {
-        const slug = carousel === 'ag-vlogs' ? 'ag-vlogs' : 'main-channel'
+        const slug = carousel === 'vlogs-ag-vlogs' ? 'vlogs-ag-vlogs' : 'vlogs-main-channel'
         
         // Check if carousel item already exists
         const { data: existingItem } = await supabaseAdmin
@@ -139,13 +121,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
 
           if (car.data) {
-            const order_index = typeof display_order === 'number' ? display_order : 0
+            // Fetch the vlog to get youtube_id
+            const { data: vlogData, error: vlogError } = await supabaseAdmin
+              .from('vlogs')
+              .select('youtube_id')
+              .eq('id', id)
+              .single()
+
+            if (vlogError || !vlogData?.youtube_id) {
+              console.error('Error fetching vlog youtube_id:', vlogError)
+              return res.status(404).json({ error: 'Vlog not found or missing youtube_id' })
+            }
+
+            const item_order_index = 0 // Default order for carousel items
             const caption = data.title || null
             const itemRes = await createCarouselItem({
               carousel_id: car.data.id,
               kind: 'video',
-              order_index,
-              ref_id: id,
+              order_index: item_order_index,
+              youtube_id: vlogData.youtube_id,
               caption,
               is_active: true,
             })

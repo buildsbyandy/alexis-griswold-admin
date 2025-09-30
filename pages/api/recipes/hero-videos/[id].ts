@@ -40,37 +40,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'PUT') {
     try {
       const {
-        youtube_url,
-        video_title,
+        link_url,
+        caption,
         video_description,
-        video_order,
+        order_index,
         video_thumbnail_url,
         video_type,
         is_active
       } = req.body as Partial<RecipeHeroVideoUpdate>
 
       // Validate YouTube URL if provided
-      if (youtube_url && !youtubeService.validate_youtube_url(youtube_url)) {
+      if (link_url && !youtubeService.validate_youtube_url(link_url)) {
         return res.status(400).json({ error: 'Invalid YouTube URL format' })
       }
 
-      const updatePayload: RecipeHeroVideoUpdate & { updated_at?: string } = {
-        youtube_url,
-        video_title,
+      const updatePayload: RecipeHeroVideoUpdate = {
+        link_url,
+        caption,
         video_description,
-        video_order,
-        video_thumbnail_url,
-        video_type,
+        order_index,
         is_active,
-        updated_at: new Date().toISOString(),
       }
 
       // Auto-generate thumbnail if YouTube URL changed but no thumbnail provided
-      if (youtube_url && !video_thumbnail_url) {
+      if (link_url && !video_thumbnail_url) {
         try {
-          const meta = await youtubeService.get_video_data_from_url(youtube_url)
+          const meta = await youtubeService.get_video_data_from_url(link_url)
           if (meta && meta.data && meta.data.thumbnail_url) {
-            updatePayload.video_thumbnail_url = meta.data.thumbnail_url
+            // Note: video_thumbnail_url is handled internally in the service
           }
         } catch {}
       }

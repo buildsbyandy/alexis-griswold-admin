@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaPlus, FaTrash } from 'react-icons/fa';
 import type { Recipe, RecipeStatus } from '../../lib/services/recipeService';
+import recipeService from '../../lib/services/recipeService';
+import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
 import FileUpload from '../ui/FileUpload';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
@@ -29,7 +31,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     is_beginner: false,
     is_recipe_of_week: false,
     status: 'published' as RecipeStatus,
-    is_favorite: false,
+    // Legacy is_favorite field removed - featured status managed by carousel system
     hero_image_path: '',
     images: [] as string[],
     ingredients: [''],
@@ -42,6 +44,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
   });
 
   const [newTag, setNewTag] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -68,7 +72,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         is_beginner: recipe.is_beginner,
         is_recipe_of_week: recipe.is_recipe_of_week,
         status: recipe.status || 'published',
-        is_favorite: recipe.is_favorite || false,
+        // Legacy is_favorite field removed - featured status managed by carousel system
         hero_image_path: recipe.hero_image_path || '',
         images: recipe.images,
         ingredients: recipe.ingredients.length > 0 ? recipe.ingredients : [''],
@@ -90,7 +94,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         is_beginner: false,
         is_recipe_of_week: false,
         status: 'published' as RecipeStatus,
-        is_favorite: false,
+        // Legacy is_favorite field removed - featured status managed by carousel system
         hero_image_path: '',
         images: [],
         ingredients: [''],
@@ -105,6 +109,42 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     // Always reset the tag input when modal opens/closes
     setNewTag('');
   }, [recipe, isOpen]);
+
+  // Check if current recipe is in favorites carousel
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (!recipe?.id || !isOpen) {
+        setIsFavorite(false);
+        return;
+      }
+
+      try {
+        setIsCheckingFavorite(true);
+        const carousel = await findCarouselByPageSlug('recipes', 'recipes-favorites');
+        if (carousel.error || !carousel.data) {
+          setIsFavorite(false);
+          return;
+        }
+
+        const items = await getCarouselItems(carousel.data.id);
+        if (items.error || !items.data) {
+          setIsFavorite(false);
+          return;
+        }
+
+        // Check if recipe exists in favorites carousel
+        const isFav = items.data.some(item => item.ref_id === recipe.id);
+        setIsFavorite(isFav);
+      } catch (error) {
+        console.error('Error checking favorite status:', error);
+        setIsFavorite(false);
+      } finally {
+        setIsCheckingFavorite(false);
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [recipe?.id, isOpen]);
 
   const generateSlug = (title: string) => {
     return title
@@ -211,6 +251,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
       // Add required timestamp fields for the Recipe interface
       const recipeData = {
         ...formData,
+        is_favorite: false, // Legacy field - will be ignored by API but required by interface
         created_at: recipe ? recipe.created_at : new Date(),
         updated_at: new Date()
       };
@@ -621,8 +662,30 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.is_favorite}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_favorite: e.target.checked }))}
+                  checked={isFavorite}
+                  onChange={async (e) => {
+                    const isChecked = e.target.checked;
+                    if (!recipe?.id) return;
+
+                    try {
+                      setIsCheckingFavorite(true);
+
+                      // Use the recipeService set_favorite method
+                      const success = await recipeService.set_favorite(recipe.id, isChecked);
+                      if (!success) throw new Error('Failed to update favorite status');
+
+                      setIsFavorite(isChecked);
+                      toast.success(isChecked ? 'Added to Favorites' : 'Removed from Favorites');
+                    } catch (error) {
+                      toast.error('Failed to update Favorites');
+                      console.error('Error toggling favorite:', error);
+                      // Revert the checkbox state on error
+                      setIsFavorite(!isChecked);
+                    } finally {
+                      setIsCheckingFavorite(false);
+                    }
+                  }}
+                  disabled={!recipe?.id || isCheckingFavorite}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Favorite</span>

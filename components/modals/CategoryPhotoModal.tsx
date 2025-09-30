@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaImage, FaUpload } from 'react-icons/fa';
-import type { StorefrontCategoryRow } from '../../lib/types/storefront';
+import { FaTimes, FaSave, FaImage, FaUpload, FaStar, FaPlus, FaTrash } from 'react-icons/fa';
+import type { StorefrontCategoryRow, StorefrontProductRow } from '../../lib/types/storefront';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
 import FileUpload from '../ui/FileUpload';
@@ -14,20 +14,109 @@ interface CategoryPhotoModalProps {
   onUpdate: () => void;
 }
 
-const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  categories, 
-  onUpdate 
+const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
+  isOpen,
+  onClose,
+  categories,
+  onUpdate
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<StorefrontCategoryRow | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState<'photo' | 'featured'>('photo');
+  const [featuredProducts, setFeaturedProducts] = useState<Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>>([]);
+  const [availableProducts, setAvailableProducts] = useState<StorefrontProductRow[]>([]);
+  const [isLoadingFeatured, setIsLoadingFeatured] = useState(false);
 
   useEffect(() => {
     if (isOpen && categories.length > 0 && !selectedCategory) {
       setSelectedCategory(categories[0]);
     }
   }, [isOpen, categories, selectedCategory]);
+
+  useEffect(() => {
+    if (selectedCategory && activeTab === 'featured') {
+      loadFeaturedProducts();
+      loadAvailableProducts();
+    }
+  }, [selectedCategory, activeTab]); // loadFeaturedProducts and loadAvailableProducts are stable functions
+
+  const loadFeaturedProducts = async () => {
+    if (!selectedCategory) return;
+
+    setIsLoadingFeatured(true);
+    try {
+      const featured = await storefrontService.list_featured_products_for_category(selectedCategory.slug);
+      setFeaturedProducts(featured);
+    } catch (error) {
+      console.error('Error loading featured products:', error);
+      toast.error('Failed to load featured products');
+    } finally {
+      setIsLoadingFeatured(false);
+    }
+  };
+
+  const loadAvailableProducts = async () => {
+    if (!selectedCategory) return;
+
+    try {
+      const products = await storefrontService.get_storefront_products({
+        filters: { category_slug: selectedCategory.slug, status: 'published' }
+      });
+      setAvailableProducts(products);
+    } catch (error) {
+      console.error('Error loading available products:', error);
+      toast.error('Failed to load available products');
+    }
+  };
+
+  const handleAddFeaturedProduct = async (productId: string) => {
+    if (!selectedCategory) return;
+
+    setIsUpdating(true);
+    try {
+      const success = await storefrontService.add_featured_product_to_category(
+        selectedCategory.slug,
+        productId,
+        featuredProducts.length // Add at the end
+      );
+
+      if (success) {
+        await loadFeaturedProducts();
+        toast.success('Product added to featured list!');
+      } else {
+        toast.error('Failed to add product to featured list');
+      }
+    } catch (error) {
+      console.error('Error adding featured product:', error);
+      toast.error('Failed to add product to featured list');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRemoveFeaturedProduct = async (productId: string) => {
+    if (!selectedCategory) return;
+
+    setIsUpdating(true);
+    try {
+      const success = await storefrontService.remove_featured_product_from_category(
+        selectedCategory.slug,
+        productId
+      );
+
+      if (success) {
+        await loadFeaturedProducts();
+        toast.success('Product removed from featured list!');
+      } else {
+        toast.error('Failed to remove product from featured list');
+      }
+    } catch (error) {
+      console.error('Error removing featured product:', error);
+      toast.error('Failed to remove product from featured list');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleImageUpload = async (imageUrl: string) => {
     if (!selectedCategory) return;
@@ -76,7 +165,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
             <FaImage className="mr-3 text-[#B8A692]" />
-            Update Category Photos
+            Manage Category
           </h2>
           <button
             type="button"
@@ -85,6 +174,34 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
           >
             <FaTimes className="w-6 h-6" />
           </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b">
+          <nav className="flex space-x-8 px-6">
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'photo'
+                  ? 'border-[#B8A692] text-[#383B26]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveTab('photo')}
+            >
+              <FaImage className="inline mr-2" />
+              Category Photo
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'featured'
+                  ? 'border-[#B8A692] text-[#383B26]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveTab('featured')}
+            >
+              <FaStar className="inline mr-2" />
+              Featured Products
+            </button>
+          </nav>
         </div>
 
         <div className="p-6 space-y-6">
@@ -108,6 +225,10 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Tab Content */}
+          {activeTab === 'photo' && (
+            <>
 
           {/* Current Image Display */}
           {selectedCategory && (
@@ -196,11 +317,87 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                   <div><strong>Description:</strong> {selectedCategory.category_description}</div>
                 )}
                 <div><strong>Status:</strong> {selectedCategory.is_visible ? 'Visible' : 'Hidden'}</div>
-                {selectedCategory.is_featured && (
-                  <div><strong>Featured:</strong> Yes</div>
-                )}
+                {/* Legacy is_featured field removed - featured status managed by carousel system */}
               </div>
             </div>
+          )}
+          </>
+          )}
+
+          {/* Featured Products Tab */}
+          {activeTab === 'featured' && selectedCategory && (
+            <>
+              <div>
+                <h3 className="font-medium text-[#383B26] mb-3">Featured Products for {selectedCategory.category_name}</h3>
+
+                {isLoadingFeatured ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Loading featured products...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Current Featured Products */}
+                    {featuredProducts.length > 0 ? (
+                      <div className="space-y-2 mb-6">
+                        <h4 className="text-sm font-medium text-gray-700">Currently Featured:</h4>
+                        {featuredProducts.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                            <div>
+                              <span className="font-medium">{product.product_title}</span>
+                              <span className="text-sm text-gray-500 ml-2">(Order: {product.order_index})</span>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveFeaturedProduct(product.ref_id)}
+                              disabled={isUpdating}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              <FaTrash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 bg-gray-50 rounded-md mb-6">
+                        <FaStar className="mx-auto text-2xl text-gray-400 mb-2" />
+                        <p className="text-gray-500">No featured products for this category</p>
+                      </div>
+                    )}
+
+                    {/* Available Products to Add */}
+                    {availableProducts.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Add Products to Featured:</h4>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {availableProducts
+                            .filter(product => !featuredProducts.some(fp => fp.ref_id === product.id))
+                            .map((product) => (
+                              <div key={product.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-md">
+                                <div>
+                                  <span className="font-medium">{product.product_title}</span>
+                                  <span className="text-sm text-gray-500 ml-2">({product.status})</span>
+                                </div>
+                                <button
+                                  onClick={() => handleAddFeaturedProduct(product.id)}
+                                  disabled={isUpdating}
+                                  className="text-[#B8A692] hover:text-[#A0956C] disabled:opacity-50"
+                                >
+                                  <FaPlus className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {availableProducts.length === 0 && (
+                      <div className="text-center py-4 bg-yellow-50 rounded-md">
+                        <p className="text-yellow-600">No published products found in this category</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
 

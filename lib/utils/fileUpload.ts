@@ -24,7 +24,7 @@ export class FileUploadService {
   private static async getSignedUploadUrl(
     path: string,
     contentType?: string,
-    bucket: string = 'public_media'
+    bucket: string = 'public'
   ): Promise<{ signedUrl: string; path: string }> {
     const response = await fetch('/api/storage/signed-upload', {
       method: 'POST',

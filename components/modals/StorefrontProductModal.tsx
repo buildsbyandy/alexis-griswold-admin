@@ -7,6 +7,7 @@ import { parseSupabaseUrl } from '@/util/imageUrl';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 import storefrontService from '../../lib/services/storefrontService';
+import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
 
 interface StorefrontProductModalProps {
   isOpen: boolean;
@@ -27,11 +28,13 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
     description: '',
     tags: [],
     is_alexis_pick: false,
-    is_favorite: false,
+    // Legacy is_favorite field removed - featured status managed by carousel system
     status: 'draft',
   });
 
   const [newTag, setNewTag] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -46,7 +49,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
         description: product.description || '',
         tags: product.tags || [],
         is_alexis_pick: false, // Will be loaded from carousel system
-        is_favorite: false,    // Will be loaded from carousel system
+        // Legacy is_favorite field removed - featured status managed by carousel system
         status: product.status || 'draft',
       });
     } else {
@@ -61,11 +64,47 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
         description: '',
         tags: [],
         is_alexis_pick: false,
-        is_favorite: false,
+        // Legacy is_favorite field removed - featured status managed by carousel system
         status: 'draft',
       });
     }
   }, [product]);
+
+  // Check if current product is in favorites carousel
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (!product?.id || !isOpen) {
+        setIsFavorite(false);
+        return;
+      }
+
+      try {
+        setIsCheckingFavorite(true);
+        const carousel = await findCarouselByPageSlug('storefront', 'storefront-favorites');
+        if (carousel.error || !carousel.data) {
+          setIsFavorite(false);
+          return;
+        }
+
+        const items = await getCarouselItems(carousel.data.id);
+        if (items.error || !items.data) {
+          setIsFavorite(false);
+          return;
+        }
+
+        // Check if product exists in favorites carousel
+        const isFav = items.data.some(item => item.ref_id === product.id);
+        setIsFavorite(isFav);
+      } catch (error) {
+        console.error('Error checking favorite status:', error);
+        setIsFavorite(false);
+      } finally {
+        setIsCheckingFavorite(false);
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [product?.id, isOpen]);
 
   // Use the utility function for slug generation
 
@@ -395,20 +434,30 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={formData.is_favorite}
+                  checked={isFavorite}
                   onChange={async (e) => {
-                    const checked = e.target.checked;
-                    setFormData(prev => ({ ...prev, is_favorite: checked }));
+                    const isChecked = e.target.checked;
                     if (!product?.id) return;
+
                     try {
-                      const ok = await storefrontService.set_favorite(product.id, checked);
-                      if (!ok) throw new Error('Failed');
-                      toast.success(checked ? 'Added to Favorites' : 'Removed from Favorites');
-                    } catch {
+                      setIsCheckingFavorite(true);
+
+                      // Use the storefrontService set_favorite method
+                      const success = await storefrontService.set_favorite(product.id, isChecked);
+                      if (!success) throw new Error('Failed to update favorite status');
+
+                      setIsFavorite(isChecked);
+                      toast.success(isChecked ? 'Added to Favorites' : 'Removed from Favorites');
+                    } catch (error) {
                       toast.error('Failed to update Favorites');
+                      console.error('Error toggling favorite:', error);
+                      // Revert the checkbox state on error
+                      setIsFavorite(!isChecked);
+                    } finally {
+                      setIsCheckingFavorite(false);
                     }
                   }}
-                  disabled={!product?.id}
+                  disabled={!product?.id || isCheckingFavorite}
                   className="mr-2"
                 />
                 <span className="text-sm text-[#383B26]">Favorite</span>

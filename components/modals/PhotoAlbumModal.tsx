@@ -1,81 +1,62 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaImage, FaPlus, FaTrash, FaUpload } from 'react-icons/fa';
-import type { PhotoAlbum, Photo } from '../../lib/services/albumService';
+import { FaTimes, FaSave, FaImage } from 'react-icons/fa';
+import type { PhotoAlbum } from '../../lib/services/albumService';
 import ImageUpload from '../admin/ImageUpload';
-import SecureImage from '../admin/SecureImage';
-import { parseSupabaseUrl } from '@/util/imageUrl';
 import toast from 'react-hot-toast';
 
 interface PhotoAlbumModalProps {
   isOpen: boolean;
   onClose: () => void;
   album?: PhotoAlbum | null;
-  onSave: (album: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  onSave: (album: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex?: number) => Promise<void>;
   forcePageType?: string; // Auto-assign page_type for carousel context
+  carouselId: string; // Required carousel ID for new albums
 }
 
-type PhotoCategory = 'Home' | 'Lifestyle' | 'Food' | 'Travel' | 'Wellness' | 'Fitness';
 
-const isValidCategory = (category: string): category is PhotoCategory => {
-  return ['Home', 'Lifestyle', 'Food', 'Travel', 'Wellness', 'Fitness'].includes(category);
-};
-
-const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, album, onSave, forcePageType }) => {
+const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, album, onSave, forcePageType, carouselId }) => {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    coverImage: '',
-    category: 'Lifestyle' as PhotoCategory,
-    date: '',
-    is_featured: false,
-    display_order: 0,
-    photos: [] as Photo[]
+    album_title: '',
+    album_description: '',
+    cover_image_path: '',
+    album_date: '',
+    is_visible: false,
+    album_order: 0
   });
 
-  const [newPhoto, setNewPhoto] = useState({
-    src: '',
-    alt: '',
-    caption: ''
-  });
-
-  const [showAddPhoto, setShowAddPhoto] = useState(false);
 
   useEffect(() => {
     if (album) {
       setFormData({
-        title: album.title,
-        description: album.description,
-        coverImage: album.coverImage,
-        category: isValidCategory(album.category) ? album.category : 'Lifestyle',
-        date: album.date,
-        is_featured: album.is_featured,
-        display_order: album.display_order,
-        photos: album.photos || []
+        album_title: album.album_title,
+        album_description: album.album_description || '',
+        cover_image_path: album.cover_image_path || '',
+        album_date: album.album_date || '',
+        is_visible: album.is_visible || false,
+        album_order: album.album_order || 0
       });
     } else {
       // Reset form for new album
       setFormData({
-        title: '',
-        description: '',
-        coverImage: '',
-        category: 'Lifestyle',
-        date: new Date().toISOString().split('T')[0],
-        is_featured: false,
-        display_order: 0,
-        photos: []
+        album_title: '',
+        album_description: '',
+        cover_image_path: '',
+        album_date: new Date().toISOString().split('T')[0],
+        is_visible: false,
+        album_order: 0
       });
     }
   }, [album]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.title.trim()) {
+
+    if (!formData.album_title.trim()) {
       toast.error('Album title is required');
       return;
     }
 
-    if (!formData.coverImage.trim()) {
+    if (!formData.cover_image_path.trim()) {
       toast.error('Cover image is required');
       return;
     }
@@ -83,17 +64,15 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     try {
       // Map form data to PhotoAlbum interface
       const albumData = {
-        title: formData.title,
-        description: formData.description,
+        album_title: formData.album_title,
+        album_description: formData.album_description || null,
         page_type: forcePageType || null, // Auto-assign page_type for carousel context
-        cover_image_path: formData.coverImage,
-        images: formData.photos.map(p => p.src), // Convert photos to image paths
-        order: formData.display_order,
-        is_visible: !formData.is_featured, // Map is_featured to is_visible (inverted logic)
-        created_at: album ? album.created_at : new Date(),
-        updated_at: new Date()
+        cover_image_path: formData.cover_image_path,
+        album_date: formData.album_date || null,
+        album_order: formData.album_order,
+        is_visible: formData.is_visible
       };
-      await onSave(albumData);
+      await onSave(albumData, carouselId, formData.album_order);
       onClose();
       toast.success(`Album ${album ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -102,35 +81,6 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     }
   };
 
-  const handleAddPhoto = () => {
-    if (!newPhoto.src.trim() || !newPhoto.alt.trim()) {
-      toast.error('Photo image and alt text are required');
-      return;
-    }
-
-    const photo: Photo = {
-      id: Date.now().toString(),
-      src: newPhoto.src,
-      alt: newPhoto.alt,
-      caption: newPhoto.caption,
-      order: formData.photos.length + 1
-    };
-
-    setFormData(prev => ({
-      ...prev,
-      photos: [...prev.photos, photo]
-    }));
-
-    setNewPhoto({ src: '', alt: '', caption: '' });
-    setShowAddPhoto(false);
-  };
-
-  const handleRemovePhoto = (photoId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      photos: prev.photos.filter(p => p.id !== photoId)
-    }));
-  };
 
   if (!isOpen) return null;
 
@@ -160,35 +110,19 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Album Title *</label>
                 <input
                   type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  value={formData.album_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, album_title: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="Enter album title..."
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  required
-                >
-                  <option value="Lifestyle">Lifestyle</option>
-                  <option value="Food">Food</option>
-                  <option value="Travel">Travel</option>
-                  <option value="Wellness">Wellness</option>
-                  <option value="Fitness">Fitness</option>
-                  <option value="Home">Home</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Album Date</label>
                 <input
                   type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                  value={formData.album_date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, album_date: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 />
               </div>
@@ -196,8 +130,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
                 <input
                   type="number"
-                  value={formData.display_order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
+                  value={formData.album_order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, album_order: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   min="0"
                 />
@@ -205,13 +139,13 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
               <div className="flex items-center">
                 <input
                   type="checkbox"
-                  id="featured"
-                  checked={formData.is_featured}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
+                  id="visible"
+                  checked={formData.is_visible}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_visible: e.target.checked }))}
                   className="mr-2"
                 />
-                <label htmlFor="featured" className="text-sm font-medium text-[#383B26]">
-                  Featured Album
+                <label htmlFor="visible" className="text-sm font-medium text-[#383B26]">
+                  Visible on Site
                 </label>
               </div>
             </div>
@@ -219,8 +153,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Description</label>
               <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                value={formData.album_description}
+                onChange={(e) => setFormData(prev => ({ ...prev, album_description: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Enter album description..."
               />
@@ -230,8 +164,8 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Cover Image *</label>
               <ImageUpload
-                value={formData.coverImage ? [formData.coverImage] : []}
-                onChange={(urls) => setFormData(prev => ({ ...prev, coverImage: urls[0] || '' }))}
+                value={formData.cover_image_path ? [formData.cover_image_path] : []}
+                onChange={(urls) => setFormData(prev => ({ ...prev, cover_image_path: urls[0] || '' }))}
                 maxImages={1}
                 folder="albums"
                 placeholder="Upload cover image"
@@ -239,117 +173,6 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
               />
             </div>
 
-            {/* Photos Section */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#383B26]">Photos ({formData.photos.length})</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowAddPhoto(true)}
-                  className="px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center"
-                >
-                  <FaPlus className="mr-1" />
-                  Add Photo
-                </button>
-              </div>
-
-              {/* Photo List */}
-              {formData.photos.length > 0 ? (
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {formData.photos.map((photo) => (
-                    <div key={photo.id} className="flex items-center p-3 border border-gray-200 rounded-md">
-{(() => {
-                        const parsedUrl = parseSupabaseUrl(photo.src)
-                        if (parsedUrl) {
-                          return (
-                            <SecureImage
-                              bucket={parsedUrl.bucket}
-                              path={parsedUrl.path}
-                              alt={photo.alt}
-                              width={64}
-                              height={64}
-                              className="w-16 h-16 object-cover rounded mr-3"
-                            />
-                          )
-                        } else {
-                          return (
-                            <div className="w-16 h-16 bg-gray-200 rounded mr-3 flex items-center justify-center">
-                              <span className="text-gray-400 text-xs">Invalid</span>
-                            </div>
-                          )
-                        }
-                      })()}
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{photo.alt}</p>
-                        {photo.caption && <p className="text-xs text-gray-600">{photo.caption}</p>}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePhoto(photo.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <FaTrash className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 border border-gray-200 rounded-md">
-                  <FaImage className="mx-auto text-3xl mb-2 opacity-50" />
-                  <p>No photos added yet</p>
-                </div>
-              )}
-
-              {/* Add Photo Form */}
-              {showAddPhoto && (
-                <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
-                  <h4 className="font-medium text-[#383B26] mb-3">Add New Photo</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-[#383B26] mb-1">Photo Image</label>
-                      <ImageUpload
-                        value={newPhoto.src ? [newPhoto.src] : []}
-                        onChange={(urls) => setNewPhoto(prev => ({ ...prev, src: urls[0] || '' }))}
-                        maxImages={1}
-                        folder="albums"
-                        placeholder="Upload photo image"
-                        showPreview={true}
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={newPhoto.alt}
-                      onChange={(e) => setNewPhoto(prev => ({ ...prev, alt: e.target.value }))}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      placeholder="Alt text (required)..."
-                    />
-                    <input
-                      type="text"
-                      value={newPhoto.caption}
-                      onChange={(e) => setNewPhoto(prev => ({ ...prev, caption: e.target.value }))}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                      placeholder="Caption (optional)..."
-                    />
-                    <div className="flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={handleAddPhoto}
-                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                      >
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddPhoto(false)}
-                        className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Footer */}

@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]'
 import isAdminEmail from '../../../lib/auth/isAdminEmail'
 import supabase from '@/lib/supabase'
 import type { Database } from '@/types/supabase.generated'
+import { getCarouselItemsDB, createCarouselItemDB } from '@/lib/db/carousels'
 
 export type CarouselItemRow = Database['public']['Tables']['carousel_items']['Row']
 export type CarouselItemInsert = Database['public']['Tables']['carousel_items']['Insert']
@@ -28,19 +29,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { carousel_id, page, slug, use_view } = req.query
 
       if (carousel_id && typeof carousel_id === 'string') {
-        // Get items for specific carousel
-        const { data, error } = await supabase
-          .from('carousel_items')
-          .select('*')
-          .eq('carousel_id', carousel_id)
-          .eq('is_active', true) // Only return active items for public consumption
-          .order('order_index', { ascending: true })
+        // Get items for specific carousel using DB function
+        const result = await getCarouselItemsDB(carousel_id)
 
-        if (error) {
-          return res.status(500).json({ error: error.message })
+        if (result.error) {
+          return res.status(500).json({ error: result.error })
         }
 
-        return res.status(200).json({ data: data || [] })
+        return res.status(200).json({ data: result.data || [] })
       }
 
       if (page && typeof page === 'string') {
@@ -114,34 +110,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'carousel_id is required' })
       }
 
-      // Validate exclusivity: cannot have both youtube_id and album_id
-      const hasYoutube = !!input.youtube_id
-      const hasAlbum = !!input.album_id
+      // Validate based on the kind of content being created
+      const kind = input.kind
 
-      if (hasYoutube && hasAlbum) {
+      if (kind === 'video') {
+        if (!input.youtube_id) {
+          return res.status(400).json({
+            error: 'Video carousel items must have a youtube_id.'
+          })
+        }
+      } else if (kind === 'album') {
+        if (!input.album_id) {
+          return res.status(400).json({
+            error: 'Album carousel items must have an album_id.'
+          })
+        }
+      } else if (kind === 'recipe' || kind === 'product') {
+        if (!input.ref_id) {
+          return res.status(400).json({
+            error: `${kind} carousel items must have a ref_id.`
+          })
+        }
+      } else if (kind === 'tiktok' || kind === 'external') {
+        if (!input.link_url) {
+          return res.status(400).json({
+            error: `${kind} carousel items must have a link_url.`
+          })
+        }
+      } else {
         return res.status(400).json({
-          error: 'Carousel items cannot have both YouTube video and album assigned. Please choose one content type.'
+          error: `Unknown carousel item kind: ${kind}`
         })
       }
 
-      if (!hasYoutube && !hasAlbum) {
-        return res.status(400).json({
-          error: 'Carousel items must have either a YouTube video or album assigned.'
-        })
-      }
-
-      const { data, error } = await supabase.from('carousel_items').insert(input).select('*').single()
-      if (error) {
+      const result = await createCarouselItemDB(input)
+      if (result.error) {
         // Check for database constraint violations
-        if (error.message?.includes('check constraint') && error.message?.includes('youtube_album_exclusivity')) {
+        if (result.error?.includes('check constraint') && result.error?.includes('youtube_album_exclusivity')) {
           return res.status(400).json({
             error: 'Database constraint violation: Cannot assign both YouTube video and album to the same carousel item.'
           })
         }
-        return res.status(500).json({ error: error.message })
+        return res.status(500).json({ error: result.error })
       }
 
-      return res.status(201).json({ data })
+      return res.status(201).json({ data: result.data })
     } catch (error) {
       console.error('Error creating carousel item:', error)
       return res.status(500).json({ error: 'Internal server error' })

@@ -1,5 +1,12 @@
 import type { Database } from '@/types/supabase.generated'
 import { getMediaUrl, type ContentStatus } from '@/lib/utils/storageHelpers'
+import {
+  findCarouselByPageSlug,
+  createCarousel,
+  getCarouselItems,
+  createCarouselItem,
+  deleteCarouselItem,
+} from './carouselService'
 
 type RecipeRow = Database['public']['Tables']['recipes']['Row']
 type RecipeInsert = Database['public']['Tables']['recipes']['Insert']
@@ -525,6 +532,180 @@ class RecipeService {
     }
 
     return imageUrls;
+  }
+
+  // Featured recipe methods using carousel system
+  async getFeaturedRecipe(): Promise<Recipe | null> {
+    try {
+      // Use carousel system to get the featured recipe
+      const carousel = await findCarouselByPageSlug('recipes', 'recipes-weekly-pick');
+      if (carousel.error || !carousel.data) {
+        return null;
+      }
+
+      const items = await getCarouselItems(carousel.data.id);
+      if (items.error || !items.data || items.data.length === 0) {
+        return null;
+      }
+
+      // Get the first (and should be only) item from the featured carousel
+      const featuredItem = items.data[0];
+      if (!featuredItem.ref_id) {
+        return null;
+      }
+
+      // Fetch the actual recipe data
+      const featuredRecipe = await this.getRecipe(featuredItem.ref_id);
+      return featuredRecipe;
+    } catch (error) {
+      console.error('Error fetching featured recipe from carousel:', error);
+      return null;
+    }
+  }
+
+  async setFeaturedRecipe(recipeId: string): Promise<boolean> {
+    try {
+      // 1. Find or create the 'recipes-weekly-pick' carousel
+      let carousel = await findCarouselByPageSlug('recipes', 'recipes-weekly-pick');
+      if (carousel.error || !carousel.data) {
+        // Create the carousel if it doesn't exist
+        const created = await createCarousel({
+          page: 'recipes',
+          slug: 'recipes-weekly-pick',
+          title: 'Weekly Pick',
+          is_active: true
+        });
+        if (created.error) {
+          return false;
+        }
+        carousel = { data: created.data };
+      }
+
+      // 2. Delete all existing items from the featured carousel to enforce "only one" rule
+      const currentItems = await getCarouselItems(carousel.data!.id);
+      if (currentItems.data && currentItems.data.length > 0) {
+        for (const item of currentItems.data) {
+          await deleteCarouselItem(item.id);
+        }
+      }
+
+      // 3. Get the recipe data to create a proper carousel item
+      const recipe = await this.getRecipe(recipeId);
+      if (!recipe) {
+        return false;
+      }
+
+      // 4. Create one new carousel_item that links the recipeId to the featured carousel
+      const result = await createCarouselItem({
+        carousel_id: carousel.data!.id,
+        kind: 'recipe',
+        ref_id: recipeId,
+        caption: recipe.title,
+        order_index: 0,
+        is_active: true,
+        album_id: null,
+        youtube_id: null,
+        link_url: null,
+        image_path: recipe.hero_image_path || null,
+        badge: null,
+      });
+
+      return !result.error;
+    } catch (error) {
+      console.error('Error setting featured recipe:', error);
+      return false;
+    }
+  }
+
+  async removeFeaturedRecipe(): Promise<boolean> {
+    try {
+      // Find the 'recipes-weekly-pick' carousel
+      const carousel = await findCarouselByPageSlug('recipes', 'recipes-weekly-pick');
+      if (carousel.error || !carousel.data) {
+        return true; // Already no featured recipe
+      }
+
+      // Delete all items from the featured carousel
+      const currentItems = await getCarouselItems(carousel.data.id);
+      if (currentItems.data && currentItems.data.length > 0) {
+        for (const item of currentItems.data) {
+          await deleteCarouselItem(item.id);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error removing featured recipe:', error);
+      return false;
+    }
+  }
+
+  // Favorite recipe methods using carousel system
+  async set_favorite(recipeId: string, on: boolean): Promise<boolean> {
+    try {
+      // 1. Ensure favorites carousel exists
+      let carousel = await findCarouselByPageSlug('recipes', 'recipes-favorites');
+      if (carousel.error || !carousel.data) {
+        // Create the carousel if it doesn't exist
+        const created = await createCarousel({
+          page: 'recipes',
+          slug: 'recipes-favorites',
+          title: 'Favorite Recipes',
+          is_active: true
+        });
+        if (created.error) {
+          return false;
+        }
+        carousel = { data: created.data };
+      }
+
+      // 2. Get current items to check if recipe is already in favorites
+      const currentItems = await getCarouselItems(carousel.data!.id);
+      if (currentItems.error) {
+        return false;
+      }
+
+      const existingItem = currentItems.data?.find(item => item.ref_id === recipeId);
+
+      if (on) {
+        // Add to favorites - only if not already there
+        if (existingItem) {
+          return true; // Already in favorites
+        }
+
+        const recipe = await this.getRecipe(recipeId);
+        if (!recipe) {
+          return false;
+        }
+
+        const result = await createCarouselItem({
+          carousel_id: carousel.data!.id,
+          kind: 'recipe',
+          ref_id: recipeId,
+          caption: recipe.title,
+          order_index: 0,
+          is_active: true,
+          album_id: null,
+          youtube_id: null,
+          link_url: null,
+          image_path: recipe.hero_image_path || null,
+          badge: null,
+        });
+
+        return !result.error;
+      } else {
+        // Remove from favorites - only if it exists
+        if (!existingItem) {
+          return true; // Already not in favorites
+        }
+
+        const result = await deleteCarouselItem(existingItem.id);
+        return !result.error;
+      }
+    } catch (error) {
+      console.error('Error setting favorite recipe:', error);
+      return false;
+    }
   }
 }
 

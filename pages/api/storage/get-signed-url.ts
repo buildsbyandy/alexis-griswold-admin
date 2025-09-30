@@ -42,7 +42,7 @@ export default async function handler(
   }
 
   // Whitelist allowed buckets for security
-  const allowedBuckets = ['public_media', 'private_media', 'media'] // Keep 'media' for backward compatibility
+  const allowedBuckets = ['public', 'private', 'media'] // Keep 'media' for backward compatibility
   if (!allowedBuckets.includes(bucket)) {
     return res.status(400).json({ error: 'Invalid bucket' })
   }

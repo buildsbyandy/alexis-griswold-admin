@@ -8,7 +8,7 @@ export type MediaType = 'image' | 'video' | 'thumbnail';
  * Determines the appropriate bucket based on content status
  */
 export function getBucketForStatus(status: ContentStatus): string {
-  return status === 'published' ? 'public_media' : 'private_media';
+  return status === 'published' ? 'public' : 'private';
 }
 
 /**
@@ -28,27 +28,31 @@ export function getStoragePath(
     folder = customPath;
   } else if (mediaType === 'thumbnail') {
     if (contentType === 'vlog') {
-      folder = 'images/thumbnails/vlogs';
+      folder = 'images/vlogs';
     } else if (contentType === 'healing') {
-      folder = 'images/thumbnails/healing';
+      folder = 'images/healing';
     } else if (contentType === 'recipe') {
-      folder = 'images/thumbnails/recipes';
+      folder = 'images/recipes';
     } else {
-      folder = 'images/thumbnails/general';
+      folder = 'images';
     }
   } else if (mediaType === 'video') {
     if (contentType === 'homepage') {
-      folder = 'videos/homepage';
+      folder = 'videos/home';
     } else if (status === 'published') {
       folder = `videos/${contentType}`;
     } else {
-      folder = 'videos/drafts';
+      folder = 'drafts/videos';
     }
   } else { // mediaType === 'image'
     if (contentType === 'general') {
-      folder = status === 'published' ? 'images' : 'uploads/images';
+      folder = status === 'published' ? 'images' : 'uploads';
+    } else if (contentType === 'product') {
+      folder = 'images/storefront';
+    } else if (status === 'published') {
+      folder = `images/${contentType}`;
     } else {
-      folder = `images/${contentType === 'product' ? 'products' : contentType}`;
+      folder = 'drafts/images';
     }
   }
 
@@ -97,12 +101,12 @@ export async function getMediaUrl(
 
   const { bucket, path } = parsedUrl;
 
-  // Use public URL for public_media bucket unless forced to use signed URL
-  if (bucket === 'public_media' && !forceSignedUrl) {
+  // Use public URL for public bucket unless forced to use signed URL
+  if (bucket === 'public' && !forceSignedUrl) {
     return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
   }
 
-  // Use signed URL for private_media or when forced
+  // Use signed URL for private or when forced
   return await createSignedUrl(bucket, path);
 }
 
@@ -148,7 +152,7 @@ export function migrateUrl(
   if (!parsedUrl) return oldUrl;
 
   // If already using new bucket structure, return as-is
-  if (parsedUrl.bucket === 'public_media' || parsedUrl.bucket === 'private_media') {
+  if (parsedUrl.bucket === 'public' || parsedUrl.bucket === 'private') {
     return oldUrl;
   }
 

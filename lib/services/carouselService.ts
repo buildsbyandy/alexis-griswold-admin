@@ -42,22 +42,76 @@ export type PageType = Database['public']['Enums']['page_type']
 
 export interface ServiceResult<T> { data?: T; error?: string }
 
+/**
+ * Gets the appropriate base URL for API calls based on the current environment.
+ *
+ * This is necessary because:
+ * 1. Client-side code can use relative URLs (fetch('/api/...') works in browser)
+ * 2. Server-side code needs absolute URLs (no base URL context in Node.js)
+ * 3. We need different URLs for development vs production
+ *
+ * This pattern is standard in production Next.js apps and enables local development
+ * while ensuring production functionality works correctly.
+ *
+ * @returns Empty string for client-side (browser handles relative URLs)
+ *          Full URL for server-side (Node.js needs absolute URLs)
+ */
+function getApiBaseUrl(): string {
+  // Client-side: browser can handle relative URLs
+  if (typeof window !== 'undefined') {
+    return '';
+  }
+
+  // Server-side: Node.js needs absolute URLs
+  // Use environment-specific URLs just like Google OAuth, Stripe, etc.
+  return process.env.NODE_ENV === 'production'
+    ? 'https://admin.alexisgriswold.com'  // Production domain
+    : 'http://localhost:3000';            // Local development
+}
+
 function mapUiTypeToSlug(type: 'part1' | 'part2'): { page: PageType; slug: string } {
 	// Healing carousels use fixed slugs per unified schema
 	return { page: 'healing', slug: type === 'part1' ? 'healing-part-1' : 'healing-part-2' }
 }
 
+/**
+ * Finds a carousel by page and slug. Works both client-side and server-side.
+ *
+ * Client-side: Uses relative URL fetch to API route
+ * Server-side: Uses absolute URL fetch to API route (enables local development testing)
+ *
+ * This approach allows the same service function to work in both contexts:
+ * - React components (client-side)
+ * - API routes calling other API routes (server-side)
+ *
+ * @param page The page type (e.g., 'vlogs', 'recipes')
+ * @param slug The carousel slug (e.g., 'vlogs-featured')
+ */
 export async function findCarouselByPageSlug(page: PageType, slug: string): Promise<ServiceResult<CarouselRow | null>> {
 	try {
-		const response = await fetch(`/api/carousels/find?page=${encodeURIComponent(page)}&slug=${encodeURIComponent(slug)}`)
-		const result = await response.json()
+		const baseUrl = getApiBaseUrl();
+		const isServerSide = typeof window === 'undefined';
+
+		console.log(`[DEBUG] findCarouselByPageSlug called ${isServerSide ? '(server-side)' : '(client-side)'} with page: "${page}", slug: "${slug}"`);
+		console.log(`[DEBUG] Using base URL: "${baseUrl}"`);
+
+		const url = `${baseUrl}/api/carousels/find?page=${encodeURIComponent(page)}&slug=${encodeURIComponent(slug)}`;
+		console.log(`[DEBUG] Fetching: ${url}`);
+
+		const response = await fetch(url);
+		const result = await response.json();
+
+		console.log(`[DEBUG] API response status: ${response.status}, data:`, result);
 
 		if (!response.ok) {
+			console.log(`[DEBUG] API call failed:`, result.error);
 			return { error: result.error || 'Failed to find carousel' }
 		}
 
+		console.log(`[DEBUG] Successfully found carousel:`, result.data);
 		return { data: result.data }
 	} catch (e) {
+		console.log(`[DEBUG] Exception in findCarouselByPageSlug:`, e);
 		return { error: 'Failed to find carousel' }
 	}
 }
@@ -82,15 +136,23 @@ export async function listCarousels(page: PageType, slug?: string): Promise<Serv
 
 export async function getCarouselItems(carouselId: string): Promise<ServiceResult<CarouselItemRow[]>> {
 	try {
-		const response = await fetch(`/api/carousels/items?carousel_id=${encodeURIComponent(carouselId)}`)
-		const result = await response.json()
+		const baseUrl = getApiBaseUrl();
+		const url = `${baseUrl}/api/carousels/items?carousel_id=${encodeURIComponent(carouselId)}`;
+
+		console.log(`[DEBUG] getCarouselItems fetching: ${url}`);
+
+		const response = await fetch(url);
+		const result = await response.json();
 
 		if (!response.ok) {
+			console.log(`[DEBUG] getCarouselItems failed:`, result.error);
 			return { error: result.error || 'Failed to fetch carousel items' }
 		}
 
+		console.log(`[DEBUG] getCarouselItems success:`, result.data?.length, 'items');
 		return { data: result.data || [] }
 	} catch (e) {
+		console.log(`[DEBUG] getCarouselItems exception:`, e);
 		return { error: 'Failed to fetch carousel items' }
 	}
 }
@@ -115,19 +177,28 @@ export async function listViewItems(page: PageType, slug?: string): Promise<Serv
 
 export async function createCarouselItem(input: CarouselItemInsert): Promise<ServiceResult<CarouselItemRow>> {
 	try {
-		const response = await fetch('/api/carousels/items', {
+		const baseUrl = getApiBaseUrl();
+		const url = `${baseUrl}/api/carousels/items`;
+
+		console.log(`[DEBUG] createCarouselItem posting to: ${url}`);
+		console.log(`[DEBUG] createCarouselItem payload:`, input);
+
+		const response = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(input)
-		})
-		const result = await response.json()
+		});
+		const result = await response.json();
 
 		if (!response.ok) {
+			console.log(`[DEBUG] createCarouselItem failed:`, result.error);
 			return { error: result.error || 'Failed to create carousel item' }
 		}
 
+		console.log(`[DEBUG] createCarouselItem success:`, result.data);
 		return { data: result.data }
 	} catch (e) {
+		console.log(`[DEBUG] createCarouselItem exception:`, e);
 		return { error: 'Failed to create carousel item' }
 	}
 }
@@ -153,23 +224,31 @@ export async function updateCarouselItem(id: string, input: CarouselItemUpdate):
 
 export async function deleteCarouselItem(id: string): Promise<ServiceResult<null>> {
 	try {
-		const response = await fetch(`/api/carousels/items/${encodeURIComponent(id)}`, {
+		const baseUrl = getApiBaseUrl();
+		const url = `${baseUrl}/api/carousels/items/${encodeURIComponent(id)}`;
+
+		console.log(`[DEBUG] deleteCarouselItem deleting: ${url}`);
+
+		const response = await fetch(url, {
 			method: 'DELETE'
-		})
-		const result = await response.json()
+		});
+		const result = await response.json();
 
 		if (!response.ok) {
+			console.log(`[DEBUG] deleteCarouselItem failed:`, result.error);
 			return { error: result.error || 'Failed to delete carousel item' }
 		}
 
+		console.log(`[DEBUG] deleteCarouselItem success`);
 		return { data: null }
 	} catch (e) {
+		console.log(`[DEBUG] deleteCarouselItem exception:`, e);
 		return { error: 'Failed to delete carousel item' }
 	}
 }
 
 // Storefront helpers
-export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Promise<ServiceResult<Array<{
+export async function listStorefrontItems(slug: 'storefront-favorites' | 'storefront-top-picks'): Promise<ServiceResult<Array<{
   id: string
   carousel_slug: string | null
   order_index: number | null
@@ -185,7 +264,7 @@ export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Prom
     if (viewResult.error) return { error: viewResult.error }
 
     const viewData = viewResult.data || []
-    const refIds = viewData.map(v => v.ref_id).filter(Boolean) as string[]
+    const refIds = viewData.map(v => v.item_ref_id).filter(Boolean) as string[]
 
     // Fetch product metadata if we have ref_ids
     let products: any = { data: [], error: null }
@@ -201,13 +280,13 @@ export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Prom
     for (const p of products.data || []) byId.set(p.id, p)
 
     const items = viewData.map(v => {
-      const p = v.ref_id ? byId.get(v.ref_id) : null
+      const p = v.item_ref_id ? byId.get(v.item_ref_id) : null
       return {
-        id: v.id!,
+        id: v.carousel_item_id!,
         carousel_slug: v.carousel_slug || null,
-        order_index: v.order_index,
-        ref_id: v.ref_id,
-        caption: v.caption || (p?.product_title ?? null),
+        order_index: v.item_order_index,
+        ref_id: v.item_ref_id,
+        caption: v.item_caption || (p?.product_title ?? null),
         product_title: p?.product_title ?? null,
         image_path: p?.image_path ?? null,
         amazon_url: p?.amazon_url ?? null,
@@ -219,7 +298,7 @@ export async function listStorefrontItems(slug: 'favorites' | 'top-picks'): Prom
   }
 }
 
-export async function createStorefrontItem(slug: 'favorites' | 'top-picks', productId: string, orderIndex?: number | null): Promise<ServiceResult<CarouselItemRow>> {
+export async function createStorefrontItem(slug: 'storefront-favorites' | 'storefront-top-picks', productId: string, orderIndex?: number | null): Promise<ServiceResult<CarouselItemRow>> {
   try {
     // Ensure carousel exists
     let car = await findCarouselByPageSlug('storefront', slug)
@@ -235,7 +314,7 @@ export async function createStorefrontItem(slug: 'favorites' | 'top-picks', prod
       kind: 'product',
       ref_id: productId,
       caption: null,
-      order_index: orderIndex ?? (slug === 'top-picks' ? 0 : 0),
+      order_index: orderIndex ?? (slug === 'storefront-top-picks' ? 0 : 0),
       is_active: true,
       link_url: null,
       image_path: null,
@@ -248,7 +327,7 @@ export async function createStorefrontItem(slug: 'favorites' | 'top-picks', prod
   }
 }
 
-export async function updateStorefrontItem(id: string, payload: { order_index?: number; slug?: 'favorites' | 'top-picks' }): Promise<ServiceResult<CarouselItemRow>> {
+export async function updateStorefrontItem(id: string, payload: { order_index?: number; slug?: 'storefront-favorites' | 'storefront-top-picks' }): Promise<ServiceResult<CarouselItemRow>> {
   try {
     const update: CarouselItemUpdate = {}
     if (payload.order_index !== undefined) update.order_index = payload.order_index
@@ -350,26 +429,26 @@ export function mapViewItemToMixed(viewItem: VCarouselItemRow): CarouselMixedIte
 	if (!viewItem.carousel_item_id) return null
 
 	// Map from view to union type based on available data
-	if (viewItem.video_url && viewItem.item_youtube_id) {
+	if (viewItem.item_link_url && viewItem.item_youtube_id) {
 		return {
 			kind: 'video',
 			id: viewItem.carousel_item_id,
-			youtube_url: viewItem.video_url,
-			thumbnail: viewItem.display_image,
-			title: viewItem.video_title || viewItem.display_title,
-			description: viewItem.video_description,
+			youtube_url: viewItem.item_link_url,
+			thumbnail: viewItem.item_image_path,
+			title: viewItem.item_caption || null,
+			description: null,
 			order_index: viewItem.item_order_index || 0,
 			is_active: viewItem.item_is_active || false,
 			created_at: new Date(viewItem.item_created_at || Date.now())
 		}
-	} else if (viewItem.item_album_id && viewItem.album_title) {
+	} else if (viewItem.item_album_id) {
 		return {
 			kind: 'album',
 			id: viewItem.carousel_item_id,
 			album_id: viewItem.item_album_id,
-			title: viewItem.album_title,
-			cover: viewItem.album_cover_image,
-			page_type: viewItem.album_page_type,
+			title: viewItem.album_title || 'Album',
+			cover: viewItem.album_cover_image || null,
+			page_type: viewItem.carousel_page || null,
 			order_index: viewItem.item_order_index || 0,
 			is_active: viewItem.item_is_active || false,
 			created_at: new Date(viewItem.item_created_at || Date.now())

@@ -33,42 +33,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       const {
-        youtube_url,
-        video_title,
+        link_url,
+        caption,
         video_description,
-        video_order,
+        order_index,
         video_thumbnail_url,
         video_type,
         is_active
       } = req.body as Partial<RecipeHeroVideoInsert>
 
-      if (!youtube_url) {
+      if (!link_url) {
         return res.status(400).json({ error: 'YouTube URL is required' })
-      }
-      if (!video_title) {
-        return res.status(400).json({ error: 'Video title is required' })
       }
 
       // Validate using shared YouTube service
-      if (!youtubeService.validate_youtube_url(youtube_url)) {
+      if (!youtubeService.validate_youtube_url(link_url)) {
         return res.status(400).json({ error: 'Invalid YouTube URL format' })
       }
 
       // Default order to 0 if not provided
-      const normalizedOrder = typeof video_order === 'number' ? video_order : 0
+      const normalizedOrder = typeof order_index === 'number' ? order_index : 0
 
       // Pull metadata from YouTube (title/thumbnail/duration) when available
-      let resolvedTitle = video_title
+      let resolvedCaption = caption
       let thumbnailUrl = video_thumbnail_url ?? null
       let derivedType: string | null = null
       try {
-        const meta = await youtubeService.get_video_data_from_url(youtube_url)
+        const meta = await youtubeService.get_video_data_from_url(link_url)
         if (meta && meta.data) {
           const vd = meta.data
-          if (!resolvedTitle?.trim()) resolvedTitle = vd.title
+          if (!resolvedCaption?.trim()) resolvedCaption = vd.title
           if (!thumbnailUrl) thumbnailUrl = vd.thumbnail_url
           // Heuristic: treat as short if URL uses /shorts/ or duration <= 75s
-          const isShortUrl = /\/shorts\//.test(youtube_url)
+          const isShortUrl = /\/shorts\//.test(link_url)
           const mmss = (vd.duration || '').split(':').map(Number)
           const seconds = mmss.length === 2 ? (mmss[0] || 0) * 60 + (mmss[1] || 0) : (mmss[0] || 0)
           derivedType = (isShortUrl || seconds <= 75) ? 'short' : 'video'
@@ -76,12 +73,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch {}
 
       const created = await createRecipeHeroVideo({
-        youtube_url,
-        video_title: resolvedTitle,
+        link_url,
+        caption: resolvedCaption,
         video_description: video_description ?? null,
-        video_order: normalizedOrder,
+        order_index: normalizedOrder,
         video_thumbnail_url: thumbnailUrl,
-        video_type: video_type ?? derivedType ?? 'reel',
+        video_type: video_type ?? derivedType ?? 'video',
         is_active: is_active ?? true
       })
       
