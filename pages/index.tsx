@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt, FaFolder } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaHeart, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt, FaFolder } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
 import { STORAGE_PATHS } from '../lib/constants/storagePaths';
@@ -124,7 +124,12 @@ const AdminContent: React.FC = () => {
   const [sfStatus, setSfStatus] = useState<string>('all');
   const [sfStats, setSfStats] = useState({ total: 0, byStatus: { draft: 0, published: 0, archived: 0 }, byCategory: {}, favorites: 0 });
   const [sfCategories, setSfCategories] = useState<StorefrontCategoryRow[]>([]);
+  const [storefrontActiveTab, setStorefrontActiveTab] = useState<'products' | 'categories' | 'carousels'>('products');
   const [showCategoryPhotoModal, setShowCategoryPhotoModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<StorefrontCategoryRow | null>(null);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [sfTopPicks, setSfTopPicks] = useState<Array<{ id: string; ref_id: string; order_index: number | null; product_title: string | null; image_path: string | null; amazon_url: string | null }>>([]);
+  const [sfFavorites, setSfFavorites] = useState<Array<{ id: string; ref_id: string; product_title: string | null; image_path: string | null; amazon_url: string | null }>>([]);
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
@@ -1307,6 +1312,26 @@ const AdminContent: React.FC = () => {
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
   }, [imageModalUrl]);
+
+  // Load carousel data when switching to carousels tab
+  useEffect(() => {
+    const loadCarouselData = async () => {
+      if (activeTab === 'storefront' && storefrontActiveTab === 'carousels') {
+        try {
+          const [topPicks, favorites] = await Promise.all([
+            storefrontService.list_top_picks(),
+            storefrontService.list_favorites()
+          ]);
+          setSfTopPicks(topPicks);
+          setSfFavorites(favorites);
+        } catch (error) {
+          console.error('Error loading carousel data:', error);
+          toast.error('Failed to load carousel data');
+        }
+      }
+    };
+    loadCarouselData();
+  }, [activeTab, storefrontActiveTab]);
 
   // Main dashboard render
   return (
@@ -3637,6 +3662,40 @@ const AdminContent: React.FC = () => {
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h1 className="text-3xl font-bold text-[#383B26] mb-2">Storefront Management</h1>
               <p className="text-[#8F907E]">Add, edit, and organize products</p>
+
+              {/* Sub-tabs Navigation */}
+              <div className="flex gap-4 mt-6 border-b">
+                <button
+                  onClick={() => setStorefrontActiveTab('products')}
+                  className={`pb-3 px-1 font-medium text-sm transition-colors ${
+                    storefrontActiveTab === 'products'
+                      ? 'border-b-2 border-[#B8A692] text-[#383B26]'
+                      : 'text-gray-500 hover:text-[#383B26]'
+                  }`}
+                >
+                  Products
+                </button>
+                <button
+                  onClick={() => setStorefrontActiveTab('categories')}
+                  className={`pb-3 px-1 font-medium text-sm transition-colors ${
+                    storefrontActiveTab === 'categories'
+                      ? 'border-b-2 border-[#B8A692] text-[#383B26]'
+                      : 'text-gray-500 hover:text-[#383B26]'
+                  }`}
+                >
+                  Categories
+                </button>
+                <button
+                  onClick={() => setStorefrontActiveTab('carousels')}
+                  className={`pb-3 px-1 font-medium text-sm transition-colors ${
+                    storefrontActiveTab === 'carousels'
+                      ? 'border-b-2 border-[#B8A692] text-[#383B26]'
+                      : 'text-gray-500 hover:text-[#383B26]'
+                  }`}
+                >
+                  Carousels
+                </button>
+              </div>
               
               {/* Enhanced Stats */}
               <div className="grid grid-cols-2 gap-4 mt-4 md:grid-cols-4">
@@ -3659,6 +3718,9 @@ const AdminContent: React.FC = () => {
               </div>
             </div>
 
+            {/* Products Tab */}
+            {storefrontActiveTab === 'products' && (
+              <>
             {/* Enhanced Controls */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -3768,10 +3830,11 @@ const AdminContent: React.FC = () => {
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:border-[#B89178] focus:ring-1 focus:ring-[#B89178]"
                   >
                     <option value="all">All Categories</option>
-                    <option value="food">Food</option>
-                    <option value="healing">Healing</option>
-                    <option value="home">Home</option>
-                    <option value="personal-care">Personal Care</option>
+                    {sfCategories.map((category) => (
+                      <option key={category.slug} value={category.slug}>
+                        {category.category_name}
+                      </option>
+                    ))}
                   </select>
                   <select
                     value={sfStatus}
@@ -3979,6 +4042,265 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             </div>
+              </>
+            )}
+
+            {/* Categories Tab */}
+            {storefrontActiveTab === 'categories' && (
+              <div className="space-y-6">
+                {/* Categories Management */}
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-[#383B26]">Category Management</h2>
+                      <p className="text-[#8F907E] text-sm">Manage storefront categories</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (sfCategories.length >= 4) {
+                          toast.error('Maximum of 4 categories allowed. Please contact the web developer to add more.');
+                          return;
+                        }
+                        setEditingCategory(null);
+                        setIsAddingCategory(true);
+                        setShowCategoryPhotoModal(true);
+                      }}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add Category
+                    </button>
+                  </div>
+
+                  {/* Categories List */}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2">
+                    {sfCategories.map((category) => (
+                      <div key={category.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                        <div className="flex items-start gap-4">
+                          {/* Category Image */}
+                          <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg">
+                            {category.category_image_path ? (
+                              <Image
+                                src={category.category_image_path || '/placeholder.jpg'}
+                                alt={category.category_name}
+                                className="object-cover w-full h-full"
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center w-full h-full">
+                                <FaImage className="text-xl text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Category Info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold text-[#383B26] mb-1">{category.category_name}</h3>
+                            <p className="text-sm text-gray-600 mb-2">{category.slug}</p>
+                            {category.category_description && (
+                              <p className="text-sm text-gray-500 line-clamp-2">{category.category_description}</p>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingCategory(category);
+                                setIsAddingCategory(false);
+                                setShowCategoryPhotoModal(true);
+                              }}
+                              className="bg-[#B89178] text-white px-3 py-1.5 rounded-md text-sm hover:bg-[#A67B62] flex items-center gap-1"
+                            >
+                              <FaEdit className="text-xs" /> Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Delete category "${category.category_name}"?`)) {
+                                  try {
+                                    await storefrontService.delete_storefront_category(category.id);
+                                    const categories = await storefrontService.get_storefront_categories();
+                                    setSfCategories(categories);
+                                    toast.success('Category deleted');
+                                  } catch (error: any) {
+                                    toast.error(error.message || 'Delete failed');
+                                  }
+                                }
+                              }}
+                              className="bg-red-500 text-white px-3 py-1.5 rounded-md text-sm hover:bg-red-600"
+                            >
+                              <FaTrash className="text-xs" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {sfCategories.length === 0 && (
+                      <div className="col-span-full p-8 text-center bg-gray-50 rounded-lg">
+                        <FaImage className="mx-auto mb-4 text-4xl text-gray-300" />
+                        <h3 className="mb-2 text-lg font-medium text-gray-600">No categories found</h3>
+                        <p className="mb-4 text-gray-500">Add your first category to get started</p>
+                        <button
+                          onClick={() => {
+                            setEditingCategory(null);
+                            setIsAddingCategory(true);
+                            setShowCategoryPhotoModal(true);
+                          }}
+                          className="bg-[#B89178] text-white px-4 py-2 rounded-lg hover:bg-[#A67B62] flex items-center gap-2 mx-auto"
+                        >
+                          <FaPlus /> Add Category
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Carousels Tab */}
+            {storefrontActiveTab === 'carousels' && (
+              <div className="space-y-6">
+                {/* Top Picks Carousel */}
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#383B26]">Top Picks</h3>
+                      <p className="text-sm text-[#8F907E]">Curated list of Alexis' top product recommendations</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        // TODO: Open product selector modal to add products to top picks
+                        toast('Product selector coming soon');
+                      }}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add Product
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {sfTopPicks.length === 0 ? (
+                      <div className="col-span-full p-8 text-center bg-gray-50 rounded-lg">
+                        <FaStar className="mx-auto mb-4 text-4xl text-gray-300" />
+                        <p className="text-gray-500">No top picks added yet</p>
+                      </div>
+                    ) : (
+                      sfTopPicks
+                        .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                        .map((item) => (
+                          <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="relative h-32 bg-gray-100">
+                              {item.image_path && (
+                                <Image
+                                  src={item.image_path}
+                                  alt={item.product_title || 'Product'}
+                                  className="object-cover w-full h-full"
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                />
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{item.product_title}</h4>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Remove from Top Picks?')) {
+                                      try {
+                                        await storefrontService.set_top_pick(item.ref_id, false);
+                                        const topPicks = await storefrontService.list_top_picks();
+                                        setSfTopPicks(topPicks);
+                                        toast.success('Removed from Top Picks');
+                                      } catch (error) {
+                                        toast.error('Failed to remove from Top Picks');
+                                      }
+                                    }
+                                  }}
+                                  className="flex items-center px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
+                                >
+                                  <FaTrash className="mr-1" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Favorites Carousel */}
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#383B26]">Favorites</h3>
+                      <p className="text-sm text-[#8F907E]">Featured favorite products on the storefront</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        // TODO: Open product selector modal to add products to favorites
+                        toast('Product selector coming soon');
+                      }}
+                      className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+                    >
+                      <FaPlus className="mr-2" />
+                      Add Product
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {sfFavorites.length === 0 ? (
+                      <div className="col-span-full p-8 text-center bg-gray-50 rounded-lg">
+                        <FaHeart className="mx-auto mb-4 text-4xl text-gray-300" />
+                        <p className="text-gray-500">No favorites added yet</p>
+                      </div>
+                    ) : (
+                      sfFavorites.map((item) => (
+                        <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="relative h-32 bg-gray-100">
+                            {item.image_path && (
+                              <Image
+                                src={item.image_path}
+                                alt={item.product_title || 'Product'}
+                                className="object-cover w-full h-full"
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              />
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <h4 className="font-medium text-sm text-[#383B26] mb-1 truncate">{item.product_title}</h4>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={async () => {
+                                  if (confirm('Remove from Favorites?')) {
+                                    try {
+                                      await storefrontService.set_favorite(item.ref_id, false);
+                                      const favorites = await storefrontService.list_favorites();
+                                      setSfFavorites(favorites);
+                                      toast.success('Removed from Favorites');
+                                    } catch (error) {
+                                      toast.error('Failed to remove from Favorites');
+                                    }
+                                  }
+                                }}
+                                className="flex items-center px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600"
+                              >
+                                <FaTrash className="mr-1" />
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -4147,8 +4469,14 @@ const AdminContent: React.FC = () => {
       {/* Category Photo Modal */}
       <CategoryPhotoModal
         isOpen={showCategoryPhotoModal}
-        onClose={() => setShowCategoryPhotoModal(false)}
+        onClose={() => {
+          setShowCategoryPhotoModal(false);
+          setEditingCategory(null);
+          setIsAddingCategory(false);
+        }}
         categories={sfCategories}
+        category={editingCategory}
+        mode={isAddingCategory ? 'create' : 'edit'}
         onUpdate={async () => {
           // Refresh categories when photo is updated
           try {

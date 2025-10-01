@@ -172,21 +172,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Category not found' });
       }
 
-      const { data: products, error: productsError } = await supabaseAdmin
+      const { data: products, error: productsError, count } = await supabaseAdmin
         .from('storefront_products')
-        .select('id')
+        .select('id', { count: 'exact' })
         .eq('category_slug', categoryToDelete.slug)
-        .is('deleted_at', null) // Only check non-deleted products
-        .limit(1);
+        .is('deleted_at', null); // Only check non-deleted products
 
       if (productsError) {
         console.error('Error checking for products:', productsError);
         return res.status(500).json({ error: 'Failed to check for existing products' });
       }
 
-      if (products && products.length > 0) {
+      if (count && count > 0) {
+        // Get category name for better error message
+        const { data: categoryData } = await supabaseAdmin
+          .from('storefront_categories')
+          .select('category_name')
+          .eq('id', id)
+          .single();
+
+        const categoryName = categoryData?.category_name || 'this category';
         return res.status(400).json({
-          error: 'Cannot delete category with existing products. Move or delete products first.'
+          error: `Cannot delete "${categoryName}": this category still contains ${count} product${count > 1 ? 's' : ''}. Please reassign ${count > 1 ? 'them' : 'it'} to another category before deleting.`
         });
       }
 

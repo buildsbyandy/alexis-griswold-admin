@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaImage, FaUpload, FaStar, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaSave, FaImage, FaUpload, FaStar, FaPlus, FaTrash, FaEdit } from 'react-icons/fa';
 import type { StorefrontCategoryRow, StorefrontProductRow } from '../../lib/types/storefront';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
@@ -13,26 +13,58 @@ interface CategoryPhotoModalProps {
   onClose: () => void;
   categories: StorefrontCategoryRow[];
   onUpdate: () => void;
+  category?: StorefrontCategoryRow | null;
+  mode?: 'create' | 'edit';
 }
 
 const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
   isOpen,
   onClose,
   categories,
-  onUpdate
+  onUpdate,
+  category: propCategory,
+  mode = 'edit'
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<StorefrontCategoryRow | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'photo' | 'featured'>('photo');
+  const [activeTab, setActiveTab] = useState<'details' | 'photo' | 'featured'>('details');
   const [featuredProducts, setFeaturedProducts] = useState<Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>>([]);
   const [availableProducts, setAvailableProducts] = useState<StorefrontProductRow[]>([]);
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(false);
 
+  // Form state for create/edit
+  const [categoryName, setCategoryName] = useState('');
+  const [categorySlug, setCategorySlug] = useState('');
+  const [categoryDescription, setCategoryDescription] = useState('');
+  const [categoryImagePath, setCategoryImagePath] = useState('');
+  const [isVisible, setIsVisible] = useState(true);
+
   useEffect(() => {
-    if (isOpen && categories.length > 0 && !selectedCategory) {
-      setSelectedCategory(categories[0]);
+    if (isOpen) {
+      if (mode === 'create') {
+        // Reset form for new category
+        setCategoryName('');
+        setCategorySlug('');
+        setCategoryDescription('');
+        setCategoryImagePath('');
+        setIsVisible(true);
+        setSelectedCategory(null);
+        setActiveTab('details');
+      } else if (mode === 'edit' && propCategory) {
+        // Load existing category data
+        setSelectedCategory(propCategory);
+        setCategoryName(propCategory.category_name);
+        setCategorySlug(propCategory.slug);
+        setCategoryDescription(propCategory.category_description || '');
+        setCategoryImagePath(propCategory.category_image_path || '');
+        setIsVisible(propCategory.is_visible ?? true);
+        setActiveTab('details');
+      } else if (mode === 'edit' && categories.length > 0 && !selectedCategory) {
+        // Fallback for old behavior
+        setSelectedCategory(categories[0]);
+      }
     }
-  }, [isOpen, categories, selectedCategory]);
+  }, [isOpen, mode, propCategory, categories, selectedCategory]);
 
   useEffect(() => {
     if (selectedCategory && activeTab === 'featured') {
@@ -146,12 +178,69 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
       await storefrontService.update_storefront_category(selectedCategory.id, {
         category_image_path: undefined
       });
-      
+
       toast.success('Category photo removed successfully!');
       onUpdate(); // Refresh the categories list
     } catch (error) {
       console.error('Error removing category photo:', error);
       toast.error('Failed to remove category photo');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleNameChange = (name: string) => {
+    setCategoryName(name);
+    // Auto-generate slug if creating new category or slug is empty
+    if (mode === 'create' || !categorySlug) {
+      const slug = name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      setCategorySlug(slug);
+    }
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryName.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+    if (!categorySlug.trim()) {
+      toast.error('Category slug is required');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      if (mode === 'create') {
+        await storefrontService.create_storefront_category({
+          category_name: categoryName,
+          slug: categorySlug,
+          category_description: categoryDescription || undefined,
+          category_image_path: categoryImagePath || undefined,
+          is_visible: isVisible,
+          sort_order: undefined
+        });
+        toast.success('Category created successfully!');
+      } else if (selectedCategory) {
+        await storefrontService.update_storefront_category(selectedCategory.id, {
+          category_name: categoryName,
+          slug: categorySlug,
+          category_description: categoryDescription || undefined,
+          category_image_path: categoryImagePath || undefined,
+          is_visible: isVisible
+        });
+        toast.success('Category updated successfully!');
+      }
+
+      onUpdate(); // Refresh the categories list
+      onClose();
+    } catch (error: any) {
+      console.error('Error saving category:', error);
+      toast.error(error.message || 'Failed to save category');
     } finally {
       setIsUpdating(false);
     }
@@ -166,7 +255,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
             <FaImage className="mr-3 text-[#B8A692]" />
-            Manage Category
+            {mode === 'create' ? 'Create Category' : 'Manage Category'}
           </h2>
           <button
             type="button"
@@ -182,11 +271,23 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
           <nav className="flex space-x-8 px-6">
             <button
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'details'
+                  ? 'border-[#B8A692] text-[#383B26]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveTab('details')}
+            >
+              <FaEdit className="inline mr-2" />
+              Category Details
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'photo'
                   ? 'border-[#B8A692] text-[#383B26]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
               onClick={() => setActiveTab('photo')}
+              disabled={mode === 'create'}
             >
               <FaImage className="inline mr-2" />
               Category Photo
@@ -198,6 +299,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
               onClick={() => setActiveTab('featured')}
+              disabled={mode === 'create'}
             >
               <FaStar className="inline mr-2" />
               Featured Products
@@ -206,28 +308,67 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Category Selection */}
-          <div>
-            <label className="block text-sm font-medium text-[#383B26] mb-2">
-              Select Category
-            </label>
-            <select
-              value={selectedCategory?.id || ''}
-              onChange={(e) => {
-                const category = categories.find(cat => cat.id === e.target.value);
-                setSelectedCategory(category || null);
-              }}
-              className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.category_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Tab Content */}
+          {activeTab === 'details' && (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={categoryName}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="e.g., Food, Home, Personal Care"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">
+                    Slug *
+                  </label>
+                  <input
+                    type="text"
+                    value={categorySlug}
+                    onChange={(e) => setCategorySlug(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="e.g., food, home, personal-care"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">URL-friendly identifier (auto-generated from name)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={categoryDescription}
+                    onChange={(e) => setCategoryDescription(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="Brief description of this category"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isVisible"
+                    checked={isVisible}
+                    onChange={(e) => setIsVisible(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <label htmlFor="isVisible" className="text-sm text-[#383B26]">
+                    Visible on website
+                  </label>
+                </div>
+              </div>
+            </>
+          )}
+
           {activeTab === 'photo' && (
             <>
 
@@ -408,9 +549,21 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
             type="button"
             onClick={onClose}
             className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            disabled={isUpdating}
           >
-            Close
+            Cancel
           </button>
+          {activeTab === 'details' && (
+            <button
+              type="button"
+              onClick={handleSaveCategory}
+              disabled={isUpdating}
+              className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center disabled:opacity-50"
+            >
+              <FaSave className="mr-2" />
+              {mode === 'create' ? 'Create Category' : 'Save Changes'}
+            </button>
+          )}
         </div>
       </div>
     </div>

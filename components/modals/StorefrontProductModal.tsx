@@ -6,8 +6,6 @@ import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
-import storefrontService from '../../lib/services/storefrontService';
-import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
 import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
 
 interface StorefrontProductModalProps {
@@ -34,8 +32,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
   });
 
   const [newTag, setNewTag] = useState('');
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -70,42 +66,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
       });
     }
   }, [product]);
-
-  // Check if current product is in favorites carousel
-  useEffect(() => {
-    const checkFavoriteStatus = async () => {
-      if (!product?.id || !isOpen) {
-        setIsFavorite(false);
-        return;
-      }
-
-      try {
-        setIsCheckingFavorite(true);
-        const carousel = await findCarouselByPageSlug('storefront', 'storefront-favorites');
-        if (carousel.error || !carousel.data) {
-          setIsFavorite(false);
-          return;
-        }
-
-        const items = await getCarouselItems(carousel.data.id);
-        if (items.error || !items.data) {
-          setIsFavorite(false);
-          return;
-        }
-
-        // Check if product exists in favorites carousel
-        const isFav = items.data.some(item => item.ref_id === product.id);
-        setIsFavorite(isFav);
-      } catch (error) {
-        console.error('Error checking favorite status:', error);
-        setIsFavorite(false);
-      } finally {
-        setIsCheckingFavorite(false);
-      }
-    };
-
-    checkFavoriteStatus();
-  }, [product?.id, isOpen]);
 
   // Use the utility function for slug generation
 
@@ -205,7 +165,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             </div>
 
             {/* Category & Status */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
                 <select
@@ -243,31 +203,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   <option value="archived">Archived</option>
                 </select>
               </div>
-              {formData.is_alexis_pick && (
-                <div>
-                  <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
-                  <input
-                    type="number"
-                    value={formData.sort_weight ?? ''}
-                    onChange={async (e) => {
-                      const raw = e.target.value;
-                      const next = raw === '' ? undefined : (parseInt(raw, 10) || 0);
-                      setFormData(prev => ({ ...prev, sort_weight: next }));
-                      if (product?.id && formData.is_alexis_pick && next !== undefined) {
-                        try {
-                          const ok = await storefrontService.update_top_pick_order(product.id, next);
-                          if (!ok) throw new Error('Failed');
-                          toast.success('Top Pick order updated');
-                        } catch {
-                          toast.error('Failed to update Top Pick order');
-                        }
-                      }
-                    }}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  />
-                  <p className="text-xs text-gray-600 mt-1">Lower numbers appear first in the Top Picks section. Leave blank to auto-place.</p>
-                </div>
-              )}
             </div>
 
             {/* Amazon URL & Price */}
@@ -405,66 +340,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               </div>
             </div>
 
-            {/* Product Settings */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.is_alexis_pick}
-                  onChange={async (e) => {
-                    const checked = e.target.checked;
-                    setFormData(prev => ({ ...prev, is_alexis_pick: checked }));
-                    if (!product?.id) return;
-                    try {
-                      const ok = await storefrontService.set_top_pick(
-                        product.id,
-                        checked,
-                        checked ? (formData.sort_weight ?? undefined) : undefined
-                      );
-                      if (!ok) throw new Error('Failed');
-                      toast.success(checked ? "Added to Top Picks" : "Removed from Top Picks");
-                    } catch {
-                      toast.error('Failed to update Top Picks');
-                    }
-                  }}
-                  disabled={!product?.id}
-                  className="mr-2"
-                />
-                <span className="text-sm text-[#383B26]">Alexis&apos; Pick</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={isFavorite}
-                  onChange={async (e) => {
-                    const isChecked = e.target.checked;
-                    if (!product?.id) return;
-
-                    try {
-                      setIsCheckingFavorite(true);
-
-                      // Use the storefrontService set_favorite method
-                      const success = await storefrontService.set_favorite(product.id, isChecked);
-                      if (!success) throw new Error('Failed to update favorite status');
-
-                      setIsFavorite(isChecked);
-                      toast.success(isChecked ? 'Added to Favorites' : 'Removed from Favorites');
-                    } catch (error) {
-                      toast.error('Failed to update Favorites');
-                      console.error('Error toggling favorite:', error);
-                      // Revert the checkbox state on error
-                      setIsFavorite(!isChecked);
-                    } finally {
-                      setIsCheckingFavorite(false);
-                    }
-                  }}
-                  disabled={!product?.id || isCheckingFavorite}
-                  className="mr-2"
-                />
-                <span className="text-sm text-[#383B26]">Favorite</span>
-              </label>
-              
-            </div>
           </div>
 
           {/* Footer */}
