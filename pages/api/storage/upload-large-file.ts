@@ -32,7 +32,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       maxFileSize: 50 * 1024 * 1024, // 50MB max (adjust as needed)
     })
 
-    const [fields, files] = await form.parse(req)
+    const [fields, files] = await new Promise<[formidable.Fields, formidable.Files]>((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err)
+        else resolve([fields, files])
+      })
+    })
 
     // Extract form fields
     const bucket = Array.isArray(fields.bucket) ? fields.bucket[0] : fields.bucket

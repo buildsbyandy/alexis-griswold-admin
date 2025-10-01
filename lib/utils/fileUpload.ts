@@ -192,9 +192,23 @@ export class FileUploadService {
       });
 
       if (!uploadResponse.ok) {
-        const error = await uploadResponse.json();
-        console.error('Server-side upload failed:', error);
-        throw new Error(error.error || `Failed to upload file: ${uploadResponse.status}`);
+        const errorText = await uploadResponse.text();
+        console.error('Server-side upload failed:', {
+          status: uploadResponse.status,
+          statusText: uploadResponse.statusText,
+          body: errorText
+        });
+
+        // Try to parse as JSON, fallback to text
+        let errorMessage = `Failed to upload file: ${uploadResponse.status}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const { url } = await uploadResponse.json();
