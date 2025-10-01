@@ -4167,7 +4167,7 @@ const AdminContent: React.FC = () => {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-[#383B26]">Top Picks</h3>
-                      <p className="text-sm text-[#8F907E]">Curated list of Alexis' top product recommendations</p>
+                      <p className="text-sm text-[#8F907E]">Curated list of Alexis&apos; top product recommendations</p>
                     </div>
                     <button
                       onClick={async () => {

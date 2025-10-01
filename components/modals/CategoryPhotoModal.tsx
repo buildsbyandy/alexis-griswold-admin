@@ -71,7 +71,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
       loadFeaturedProducts();
       loadAvailableProducts();
     }
-  }, [selectedCategory, activeTab]); // loadFeaturedProducts and loadAvailableProducts are stable functions
+  }, [selectedCategory, activeTab, loadFeaturedProducts, loadAvailableProducts]);
 
   const loadFeaturedProducts = async () => {
     if (!selectedCategory) return;
