@@ -5,6 +5,7 @@ import { withAdminSSP } from '../lib/auth/withAdminSSP';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
+import { STORAGE_PATHS } from '../lib/constants/storagePaths';
 import RecipeModal from '../components/modals/RecipeModal';
 import VlogModal from '../components/modals/VlogModal';
 import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
@@ -1356,6 +1357,7 @@ const AdminContent: React.FC = () => {
                       <FileUpload
                         accept="video/*,.mov,.mp4,.avi,.wmv,.flv,.webm,.m4v,.3gp,.mkv"
                         uploadType="video"
+                        folder={STORAGE_PATHS.HOME_VIDEOS}
                         onUpload={async (url) => {
                           console.log('Video uploaded to:', url);
                           
@@ -1458,6 +1460,7 @@ const AdminContent: React.FC = () => {
                       <FileUpload
                         accept="image/*,.jpg,.jpeg,.png,.webp,.gif"
                         uploadType="image"
+                        folder={STORAGE_PATHS.HOME_IMAGES}
                         onUpload={(url) => {
                           console.log('Fallback image uploaded:', url);
                           setHomePageContent(prev => ({ 

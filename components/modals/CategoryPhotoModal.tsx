@@ -6,6 +6,7 @@ import { parseSupabaseUrl } from '@/util/imageUrl';
 import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 import storefrontService from '../../lib/services/storefrontService';
+import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
 
 interface CategoryPhotoModalProps {
   isOpen: boolean;
@@ -264,7 +265,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        folder="images/categories"
+                        folder={STORAGE_PATHS.STOREFRONT_CATEGORY_IMAGES}
                         onUpload={handleImageUpload}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                         disabled={isUpdating}
@@ -280,7 +281,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        folder="images/categories"
+                        folder={STORAGE_PATHS.STOREFRONT_CATEGORY_IMAGES}
                         onUpload={handleImageUpload}
                         className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                         disabled={isUpdating}

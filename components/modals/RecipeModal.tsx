@@ -7,6 +7,7 @@ import FileUpload from '../ui/FileUpload';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
 import toast from 'react-hot-toast';
+import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
 
 interface RecipeModalProps {
   isOpen: boolean;
@@ -361,7 +362,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        folder="images/recipes"
+                        folder={STORAGE_PATHS.RECIPE_IMAGES}
                         onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
@@ -374,7 +375,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
-                      folder="images/recipes"
+                      folder={STORAGE_PATHS.RECIPE_IMAGES}
                       onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
                       className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                     >
@@ -432,7 +433,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
-                      folder="images/recipes"
+                      folder={STORAGE_PATHS.RECIPE_IMAGES}
                       onUpload={addImage}
                       className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                     >
@@ -448,7 +449,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   <FileUpload
                     accept="image/*"
                     uploadType="image"
-                    folder="images/recipes"
+                    folder={STORAGE_PATHS.RECIPE_IMAGES}
                     onUpload={addImage}
                     className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                   >

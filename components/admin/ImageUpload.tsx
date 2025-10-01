@@ -11,6 +11,7 @@ import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import SecureImage from './SecureImage'
 import { parseSupabaseUrl } from '@/util/imageUrl'
+import type { StoragePath } from '@/lib/constants/storagePaths'
 
 interface ImageUploadProps {
   /** Current image URLs */
@@ -20,7 +21,7 @@ interface ImageUploadProps {
   /** Maximum number of images allowed */
   maxImages?: number
   /** Upload folder for organization */
-  folder?: 'vlogs' | 'recipes' | 'products' | 'playlists' | 'albums' | 'general'
+  folder?: StoragePath
   /** Accept specific file types */
   accept?: string
   /** Custom placeholder text */
@@ -45,7 +46,7 @@ export default function ImageUpload({
   value = [],
   onChange,
   maxImages = 5,
-  folder = 'general',
+  folder,
   accept = 'image/*',
   placeholder = 'Click to upload or drag and drop images',
   disabled = false,
@@ -146,7 +147,7 @@ export default function ImageUpload({
     // Upload each file
     for (const uploadingFile of newUploadingFiles) {
       try {
-        const url = await uploadFile(uploadingFile.file, folder, (progress) => {
+        const url = await uploadFile(uploadingFile.file, folder || '', (progress) => {
           setUploadingFiles(prev => 
             prev.map(f => 
               f.id === uploadingFile.id 

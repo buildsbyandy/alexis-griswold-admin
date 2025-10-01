@@ -8,6 +8,7 @@ import FileUpload from '../ui/FileUpload';
 import toast from 'react-hot-toast';
 import storefrontService from '../../lib/services/storefrontService';
 import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
+import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
 
 interface StorefrontProductModalProps {
   isOpen: boolean;
@@ -326,7 +327,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
-                        folder="images/products"
+                        folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
                         onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                       >
@@ -341,7 +342,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                     <FileUpload
                       accept="image/*"
                       uploadType="image"
-                      folder="images/products"
+                      folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
                       onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
                       className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
                     >

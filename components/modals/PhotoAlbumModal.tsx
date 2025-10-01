@@ -3,6 +3,7 @@ import { FaTimes, FaSave, FaImage } from 'react-icons/fa';
 import type { PhotoAlbum } from '../../lib/services/albumService';
 import ImageUpload from '../admin/ImageUpload';
 import toast from 'react-hot-toast';
+import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
 
 interface PhotoAlbumModalProps {
   isOpen: boolean;
@@ -167,7 +168,7 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 value={formData.cover_image_path ? [formData.cover_image_path] : []}
                 onChange={(urls) => setFormData(prev => ({ ...prev, cover_image_path: urls[0] || '' }))}
                 maxImages={1}
-                folder="albums"
+                folder={STORAGE_PATHS.VLOG_ALBUM_IMAGES}
                 placeholder="Upload cover image"
                 showPreview={true}
               />

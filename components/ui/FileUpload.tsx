@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { FaUpload, FaSpinner } from 'react-icons/fa';
 import { FileUploadService } from '../../lib/utils/fileUpload';
 import toast from 'react-hot-toast';
+import type { StoragePath } from '@/lib/constants/storagePaths';
 
 interface FileUploadProps {
   accept: string;
@@ -10,7 +11,7 @@ interface FileUploadProps {
   className?: string;
   children?: React.ReactNode;
   disabled?: boolean;
-  folder?: string;
+  folder?: StoragePath;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
@@ -36,7 +37,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       let result;
 
       // Determine content type and status from folder context
-      let contentType: 'recipe' | 'product' | 'healing' | 'vlog' | 'general' = 'general';
+      let contentType: 'recipe' | 'product' | 'healing' | 'vlog' | 'homepage' | 'general' = 'general';
       let status: 'published' | 'draft' = 'draft'; // Default to draft for safety
 
       // Map folder to content type
@@ -44,6 +45,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
       else if (folder?.includes('product')) contentType = 'product';
       else if (folder?.includes('healing')) contentType = 'healing';
       else if (folder?.includes('vlog')) contentType = 'vlog';
+      else if (folder?.includes('home') || folder?.includes('homepage')) {
+        contentType = 'homepage';
+        status = 'published'; // Homepage content is always published (public bucket)
+      }
       else if (folder?.includes('thumbnail')) {
         // Handle thumbnail uploads
         if (folder.includes('vlogs')) contentType = 'vlog';
@@ -56,7 +61,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           result = await FileUploadService.uploadVideo(file, contentType, status);
           break;
         case 'image':
-          if (folder === 'albums') {
+          if (folder?.includes('albums')) {
             result = await FileUploadService.uploadAlbumPhoto(file);
           } else if (folder?.includes('thumbnail')) {
             // Handle thumbnail uploads with content ID for proper naming
