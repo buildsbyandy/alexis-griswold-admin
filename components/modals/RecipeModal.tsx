@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaPlus, FaTrash } from 'react-icons/fa';
-import type { Recipe, RecipeStatus } from '../../lib/services/recipeService';
+import type { Recipe, RecipeStatus, RecipeFolder } from '../../lib/services/recipeService';
 import recipeService from '../../lib/services/recipeService';
 import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
 import FileUpload from '../ui/FileUpload';
@@ -47,6 +47,18 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
   const [newTag, setNewTag] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
   const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
+  const [folders, setFolders] = useState<RecipeFolder[]>([]);
+
+  // Load folders on mount
+  useEffect(() => {
+    const loadFolders = async () => {
+      const foldersList = await recipeService.getAllFolders();
+      setFolders(foldersList);
+    };
+    if (isOpen) {
+      loadFolders();
+    }
+  }, [isOpen]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -85,13 +97,14 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         tags: recipe.tags,
       });
     } else {
-      // Reset form for new recipe
+      // Reset form for new recipe - use first folder as default
+      const defaultFolder = folders.length > 0 ? folders[0].slug : '';
       setFormData({
         title: '',
         slug: '',
         description: '',
         category: '',
-        folder_slug: 'breakfast',
+        folder_slug: defaultFolder,
         is_beginner: false,
         is_recipe_of_week: false,
         status: 'published' as RecipeStatus,
@@ -109,7 +122,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     }
     // Always reset the tag input when modal opens/closes
     setNewTag('');
-  }, [recipe, isOpen]);
+  }, [recipe, isOpen, folders]);
 
   // Check if current recipe is in favorites carousel
   useEffect(() => {
@@ -469,14 +482,20 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   onChange={(e) => setFormData(prev => ({ ...prev, folder_slug: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
-                  <option value="breakfast">Breakfast</option>
-                  <option value="lunch">Lunch</option>
-                  <option value="dinner">Dinner</option>
-                  <option value="snacks">Snacks</option>
-                  <option value="desserts">Desserts</option>
-                  <option value="beverages">Beverages</option>
+                  {folders.length === 0 ? (
+                    <option value="">No folders available</option>
+                  ) : (
+                    folders
+                      .filter(folder => folder.is_visible)
+                      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                      .map(folder => (
+                        <option key={folder.id} value={folder.slug}>
+                          {folder.name}
+                        </option>
+                      ))
+                  )}
                 </select>
-                <p className="text-xs text-gray-600 mt-1">Recipe category for organization and filtering</p>
+                <p className="text-xs text-gray-600 mt-1">Recipe folder for organization and filtering</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Difficulty</label>
