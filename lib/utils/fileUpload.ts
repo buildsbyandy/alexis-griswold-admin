@@ -153,8 +153,8 @@ export class FileUploadService {
   }
 
   /**
-   * Upload large video files via server-side API
-   * Uses NextAuth authenticated endpoint with Supabase admin client
+   * Upload large video files using Supabase signed URLs
+   * Gets authenticated signed URL from API, then uploads directly to Supabase
    */
   private static async uploadVideoResumable(
     file: File,
@@ -169,7 +169,7 @@ export class FileUploadService {
       const { bucket, folder } = getStoragePath(contentType, 'video', status);
       const filePath = `${folder}/${fileName}`;
 
-      console.log('Starting server-side upload for large video:', {
+      console.log('Starting signed URL upload for large video:', {
         fileName,
         filePath,
         bucket,
@@ -177,49 +177,54 @@ export class FileUploadService {
         fileType: file.type
       });
 
-      // Create FormData to send file to authenticated API endpoint
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('bucket', bucket);
-      formData.append('path', filePath);
-      formData.append('contentType', file.type);
-
-      // Upload through authenticated API route (NextAuth session validated server-side)
-      const uploadResponse = await fetch('/api/storage/upload-large-file', {
+      // Step 1: Get signed upload URL from authenticated API
+      const signedUrlResponse = await fetch('/api/storage/resumable-upload', {
         method: 'POST',
-        body: formData
-        // No Content-Type header - browser will set it with boundary for multipart/form-data
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bucket,
+          path: filePath,
+          contentType: file.type
+        })
+      });
+
+      if (!signedUrlResponse.ok) {
+        const error = await signedUrlResponse.json();
+        throw new Error(error.error || 'Failed to get signed upload URL');
+      }
+
+      const { uploadUrl, path } = await signedUrlResponse.json();
+      console.log('Got signed URL, uploading directly to Supabase storage...');
+
+      // Step 2: Upload file directly to Supabase using signed URL
+      // The signed URL already contains authentication, no extra headers needed
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        }
       });
 
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
-        console.error('Server-side upload failed:', {
+        console.error('Direct upload to Supabase failed:', {
           status: uploadResponse.status,
           statusText: uploadResponse.statusText,
           body: errorText
         });
-
-        // Try to parse as JSON, fallback to text
-        let errorMessage = `Failed to upload file: ${uploadResponse.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
 
-      const { url } = await uploadResponse.json();
-      console.log('Server-side upload successful:', url);
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+      console.log('Direct upload successful:', publicUrl);
 
       return {
         success: true,
-        url
+        url: publicUrl
       };
     } catch (error) {
-      console.error('Server-side upload error:', error);
+      console.error('Signed URL upload error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Upload failed'
