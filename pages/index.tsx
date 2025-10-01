@@ -1360,7 +1360,7 @@ const AdminContent: React.FC = () => {
                         folder={STORAGE_PATHS.HOME_VIDEOS}
                         onUpload={async (url) => {
                           console.log('Video uploaded to:', url);
-                          
+
                           // Check if we're at max history (3 videos) and prompt to delete
                           if (videoHistory.length >= 3) {
                             const shouldProceed = confirm(
@@ -1368,21 +1368,52 @@ const AdminContent: React.FC = () => {
                               'To upload this new video, you need to delete an existing video first. ' +
                               'Would you like to proceed? (You can delete videos from the history section below)'
                             );
-                            
+
                             if (!shouldProceed) {
                               toast('Upload cancelled. Please delete a video from history first.');
                               return;
                             }
                           }
-                          
-                          console.log('Video uploaded to:', url);
-                          const updatedContent = {
-                            ...homePageContent,
-                            background_video_path: url,
-                            videoBackground: url
-                          };
-                          setHomePageContent(updatedContent);
-                          toast.success('Video ready. Save changes to apply.');
+
+                          // Automatically save the new video to database
+                          try {
+                            const updatedContent = {
+                              ...homePageContent,
+                              background_video_path: url,
+                              videoBackground: url
+                            };
+
+                            toast.loading('Saving video...', { id: 'save-video' });
+
+                            const response = await fetch('/api/home', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(updatedContent)
+                            });
+
+                            if (response.ok) {
+                              const responseData = await response.json();
+
+                              // Update local state
+                              setHomePageContent(updatedContent);
+
+                              // Update video history if provided in response
+                              if (responseData.content?.video_history) {
+                                setVideoHistory(Array.isArray(responseData.content.video_history)
+                                  ? responseData.content.video_history
+                                  : JSON.parse(responseData.content.video_history)
+                                );
+                              }
+
+                              toast.success('Video uploaded and published successfully!', { id: 'save-video' });
+                            } else {
+                              const errorData = await response.json();
+                              throw new Error(errorData.error || 'Failed to save video');
+                            }
+                          } catch (error) {
+                            console.error('Error saving video:', error);
+                            toast.error(error instanceof Error ? error.message : 'Failed to save video', { id: 'save-video' });
+                          }
                         }}
                         className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
                       >
