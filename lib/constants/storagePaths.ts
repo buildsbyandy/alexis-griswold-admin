@@ -11,6 +11,7 @@
 export const STORAGE_PATHS = {
   // Recipes
   RECIPE_IMAGES: 'images/recipes/',
+  RECIPE_STEPS: 'images/recipes/steps/',
 
   // Vlogs
   VLOG_THUMBNAILS: 'thumbnails/vlogs/',

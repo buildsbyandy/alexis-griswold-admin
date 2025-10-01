@@ -8,6 +8,7 @@ import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
 import toast from 'react-hot-toast';
 import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
+import RecipeStepsBuilder, { type RecipeStep } from '../recipe/RecipeStepsBuilder';
 
 interface RecipeModalProps {
   isOpen: boolean;
@@ -35,14 +36,14 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     // Legacy is_favorite field removed - featured status managed by carousel system
     hero_image_path: '',
     images: [] as string[],
-    ingredients: [''],
-    instructions: [''],
     prepTime: '',
     cookTime: '',
     servings: 1,
     difficulty: 'Easy' as RecipeDifficulty,
     tags: [] as string[],
   });
+
+  const [recipeSteps, setRecipeSteps] = useState<RecipeStep[]>([]);
 
   const [newTag, setNewTag] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
@@ -88,14 +89,17 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         // Legacy is_favorite field removed - featured status managed by carousel system
         hero_image_path: recipe.hero_image_path || '',
         images: recipe.images,
-        ingredients: recipe.ingredients.length > 0 ? recipe.ingredients : [''],
-        instructions: recipe.instructions.length > 0 ? recipe.instructions : [''],
         prepTime: recipe.prepTime,
         cookTime: recipe.cookTime,
         servings: recipe.servings,
         difficulty: isValidDifficulty(recipe.difficulty) ? recipe.difficulty : 'Easy',
         tags: recipe.tags,
       });
+
+      // Load recipe steps if editing existing recipe
+      if (recipe.id) {
+        loadRecipeSteps(recipe.id);
+      }
     } else {
       // Reset form for new recipe - use first folder as default
       const defaultFolder = folders.length > 0 ? folders[0].slug : '';
@@ -111,18 +115,31 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
         // Legacy is_favorite field removed - featured status managed by carousel system
         hero_image_path: '',
         images: [],
-        ingredients: [''],
-        instructions: [''],
         prepTime: '',
         cookTime: '',
         servings: 1,
         difficulty: 'Easy',
         tags: [],
       });
+      setRecipeSteps([]);
     }
     // Always reset the tag input when modal opens/closes
     setNewTag('');
   }, [recipe, isOpen, folders]);
+
+  // Load recipe steps from API
+  const loadRecipeSteps = async (recipeId: string) => {
+    try {
+      const response = await fetch(`/api/recipes/${recipeId}/steps`);
+      if (response.ok) {
+        const data = await response.json();
+        setRecipeSteps(data.steps || []);
+      }
+    } catch (error) {
+      console.error('Error loading recipe steps:', error);
+      setRecipeSteps([]);
+    }
+  };
 
   // Check if current recipe is in favorites carousel
   useEffect(() => {
@@ -176,52 +193,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     }));
   };
 
-  const addIngredient = () => {
-    setFormData(prev => ({
-      ...prev,
-      ingredients: [...prev.ingredients, '']
-    }));
-  };
-
-  const removeIngredient = (index: number) => {
-    if (formData.ingredients.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        ingredients: prev.ingredients.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-  const updateIngredient = (index: number, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      ingredients: prev.ingredients.map((ing, i) => i === index ? value : ing)
-    }));
-  };
-
-  const addInstruction = () => {
-    setFormData(prev => ({
-      ...prev,
-      instructions: [...prev.instructions, '']
-    }));
-  };
-
-  const removeInstruction = (index: number) => {
-    if (formData.instructions.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        instructions: prev.instructions.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-  const updateInstruction = (index: number, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      instructions: prev.instructions.map((inst, i) => i === index ? value : inst)
-    }));
-  };
-
   const addTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
       setFormData(prev => ({
@@ -255,9 +226,16 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim()) {
       toast.error('Recipe title is required');
+      return;
+    }
+
+    // Validate that all steps have descriptions
+    const invalidSteps = recipeSteps.filter(step => !step.description?.trim());
+    if (invalidSteps.length > 0) {
+      toast.error('All recipe steps must have descriptions');
       return;
     }
 
@@ -265,15 +243,55 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
       // Add required timestamp fields for the Recipe interface
       const recipeData = {
         ...formData,
+        ingredients: [], // Empty array for legacy field
+        instructions: [], // Empty array for legacy field
         is_favorite: false, // Legacy field - will be ignored by API but required by interface
         created_at: recipe ? recipe.created_at : new Date(),
         updated_at: new Date()
       };
+
       await onSave(recipeData);
+
+      // After recipe is saved, save the steps
+      // We need to get the recipe ID - if editing, we have it; if new, we need to fetch it
+      let recipeId = recipe?.id;
+
+      if (!recipeId) {
+        // For new recipes, fetch the just-created recipe by slug
+        const response = await fetch(`/api/recipes?slug=${formData.slug}`);
+        if (response.ok) {
+          const data = await response.json();
+          const foundRecipe = data.recipes?.find((r: any) => r.slug === formData.slug);
+          recipeId = foundRecipe?.id;
+        }
+      }
+
+      if (recipeId) {
+        await saveRecipeSteps(recipeId);
+      }
+
       onClose();
       toast.success(`Recipe ${recipe ? 'updated' : 'created'} successfully!`);
     } catch (error) {
+      console.error('Error saving recipe:', error);
       toast.error(`Failed to ${recipe ? 'update' : 'create'} recipe`);
+    }
+  };
+
+  const saveRecipeSteps = async (recipeId: string) => {
+    try {
+      const response = await fetch(`/api/recipes/${recipeId}/steps`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ steps: recipeSteps })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save recipe steps');
+      }
+    } catch (error) {
+      console.error('Error saving recipe steps:', error);
+      throw error;
     }
   };
 
@@ -547,82 +565,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               </div>
             </div>
 
-            {/* Ingredients */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#383B26]">Ingredients</label>
-                <button
-                  type="button"
-                  onClick={addIngredient}
-                  className="px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center"
-                >
-                  <FaPlus className="mr-1" />
-                  Add
-                </button>
-              </div>
-              <p className="text-xs text-gray-600 mb-3">Include quantities and specify organic/brand preferences when relevant</p>
-              <div className="space-y-2">
-                {formData.ingredients.map((ingredient, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={ingredient}
-                      onChange={(e) => updateIngredient(index, e.target.value)}
-                      placeholder={index === 0 ? "e.g., 2 cups organic flour" : `Ingredient ${index + 1}`}
-                      className="flex-1 p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                    />
-                    {formData.ingredients.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeIngredient(index)}
-                        className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <FaTrash />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-[#383B26]">Instructions</label>
-                <button
-                  type="button"
-                  onClick={addInstruction}
-                  className="px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] flex items-center"
-                >
-                  <FaPlus className="mr-1" />
-                  Add Step
-                </button>
-              </div>
-              <p className="text-xs text-gray-600 mb-3">Clear step-by-step instructions - each step should be one action</p>
-              <div className="space-y-3">
-                {formData.instructions.map((instruction, index) => (
-                  <div key={index} className="flex gap-2">
-                    <div className="flex-shrink-0 w-8 h-8 bg-[#E3D4C2] rounded-full flex items-center justify-center text-sm font-medium text-[#383B26]">
-                      {index + 1}
-                    </div>
-                    <textarea
-                      value={instruction}
-                      onChange={(e) => updateInstruction(index, e.target.value)}
-                      placeholder={index === 0 ? "Preheat oven to 350°F and grease a 9x13 baking dish..." : `Step ${index + 1}`}
-                      className="flex-1 p-2 border border-gray-300 rounded-md h-20 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                    />
-                    {formData.instructions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeInstruction(index)}
-                        className="px-2 py-1 text-red-600 hover:bg-red-50 rounded self-start"
-                      >
-                        <FaTrash />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            {/* Recipe Steps Builder */}
+            <div className="border-t border-gray-200 pt-6">
+              <RecipeStepsBuilder
+                steps={recipeSteps}
+                onChange={setRecipeSteps}
+              />
             </div>
 
             {/* Tags */}

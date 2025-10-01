@@ -172,8 +172,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (servings !== undefined) updateData.servings = servings
       if (prepTime !== undefined) updateData.prepTime = prepTime
       if (cookTime !== undefined) updateData.cookTime = cookTime
-      if (ingredients !== undefined) updateData.ingredients = ingredients
-      if (instructions !== undefined) updateData.instructions = instructions
       if (tags !== undefined) updateData.tags = tags
       if (status !== undefined) updateData.status = status
       if (is_favorite !== undefined) updateData.is_favorite = is_favorite

@@ -79,8 +79,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         servings: servings || null,
         prepTime: prepTime || null,
         cookTime: cookTime || null,
-        ingredients: ingredients || [],
-        instructions: instructions || [],
         tags: tags || [],
         status,
         is_favorite: is_favorite || false,
