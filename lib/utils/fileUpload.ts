@@ -153,8 +153,8 @@ export class FileUploadService {
   }
 
   /**
-   * Upload video using resumable (TUS) protocol for large files
-   * Delegates to server-side API to use Supabase admin client
+   * Upload large video files via server-side API
+   * Uses NextAuth authenticated endpoint with Supabase admin client
    */
   private static async uploadVideoResumable(
     file: File,
@@ -169,7 +169,7 @@ export class FileUploadService {
       const { bucket, folder } = getStoragePath(contentType, 'video', status);
       const filePath = `${folder}/${fileName}`;
 
-      console.log('Starting resumable upload:', {
+      console.log('Starting server-side upload for large video:', {
         fileName,
         filePath,
         bucket,
@@ -177,52 +177,38 @@ export class FileUploadService {
         fileType: file.type
       });
 
-      // Request resumable upload URL from server
-      const urlResponse = await fetch('/api/storage/resumable-upload', {
+      // Create FormData to send file to authenticated API endpoint
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', bucket);
+      formData.append('path', filePath);
+      formData.append('contentType', file.type);
+
+      // Upload through authenticated API route (NextAuth session validated server-side)
+      const uploadResponse = await fetch('/api/storage/upload-large-file', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bucket,
-          path: filePath,
-          contentType: file.type
-        })
-      });
-
-      if (!urlResponse.ok) {
-        const error = await urlResponse.json();
-        throw new Error(error.error || 'Failed to get resumable upload URL');
-      }
-
-      const { uploadUrl } = await urlResponse.json();
-
-      // Upload directly to Supabase using TUS protocol
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'POST',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-          'x-upsert': 'true', // Allow overwriting if file exists
-        }
+        body: formData
+        // No Content-Type header - browser will set it with boundary for multipart/form-data
       });
 
       if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Resumable upload failed:', errorText);
-        throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
+        const error = await uploadResponse.json();
+        console.error('Server-side upload failed:', error);
+        throw new Error(error.error || `Failed to upload file: ${uploadResponse.status}`);
       }
 
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${filePath}`;
-      console.log('Resumable upload successful:', publicUrl);
+      const { url } = await uploadResponse.json();
+      console.log('Server-side upload successful:', url);
 
       return {
         success: true,
-        url: publicUrl
+        url
       };
     } catch (error) {
-      console.error('Resumable upload error:', error);
+      console.error('Server-side upload error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Resumable upload failed'
+        error: error instanceof Error ? error.message : 'Upload failed'
       };
     }
   }
