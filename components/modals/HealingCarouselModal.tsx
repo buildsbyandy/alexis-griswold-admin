@@ -199,7 +199,7 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
           album={null}
           onSave={handleAlbumSave}
           forcePageType="healing"
-          carouselId="healing-placeholder-carousel-id" // TODO: This should be properly initialized like the vlogs carousel
+          carouselId={carouselContext === 'part1' ? 'healing-part-1' : 'healing-part-2'}
         />
       )}
 

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt, FaFolder } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
 import { STORAGE_PATHS } from '../lib/constants/storagePaths';
 import RecipeModal from '../components/modals/RecipeModal';
+import RecipeFolderModal from '../components/modals/RecipeFolderModal';
 import VlogModal from '../components/modals/VlogModal';
 import PhotoAlbumModal from '../components/modals/PhotoAlbumModal';
 import HomeContentModal from '../components/modals/HomeContentModal';
@@ -16,11 +17,12 @@ import HealingProductModal from '../components/modals/HealingProductModal';
 import { type HealingProductRow } from '../lib/services/healingService';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
 import HealingCarouselModal from '../components/modals/HealingCarouselModal';
+import TikTokVideoModal from '../components/modals/TikTokVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
 import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
 import recipeService from '../lib/services/recipeService';
-import type { Recipe } from '../lib/services/recipeService';
+import type { Recipe, RecipeFolder } from '../lib/services/recipeService';
 import vlogService, { type VlogVideo, type VlogCarouselType } from '../lib/services/vlogService';
 import playlistService, { type SpotifyPlaylist } from '../lib/services/playlistService';
 import albumService, { type PhotoAlbum } from '../lib/services/albumService';
@@ -47,6 +49,8 @@ const AdminContent: React.FC = () => {
   const [featuredRecipeId, setFeaturedRecipeId] = useState<string | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showBeginnerRecipesView, setShowBeginnerRecipesView] = useState(false);
   const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
   const [recipeActiveTab, setRecipeActiveTab] = useState<'recipes' | 'page-content' | 'hero-videos'>('recipes');
   
@@ -68,6 +72,7 @@ const AdminContent: React.FC = () => {
   // Recipe hero videos state
   const [recipeHeroVideos, setRecipeHeroVideos] = useState<any[]>([]);
   const [showAddHeroVideo, setShowAddHeroVideo] = useState(false);
+  const [showAddRecipeTikTok, setShowAddRecipeTikTok] = useState(false);
   const [newHeroVideo, setNewHeroVideo] = useState({
     youtube_url: '',
     video_title: '',
@@ -109,6 +114,7 @@ const AdminContent: React.FC = () => {
   const [isAddingSfProduct, setIsAddingSfProduct] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('all');
+  const [recipeFolders, setRecipeFolders] = useState<RecipeFolder[]>([]);
   const [stats, setStats] = useState({ total: 0, byFolder: {}, beginners: 0, recipeOfWeek: 0 });
   const [sfItems, setSfItems] = useState<StorefrontProductRow[]>([]);
   const [sfEditing, setSfEditing] = useState<StorefrontProductRow | null>(null);
@@ -204,20 +210,94 @@ const AdminContent: React.FC = () => {
   // Recipe save functionality
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      let savedRecipeId: string;
+      const wasBeginnerBefore = editingRecipe?.is_beginner || false;
+      const wasRecipeOfWeekBefore = editingRecipe?.is_recipe_of_week || false;
+
       if (editingRecipe) {
         // Update existing recipe
         const result = await recipeService.updateRecipe(editingRecipe.id, recipeData);
         if (!result) throw new Error('Failed to update recipe');
+        savedRecipeId = editingRecipe.id;
       } else {
         // Create new recipe
         const result = await recipeService.addRecipe(recipeData);
         if (!result) throw new Error('Failed to create recipe');
+        // Get the ID of the newly created recipe
+        const recipesList = await recipeService.getAllRecipes();
+        const newRecipe = recipesList.find(r => r.title === recipeData.title && r.slug === recipeData.slug);
+        if (!newRecipe) throw new Error('Failed to find newly created recipe');
+        savedRecipeId = newRecipe.id;
       }
-      
+
+      // Sync with carousel system for Beginner Recipes
+      if (recipeData.is_beginner !== wasBeginnerBefore) {
+        const { findCarouselByPageSlug, createCarouselItem, getCarouselItems, deleteCarouselItem } = await import('../lib/services/carouselService');
+        const carousel = await findCarouselByPageSlug('recipes', 'recipes-beginner');
+
+        if (carousel.data) {
+          if (recipeData.is_beginner) {
+            // Add to beginner carousel
+            await createCarouselItem({
+              carousel_id: carousel.data.id,
+              kind: 'recipe',
+              ref_id: savedRecipeId,
+              caption: recipeData.title,
+              order_index: 0,
+              is_active: true,
+              album_id: null,
+              youtube_id: null,
+              link_url: null,
+              image_path: recipeData.hero_image_path || null,
+              badge: null,
+            });
+          } else {
+            // Remove from beginner carousel
+            const items = await getCarouselItems(carousel.data.id);
+            const existingItem = items.data?.find(item => item.ref_id === savedRecipeId);
+            if (existingItem) {
+              await deleteCarouselItem(existingItem.id);
+            }
+          }
+        }
+      }
+
+      // Sync with carousel system for Recipe of Week
+      if (recipeData.is_recipe_of_week !== wasRecipeOfWeekBefore) {
+        const { findCarouselByPageSlug, createCarouselItem, getCarouselItems, deleteCarouselItem } = await import('../lib/services/carouselService');
+        const carousel = await findCarouselByPageSlug('recipes', 'recipes-weekly-pick');
+
+        if (carousel.data) {
+          if (recipeData.is_recipe_of_week) {
+            // Add to weekly pick carousel
+            await createCarouselItem({
+              carousel_id: carousel.data.id,
+              kind: 'recipe',
+              ref_id: savedRecipeId,
+              caption: recipeData.title,
+              order_index: 0,
+              is_active: true,
+              album_id: null,
+              youtube_id: null,
+              link_url: null,
+              image_path: recipeData.hero_image_path || null,
+              badge: null,
+            });
+          } else {
+            // Remove from weekly pick carousel
+            const items = await getCarouselItems(carousel.data.id);
+            const existingItem = items.data?.find(item => item.ref_id === savedRecipeId);
+            if (existingItem) {
+              await deleteCarouselItem(existingItem.id);
+            }
+          }
+        }
+      }
+
       // Reload recipes
       const recipesList = await recipeService.getAllRecipes();
       setRecipes(recipesList);
-      
+
       // Update stats
       const recipeStats = await recipeService.getRecipeStats();
       setStats(recipeStats);
@@ -982,9 +1062,13 @@ const AdminContent: React.FC = () => {
       try {
         const recipeStats = await recipeService.getRecipeStats();
         setStats(recipeStats);
-        
+
         const recipesList = await recipeService.getAllRecipes();
         setRecipes(recipesList);
+
+        // Load recipe folders
+        const foldersList = await recipeService.getAllFolders();
+        setRecipeFolders(foldersList);
 
         // Load featured recipe
         const featuredRecipe = await recipeService.getFeaturedRecipe();
@@ -1085,10 +1169,26 @@ const AdminContent: React.FC = () => {
 
       // Load healing data
       try {
-      const healingProductsList = await healingService.get_all_products();
-      setHealingProducts(healingProductsList);
+        // Load healing page content (hero section)
+        const contentResponse = await fetch('/api/healing/content');
+        if (contentResponse.ok) {
+          const contentData = await contentResponse.json();
+          if (contentData.data) {
+            setHealingHeroData({
+              title: contentData.data.hero_header || 'HEALING',
+              subtitle: contentData.data.hero_subtitle || 'Your journey to wellness starts here.',
+              bodyText: contentData.data.hero_body_paragraph || 'From gut health to holistic healing, discover natural methods to restore your body\'s balance and vitality.',
+              featuredVideoId: contentData.data.hero_video_youtube_url || '',
+              featuredVideoTitle: contentData.data.hero_video_title || '',
+              featuredVideoDate: contentData.data.hero_video_date || '',
+            });
+          }
+        }
 
-      const healingVideosList = await healingService.get_all_videos();
+        const healingProductsList = await healingService.get_all_products();
+        setHealingProducts(healingProductsList);
+
+        const healingVideosList = await healingService.get_all_videos();
         setHealingVideos(healingVideosList);
 
         // Load featured video from carousel system
@@ -1694,7 +1794,7 @@ const AdminContent: React.FC = () => {
                 <nav className="flex px-6">
                   {[
                     { id: 'recipes', name: 'Recipes', icon: '🍽️' },
-                    { id: 'page-content', name: 'Page Content', icon: '📝' },
+                    { id: 'page-content', name: 'Hero Text', icon: '📝' },
                     { id: 'hero-videos', name: 'Hero Videos', icon: '🎬' }
                   ].map((tab) => (
                     <button
@@ -1727,20 +1827,27 @@ const AdminContent: React.FC = () => {
                       <FaPlus className="mr-2" />
                       Add New Recipe
                     </button>
-                <button 
-                  onClick={handleExportRecipes}
-                  className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
-                >
-                  <FaDownload className="mr-2" />
-                  Export
-                </button>
-                <button 
-                  onClick={handleImportRecipes}
-                  className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
-                >
-                  <FaUploadIcon className="mr-2" />
-                  Import
-                </button>
+                    <button
+                      onClick={handleExportRecipes}
+                      className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
+                    >
+                      <FaDownload className="mr-2" />
+                      Export
+                    </button>
+                    <button
+                      onClick={handleImportRecipes}
+                      className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
+                    >
+                      <FaUploadIcon className="mr-2" />
+                      Import
+                    </button>
+                    <button
+                      onClick={() => setShowBeginnerRecipesView(!showBeginnerRecipesView)}
+                      className={`px-4 py-2 ${showBeginnerRecipesView ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md flex items-center`}
+                    >
+                      <FaStar className="mr-2" />
+                      {showBeginnerRecipesView ? 'Hide' : 'View'} Beginner Recipes
+                    </button>
               </div>
             </div>
 
@@ -1760,15 +1867,72 @@ const AdminContent: React.FC = () => {
                   className="p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 >
                   <option value="all">All Folders</option>
-                  <option value="breakfast">Breakfast</option>
-                  <option value="lunch">Lunch</option>
-                  <option value="dinner">Dinner</option>
-                  <option value="snacks">Snacks</option>
-                  <option value="desserts">Desserts</option>
-                  <option value="beverages">Beverages</option>
+                  {recipeFolders
+                    .filter(folder => folder.is_visible)
+                    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                    .map(folder => (
+                      <option key={folder.id} value={folder.slug}>
+                        {folder.name}
+                      </option>
+                    ))}
                 </select>
+                <button
+                  onClick={() => setShowFolderModal(true)}
+                  className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center whitespace-nowrap"
+                >
+                  <FaFolder className="mr-2" />
+                  Manage Folders
+                </button>
               </div>
             </div>
+
+            {/* Beginner Recipes Carousel View */}
+            {showBeginnerRecipesView && (
+              <div className="p-6 mb-6 bg-white rounded-lg shadow-md border-2 border-blue-200">
+                <h2 className="text-xl font-semibold text-[#383B26] mb-4 flex items-center">
+                  <span className="text-2xl mr-3">👶</span>
+                  Beginner Recipes Carousel (Read-Only)
+                </h2>
+                <p className="text-[#8F907E] mb-6">
+                  This view shows recipes currently in the &quot;recipes-beginner&quot; carousel.
+                  These are automatically synced when you check/uncheck the &quot;Beginner Recipe&quot; checkbox when editing recipes.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {recipes
+                    .filter(recipe => recipe.is_beginner)
+                    .map(recipe => (
+                      <div key={recipe.id} className="text-center p-4 border border-gray-200 rounded-lg">
+                        <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden relative">
+                          {recipe.hero_image_path ? (
+                            <Image
+                              src={recipe.hero_image_path}
+                              alt={recipe.title}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <FaUtensils className="text-gray-400 text-2xl" />
+                          )}
+                        </div>
+                        <p className="text-sm font-medium">{recipe.title}</p>
+                        <p className="text-xs text-gray-500">
+                          Beginner • {recipe.category || 'Recipe'}
+                          {recipe.prepTime && ` • ${recipe.prepTime}`}
+                        </p>
+                      </div>
+                    ))}
+
+                  {recipes.filter(recipe => recipe.is_beginner).length === 0 && (
+                    <div className="col-span-full text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <FaUtensils className="text-gray-400 text-3xl mx-auto mb-2" />
+                      <p className="text-gray-500">No beginner recipes yet. Mark recipes as &quot;Beginner Recipe&quot; when editing them.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Recipe Cards Grid */}
             <div className="p-6 bg-white rounded-lg shadow-md">
@@ -2037,22 +2201,22 @@ const AdminContent: React.FC = () => {
             {recipeActiveTab === 'hero-videos' && (
               <>
               <div className="space-y-6">
-                {/* YouTube Reels Carousel Manager */}
+                {/* TikTok Reels Carousel Manager */}
                 <div className="p-6 bg-white rounded-lg shadow-md">
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26] flex items-center">
                         <span className="text-2xl mr-3">🎬</span>
-                        YouTube Reels Carousel
+                        TikTok Reels Carousel
                       </h2>
-                      <p className="text-[#8F907E] mt-1">Manage the video carousel that appears in the hero section</p>
+                      <p className="text-[#8F907E] mt-1">Manage the TikTok video carousel that appears in the hero section</p>
                     </div>
-                    <button 
+                    <button
                       className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
-                      onClick={() => setShowAddHeroVideo(true)}
+                      onClick={() => setShowAddRecipeTikTok(true)}
                     >
                       <FaPlus className="mr-2" />
-                      Add Video
+                      Add TikTok
                     </button>
                   </div>
 
@@ -2127,74 +2291,6 @@ const AdminContent: React.FC = () => {
                         </button>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Beginner Recipes Preview */}
-                <div className="p-6 bg-white rounded-lg shadow-md">
-                  <h2 className="text-xl font-semibold text-[#383B26] mb-4 flex items-center">
-                    <span className="text-2xl mr-3">👶</span>
-                    Beginner Recipes Carousel
-                  </h2>
-                  <p className="text-[#8F907E] mb-6">
-                    These are automatically populated from recipes marked as &quot;Beginner Recipe&quot; in the main recipes tab. 
-                    The carousel shows recipes where <code className="bg-gray-100 px-2 py-1 rounded text-sm">isBeginner=true</code>.
-                  </p>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-start">
-                      <div className="text-blue-400 mr-3 mt-0.5">ℹ️</div>
-                      <div>
-                        <p className="text-sm text-blue-800 font-medium">How to manage beginner recipes:</p>
-                        <ol className="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
-                          <li>Go to the &quot;Recipes&quot; tab</li>
-                          <li>Edit any recipe</li>
-                          <li>Check the &quot;Beginner Recipe&quot; checkbox</li>
-                          <li>Save the recipe</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Preview of beginner recipes */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-[#383B26] mb-3">Current Beginner Recipes Preview</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {recipes
-                        .filter(recipe => recipe.is_beginner)
-                        .slice(0, 3)
-                        .map(recipe => (
-                          <div key={recipe.id} className="text-center p-4 border border-gray-200 rounded-lg">
-                            <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden relative">
-                              {recipe.hero_image_path ? (
-                                <Image
-                                  src={recipe.hero_image_path}
-                                  alt={recipe.title}
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, 33vw"
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <FaUtensils className="text-gray-400 text-2xl" />
-                              )}
-                            </div>
-                            <p className="text-sm font-medium">{recipe.title}</p>
-                            <p className="text-xs text-gray-500">
-                              Beginner • {recipe.category || 'Recipe'}
-                              {recipe.prepTime && ` • ${recipe.prepTime}`}
-                            </p>
-                          </div>
-                        ))}
-                      
-                      {recipes.filter(recipe => recipe.is_beginner).length < 3 && (
-                        <div className="text-center p-4 border-2 border-dashed border-gray-300 rounded-lg">
-                          <div className="w-full h-32 bg-gray-100 rounded mb-3 flex items-center justify-center">
-                            <FaPlus className="text-gray-400 text-xl" />
-                          </div>
-                          <p className="text-sm text-gray-500">Add more beginner recipes</p>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -3009,7 +3105,7 @@ const AdminContent: React.FC = () => {
               <div className="flex space-x-6 border-b">
                 {[
                   { id: 'hero', name: 'Hero Section', icon: FaStar },
-                  { id: 'carousels', name: 'Video Carousels', icon: FaVideo },
+                  { id: 'carousels', name: 'Content Carousels', icon: FaVideo },
                   { id: 'products', name: 'Products & Supplements', icon: FaHeartbeat }
                 ].map((tab) => {
                   const Icon = tab.icon;
@@ -3081,9 +3177,28 @@ const AdminContent: React.FC = () => {
                             />
                           </div>
                           <button
-                            onClick={() => {
-                              setEditingHealingHero(false);
-                              toast.success('Hero section updated!');
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('/api/healing/content', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    hero_header: healingHeroData.title,
+                                    hero_subtitle: healingHeroData.subtitle,
+                                    hero_body_paragraph: healingHeroData.bodyText,
+                                  })
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to save healing hero section');
+                                }
+
+                                setEditingHealingHero(false);
+                                toast.success('Hero section updated!');
+                              } catch (error) {
+                                console.error('Error saving healing hero section:', error);
+                                toast.error('Failed to save changes');
+                              }
                             }}
                             className="flex items-center px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700"
                           >
@@ -3877,6 +3992,53 @@ const AdminContent: React.FC = () => {
         }}
         recipe={editingRecipe}
         onSave={handleSaveRecipe}
+      />
+
+      {/* Recipe Folder Modal */}
+      <RecipeFolderModal
+        isOpen={showFolderModal}
+        onClose={() => setShowFolderModal(false)}
+        folders={recipeFolders}
+        onSave={async () => {
+          const foldersList = await recipeService.getAllFolders();
+          setRecipeFolders(foldersList);
+        }}
+      />
+
+      {/* Recipe TikTok Modal */}
+      <TikTokVideoModal
+        isOpen={showAddRecipeTikTok}
+        onClose={() => setShowAddRecipeTikTok(false)}
+        onSave={async (tiktokData) => {
+          try {
+            const { findCarouselByPageSlug, createCarouselItem } = await import('../lib/services/carouselService');
+            const carousel = await findCarouselByPageSlug('recipes', 'recipes-hero-videos');
+
+            if (carousel.data) {
+              await createCarouselItem({
+                carousel_id: carousel.data.id,
+                kind: 'tiktok',
+                link_url: tiktokData.link_url,
+                caption: tiktokData.caption || null,
+                order_index: tiktokData.order_index || 0,
+                is_active: true,
+                album_id: null,
+                ref_id: null,
+                image_path: null,
+                youtube_id: null,
+                badge: null,
+              });
+
+              toast.success('TikTok video added successfully!');
+              setShowAddRecipeTikTok(false);
+              // Reload hero videos to show the new TikTok
+              await loadRecipeHeroVideos();
+            }
+          } catch (error) {
+            console.error('Error adding TikTok:', error);
+            toast.error('Failed to add TikTok video');
+          }
+        }}
       />
 
       {/* Image Modal */}

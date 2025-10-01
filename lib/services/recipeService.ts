@@ -14,9 +14,23 @@ type RecipeUpdate = Database['public']['Tables']['recipes']['Update']
 type PageContentRow = Database['public']['Tables']['recipes_page_content']['Row']
 type PageContentInsert = Database['public']['Tables']['recipes_page_content']['Insert']
 type PageContentUpdate = Database['public']['Tables']['recipes_page_content']['Update']
+type RecipeFolderRow = Database['public']['Tables']['recipe_folders']['Row']
+type RecipeFolderInsert = Database['public']['Tables']['recipe_folders']['Insert']
+type RecipeFolderUpdate = Database['public']['Tables']['recipe_folders']['Update']
 // Recipe hero video logic has been moved to lib/services/recipeHeroService.ts
 
 export type RecipeStatus = Database['public']['Enums']['recipe_status']
+
+export interface RecipeFolder {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_visible: boolean;
+  sort_order: number | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Recipe {
   id: string;
@@ -704,6 +718,69 @@ class RecipeService {
       }
     } catch (error) {
       console.error('Error setting favorite recipe:', error);
+      return false;
+    }
+  }
+
+  // Recipe Folders CRUD
+  async getAllFolders(): Promise<RecipeFolder[]> {
+    try {
+      const response = await fetch('/api/recipes/folders');
+      if (!response.ok) throw new Error('Failed to fetch recipe folders');
+      const data = await response.json();
+
+      return (data.folders as RecipeFolderRow[] || []).map((f: RecipeFolderRow) => ({
+        id: f.id,
+        name: f.name,
+        slug: f.slug,
+        description: f.description,
+        is_visible: f.is_visible ?? true,
+        sort_order: f.sort_order,
+        created_at: f.created_at,
+        updated_at: f.updated_at,
+      }));
+    } catch (error) {
+      console.error('Error fetching recipe folders:', error);
+      return [];
+    }
+  }
+
+  async createFolder(folderData: Omit<RecipeFolder, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
+    try {
+      const response = await fetch('/api/recipes/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(folderData)
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error creating recipe folder:', error);
+      return false;
+    }
+  }
+
+  async updateFolder(id: string, folderData: Partial<RecipeFolder>): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/recipes/folders/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(folderData)
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error updating recipe folder:', error);
+      return false;
+    }
+  }
+
+  async deleteFolder(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/recipes/folders/${id}`, {
+        method: 'DELETE'
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error deleting recipe folder:', error);
       return false;
     }
   }
