@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaSave } from 'react-icons/fa';
 import type { Recipe, RecipeStatus, RecipeFolder } from '../../lib/services/recipeService';
 import recipeService from '../../lib/services/recipeService';
 import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
-import FileUpload from '../ui/FileUpload';
-import SecureImage from '../admin/SecureImage';
-import { parseSupabaseUrl } from '@/util/imageUrl';
 import toast from 'react-hot-toast';
-import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
 import RecipeStepsBuilder, { type RecipeStep } from '../recipe/RecipeStepsBuilder';
 
 interface RecipeModalProps {
@@ -210,19 +206,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     }));
   };
 
-  const addImage = (imageUrl: string) => {
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, imageUrl]
-    }));
-  };
-
-  const removeImage = (indexToRemove: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, index) => index !== indexToRemove)
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,10 +222,26 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
       return;
     }
 
+    // Validate that at least one step exists
+    if (recipeSteps.length === 0) {
+      toast.error('Please add at least one recipe step');
+      return;
+    }
+
     try {
+      // Automatically set hero_image_path from first step
+      const heroImagePath = recipeSteps[0]?.image_path || '';
+
+      // Collect all images from steps for the images array
+      const allImages = recipeSteps
+        .filter(step => step.image_path)
+        .map(step => step.image_path as string);
+
       // Add required timestamp fields for the Recipe interface
       const recipeData = {
         ...formData,
+        hero_image_path: heroImagePath,
+        images: allImages,
         ingredients: [], // Empty array for legacy field
         instructions: [], // Empty array for legacy field
         is_favorite: false, // Legacy field - will be ignored by API but required by interface
@@ -361,134 +360,15 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               <p className="text-xs text-gray-600 mt-1">2-3 sentences describing what makes this recipe special</p>
             </div>
 
-            {/* Image Upload */}
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Recipe Image</label>
-              <p className="text-xs text-gray-600 mb-3">Main image shown on recipe cards (recommended: 800x600px)</p>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {formData.hero_image_path ? (
-                  <div className="relative">
-                    {(() => {
-                      const parsedUrl = parseSupabaseUrl(formData.hero_image_path)
-                      if (parsedUrl) {
-                        return (
-                          <SecureImage
-                            bucket={parsedUrl.bucket}
-                            path={parsedUrl.path}
-                            alt="Recipe"
-                            width={800}
-                            height={192}
-                            className="w-full h-48 object-cover rounded"
-                          />
-                        )
-                      } else {
-                        return (
-                          <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
-                            <span className="text-gray-400">Invalid image URL</span>
-                          </div>
-                        )
-                      }
-                    })()}
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <FileUpload
-                        accept="image/*"
-                        uploadType="image"
-                        folder={STORAGE_PATHS.RECIPE_IMAGES}
-                        onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
-                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                      >
-                        Change Image
-                      </FileUpload>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      folder={STORAGE_PATHS.RECIPE_IMAGES}
-                      onUpload={(url) => setFormData(prev => ({ ...prev, hero_image_path: url }))}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
-                    >
-                      Upload Recipe Image
-                    </FileUpload>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Additional Images */}
-            <div>
-              <div className="mb-1">
-                <label className="block text-sm font-medium text-[#383B26]">Additional Images</label>
-              </div>
-              <p className="text-xs text-gray-600 mb-3">Additional photos showing the cooking process, final result, or different angles</p>
-              
-              {formData.images.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {formData.images.map((imageUrl, index) => (
-                      <div key={index} className="relative group">
-                        {(() => {
-                          const parsedUrl = parseSupabaseUrl(imageUrl)
-                          if (parsedUrl) {
-                            return (
-                              <SecureImage
-                                bucket={parsedUrl.bucket}
-                                path={parsedUrl.path}
-                                alt={`Recipe step ${index + 1}`}
-                                width={300}
-                                height={200}
-                                className="w-full h-32 object-cover rounded border"
-                              />
-                            )
-                          } else {
-                            return (
-                              <div className="w-full h-32 bg-gray-200 rounded border flex items-center justify-center">
-                                <span className="text-gray-400 text-sm">Invalid image URL</span>
-                              </div>
-                            )
-                          }
-                        })()}
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                        >
-                          <FaTimes className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-center">
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      folder={STORAGE_PATHS.RECIPE_IMAGES}
-                      onUpload={addImage}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
-                    >
-                      <FaPlus className="mr-2" />
-                      Add Another Image
-                    </FileUpload>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                  <p className="text-gray-500 mb-2">No additional images yet</p>
-                  <p className="text-sm text-gray-400 mb-4">Click &quot;Add Image&quot; to upload photos of the cooking process or final result</p>
-                  <FileUpload
-                    accept="image/*"
-                    uploadType="image"
-                    folder={STORAGE_PATHS.RECIPE_IMAGES}
-                    onUpload={addImage}
-                    className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
-                  >
-                    <FaPlus className="mr-2" />
-                    Upload Additional Image
-                  </FileUpload>
-                </div>
-              )}
+            {/* Recipe Steps Builder - Replaces separate image uploads */}
+            <div className="border-t border-gray-200 pt-6">
+              <RecipeStepsBuilder
+                steps={recipeSteps}
+                onChange={setRecipeSteps}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                💡 <strong>Tip:</strong> The first step&apos;s image will automatically be used as the hero image for the recipe card. You can bulk upload multiple images at once!
+              </p>
             </div>
 
             {/* Category & Settings */}
