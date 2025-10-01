@@ -14,6 +14,7 @@ interface HomeContent {
   hero_subtitle: string;
   video_title: string;
   video_description: string;
+  copyright_text?: string;
   videoOpacity?: number;
   // Frontend compatibility fields
   videoBackground?: string;
