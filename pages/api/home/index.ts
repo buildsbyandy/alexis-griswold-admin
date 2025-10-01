@@ -218,7 +218,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_title: content.video_title || content.videoTitle || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
       video_description: content.video_description || content.videoDescription || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
       video_history: videoHistory as unknown as Json,
-      copyright_text: currentData?.copyright_text || '© 2024 Alexis Griswold. All rights reserved.',
+      copyright_text: content.copyright_text || currentData?.copyright_text || '© 2024 Alexis Griswold. All rights reserved.',
       is_published: true,
       updated_at: new Date().toISOString()
     };

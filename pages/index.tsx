@@ -926,6 +926,7 @@ const AdminContent: React.FC = () => {
         hero_subtitle: contentData.hero_subtitle || contentData.heroSubtitle,
         video_title: contentData.video_title || contentData.videoTitle,
         video_description: contentData.video_description || contentData.videoDescription,
+        copyright_text: contentData.copyright_text,
         videoOpacity: contentData.videoOpacity ?? 0.7
       };
 

@@ -7,6 +7,7 @@ interface HomeContentData {
   hero_subtitle: string;
   video_title: string;
   video_description: string;
+  copyright_text?: string;
   videoOpacity?: number;
   heroMainTitle?: string;
   heroSubtitle?: string;
@@ -27,6 +28,7 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
     hero_subtitle: '',
     video_title: '',
     video_description: '',
+    copyright_text: '',
     videoOpacity: 0.7,
     heroMainTitle: '',
     heroSubtitle: '',
@@ -43,6 +45,7 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
         hero_subtitle: initialData.hero_subtitle || initialData.heroSubtitle || '',
         video_title: initialData.video_title || initialData.videoTitle || '',
         video_description: initialData.video_description || initialData.videoDescription || '',
+        copyright_text: initialData.copyright_text || '',
         videoOpacity: initialData.videoOpacity || 0.7,
         heroMainTitle: initialData.hero_main_title || initialData.heroMainTitle || '',
         heroSubtitle: initialData.hero_subtitle || initialData.heroSubtitle || '',
@@ -178,7 +181,7 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-[#383B26] border-b border-gray-200 pb-2">SEO & Accessibility Fields</h3>
             <p className="text-sm text-[#8F907E]">These fields are used for search engines and screen readers</p>
-            
+
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">
                 Video Title (SEO)
@@ -191,7 +194,7 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
                 placeholder="Title for search engines and social media"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">
                 Video Description (SEO)
@@ -202,6 +205,27 @@ const HomeContentModal: React.FC<HomeContentModalProps> = ({ isOpen, onClose, in
                 className="w-full p-3 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Description for search engines and social media"
               />
+            </div>
+          </div>
+
+          {/* Footer Fields */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-[#383B26] border-b border-gray-200 pb-2">Footer</h3>
+
+            <div>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">
+                Copyright Text
+              </label>
+              <input
+                type="text"
+                value={formData.copyright_text || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, copyright_text: e.target.value }))}
+                className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                placeholder="© 2024 Alexis Griswold. All rights reserved."
+              />
+              <p className="text-xs text-[#8F907E] mt-1">
+                Displayed in the footer of the home page
+              </p>
             </div>
           </div>
         </div>
