@@ -66,13 +66,6 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
     }
   }, [isOpen, mode, propCategory, categories, selectedCategory]);
 
-  useEffect(() => {
-    if (selectedCategory && activeTab === 'featured') {
-      loadFeaturedProducts();
-      loadAvailableProducts();
-    }
-  }, [selectedCategory, activeTab, loadFeaturedProducts, loadAvailableProducts]);
-
   const loadFeaturedProducts = async () => {
     if (!selectedCategory) return;
 
@@ -101,6 +94,13 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
       toast.error('Failed to load available products');
     }
   };
+
+  useEffect(() => {
+    if (selectedCategory && activeTab === 'featured') {
+      loadFeaturedProducts();
+      loadAvailableProducts();
+    }
+  }, [selectedCategory, activeTab]);
 
   const handleAddFeaturedProduct = async (productId: string) => {
     if (!selectedCategory) return;
