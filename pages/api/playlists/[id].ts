@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'PUT') {
     try {
-      const { playlist_title, description, card_color, spotify_url, is_active } = req.body
+      const { playlist_title, description, card_color, thumbnail_path, use_color_overlay, spotify_url, is_active } = req.body
 
       // Build update object with only provided fields
       const updateData: PlaylistUpdate = {
@@ -57,6 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (playlist_title !== undefined) updateData.playlist_title = playlist_title
       if (description !== undefined) updateData.description = description
       if (card_color !== undefined) updateData.card_color = card_color
+      if (thumbnail_path !== undefined) updateData.thumbnail_path = thumbnail_path
+      if (use_color_overlay !== undefined) updateData.use_color_overlay = use_color_overlay
       if (spotify_url !== undefined) updateData.spotify_url = spotify_url
       if (is_active !== undefined) updateData.is_active = is_active
       // Note: playlist_order is legacy and no longer updated via this endpoint

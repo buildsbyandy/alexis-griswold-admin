@@ -17,6 +17,8 @@ export interface SpotifyPlaylist {
   playlist_title: string;
   description: string;
   card_color: string;
+  thumbnail_path?: string;
+  use_color_overlay: boolean;
   spotify_url: string;
   order_index: number;
   is_active: boolean;
@@ -97,6 +99,8 @@ class PlaylistService {
             playlist_title: playlist.playlist_title,
             description: playlist.description || '',
             card_color: playlist.card_color || '',
+            thumbnail_path: playlist.thumbnail_path || undefined,
+            use_color_overlay: playlist.use_color_overlay ?? false,
             spotify_url: playlist.spotify_url,
             order_index: item.order_index || 0,
             is_active: item.is_active || false,
@@ -168,6 +172,8 @@ class PlaylistService {
           playlist_title: input.playlist_title,
           description: input.description,
           card_color: input.card_color,
+          thumbnail_path: input.thumbnail_path,
+          use_color_overlay: input.use_color_overlay,
           spotify_url: input.spotify_url,
           is_active: input.is_active
         })
@@ -188,6 +194,7 @@ class PlaylistService {
         caption: input.playlist_title,
         order_index: orderIndex,  // Use the auto-incremented order
         is_active: input.is_active,
+        image_path: input.thumbnail_path || null,  // Store thumbnail in carousel for universal compatibility
       });
 
       if (carouselItemResult.error) {
@@ -207,7 +214,7 @@ class PlaylistService {
   async updatePlaylist(id: string, input: Partial<SpotifyPlaylist>): Promise<boolean> {
     try {
       // First, update the playlist metadata if needed
-      const metadataFields = ['playlist_title', 'description', 'card_color', 'spotify_url', 'is_active'];
+      const metadataFields = ['playlist_title', 'description', 'card_color', 'thumbnail_path', 'use_color_overlay', 'spotify_url', 'is_active'];
       const hasMetadataUpdates = Object.keys(input).some(key => metadataFields.includes(key));
 
       if (hasMetadataUpdates) {
@@ -215,6 +222,8 @@ class PlaylistService {
         if (input.playlist_title !== undefined) updatePayload.playlist_title = input.playlist_title;
         if (input.description !== undefined) updatePayload.description = input.description;
         if (input.card_color !== undefined) updatePayload.card_color = input.card_color;
+        if (input.thumbnail_path !== undefined) updatePayload.thumbnail_path = input.thumbnail_path;
+        if (input.use_color_overlay !== undefined) updatePayload.use_color_overlay = input.use_color_overlay;
         if (input.spotify_url !== undefined) updatePayload.spotify_url = input.spotify_url;
         if (input.is_active !== undefined) updatePayload.is_active = input.is_active;
 
@@ -230,8 +239,8 @@ class PlaylistService {
         }
       }
 
-      // Then, update the carousel item order if needed
-      if (input.order_index !== undefined || input.is_active !== undefined) {
+      // Then, update the carousel item if needed (order, active status, or thumbnail)
+      if (input.order_index !== undefined || input.is_active !== undefined || input.thumbnail_path !== undefined) {
         // First, find the carousel item for this playlist
         const viewResult = await listViewItems('vlogs', this.CAROUSEL_SLUG);
         if (viewResult.error) {
@@ -247,6 +256,7 @@ class PlaylistService {
         const carouselUpdate: any = {};
         if (input.order_index !== undefined) carouselUpdate.order_index = input.order_index;
         if (input.is_active !== undefined) carouselUpdate.is_active = input.is_active;
+        if (input.thumbnail_path !== undefined) carouselUpdate.image_path = input.thumbnail_path;
 
         const carouselUpdateResult = await updateCarouselItem(carouselItem.carousel_item_id, carouselUpdate);
         if (carouselUpdateResult.error) {

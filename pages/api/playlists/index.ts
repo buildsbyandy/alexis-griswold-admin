@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const { playlist_title, description, card_color, spotify_url, is_active } = req.body
+      const { playlist_title, description, card_color, thumbnail_path, use_color_overlay, spotify_url, is_active } = req.body
 
       // Validate required fields
       if (!playlist_title) {
@@ -56,6 +56,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         playlist_title,
         description: description || null,
         card_color: card_color || null,
+        thumbnail_path: thumbnail_path || null,
+        use_color_overlay: use_color_overlay || false,
         spotify_url: spotify_url,
         // playlist_order field removed - no longer used for ordering
         is_active: is_active !== undefined ? is_active : true

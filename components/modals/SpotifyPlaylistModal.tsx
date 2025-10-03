@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaMusic, FaPalette } from 'react-icons/fa';
 import type { SpotifyPlaylist } from '../../lib/services/playlistService';
 import toast from 'react-hot-toast';
+import FileUpload from '../ui/FileUpload';
+import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
+import SecureImage from '../admin/SecureImage';
+import { parseSupabaseUrl } from '@/util/imageUrl';
 
 interface SpotifyPlaylistModalProps {
   isOpen: boolean;
@@ -31,12 +35,15 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
     playlist_title: '',
     description: '',
     card_color: '#2D2D2D',
+    thumbnail_path: '',
+    use_color_overlay: false,
     spotify_url: '',
     is_active: true,
     order_index: 0
   });
 
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [hexInput, setHexInput] = useState('#2D2D2D');
 
   useEffect(() => {
     if (playlist) {
@@ -44,20 +51,26 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
         playlist_title: playlist.playlist_title,
         description: playlist.description,
         card_color: playlist.card_color,
+        thumbnail_path: playlist.thumbnail_path || '',
+        use_color_overlay: playlist.use_color_overlay,
         spotify_url: playlist.spotify_url,
         is_active: playlist.is_active,
         order_index: playlist.order_index
       });
+      setHexInput(playlist.card_color);
     } else {
       // Reset form for new playlist
       setFormData({
         playlist_title: '',
         description: '',
         card_color: '#2D2D2D',
+        thumbnail_path: '',
+        use_color_overlay: false,
         spotify_url: '',
         is_active: true,
         order_index: 0
       });
+      setHexInput('#2D2D2D');
     }
   }, [playlist]);
 
@@ -102,7 +115,16 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
 
   const handleColorSelect = (color: string) => {
     setFormData(prev => ({ ...prev, card_color: color }));
+    setHexInput(color);
     setShowColorPicker(false);
+  };
+
+  const handleHexInputChange = (value: string) => {
+    setHexInput(value);
+    // Validate hex color format
+    if (/^#[0-9A-F]{6}$/i.test(value)) {
+      setFormData(prev => ({ ...prev, card_color: value }));
+    }
   };
 
   if (!isOpen) return null;
@@ -188,18 +210,107 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
                       ))}
                     </div>
                     <div className="mt-3 pt-3 border-t border-gray-200">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Enter Hex Code:</label>
+                      <input
+                        type="text"
+                        value={hexInput}
+                        onChange={(e) => handleHexInputChange(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                        placeholder="#2D2D2D"
+                        pattern="^#[0-9A-Fa-f]{6}$"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Or use color picker:</p>
                       <input
                         type="color"
                         value={formData.card_color}
-                        onChange={(e) => setFormData(prev => ({ ...prev, card_color: e.target.value }))}
-                        className="w-full h-8 rounded border border-gray-300"
+                        onChange={(e) => {
+                          setFormData(prev => ({ ...prev, card_color: e.target.value }));
+                          setHexInput(e.target.value);
+                        }}
+                        className="w-full h-8 rounded border border-gray-300 mt-1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Or choose custom color</p>
                     </div>
                   </div>
                 )}
               </div>
-              <p className="text-xs text-[#8F907E] mt-1">This color will be used as the playlist card background</p>
+              <p className="text-xs text-[#8F907E] mt-1">This color will be used as the playlist card background or overlay</p>
+            </div>
+
+            {/* Playlist Thumbnail */}
+            <div>
+              <label className="block text-sm font-medium text-[#383B26] mb-3">Playlist Thumbnail (Optional)</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                {formData.thumbnail_path ? (
+                  <div className="relative">
+                    {(() => {
+                      const parsedUrl = parseSupabaseUrl(formData.thumbnail_path)
+                      if (parsedUrl) {
+                        return (
+                          <SecureImage
+                            bucket={parsedUrl.bucket}
+                            path={parsedUrl.path}
+                            alt="Playlist Thumbnail"
+                            width={400}
+                            height={192}
+                            className="w-full h-48 object-cover rounded"
+                          />
+                        )
+                      } else {
+                        return (
+                          <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
+                            <span className="text-gray-400">Invalid image URL</span>
+                          </div>
+                        )
+                      }
+                    })()}
+                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <FileUpload
+                        accept="image/*"
+                        uploadType="image"
+                        folder={STORAGE_PATHS.VLOG_THUMBNAILS}
+                        contentStatus="published"
+                        onUpload={(url) => setFormData(prev => ({ ...prev, thumbnail_path: url }))}
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                      >
+                        Change Thumbnail
+                      </FileUpload>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FaMusic className="mx-auto text-4xl text-gray-400 mb-4" />
+                    <div className="flex justify-center">
+                      <FileUpload
+                        accept="image/*"
+                        uploadType="image"
+                        folder={STORAGE_PATHS.VLOG_THUMBNAILS}
+                        contentStatus="published"
+                        onUpload={(url) => setFormData(prev => ({ ...prev, thumbnail_path: url }))}
+                        className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                      >
+                        Upload Playlist Thumbnail
+                      </FileUpload>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">Upload a custom image, or leave empty to use color background</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Color Overlay Option */}
+              {formData.thumbnail_path && (
+                <div className="mt-3 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="useColorOverlay"
+                    checked={formData.use_color_overlay}
+                    onChange={(e) => setFormData(prev => ({ ...prev, use_color_overlay: e.target.checked }))}
+                    className="mr-2 h-4 w-4 text-[#B8A692] focus:ring-[#B8A692] border-gray-300 rounded"
+                  />
+                  <label htmlFor="useColorOverlay" className="text-sm text-[#383B26]">
+                    Overlay theme color on thumbnail
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Spotify URL */}
@@ -251,12 +362,43 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
               <div className="border border-gray-200 rounded-lg p-4">
                 <div
                   className="w-48 h-32 rounded-lg flex flex-col items-center justify-center text-white relative overflow-hidden"
-                  style={{ backgroundColor: formData.card_color }}
+                  style={{
+                    backgroundColor: formData.thumbnail_path ? 'transparent' : formData.card_color
+                  }}
                 >
-                  <FaMusic className="text-3xl mb-2 opacity-70" />
-                  <div className="text-center px-2">
-                    <p className="font-medium text-sm">{formData.playlist_title || 'Playlist Name'}</p>
-                    <p className="text-xs opacity-80">Mood: {formData.description || 'Mood/Theme'}</p>
+                  {/* Background Thumbnail */}
+                  {formData.thumbnail_path && (() => {
+                    const parsedUrl = parseSupabaseUrl(formData.thumbnail_path)
+                    if (parsedUrl) {
+                      return (
+                        <SecureImage
+                          bucket={parsedUrl.bucket}
+                          path={parsedUrl.path}
+                          alt="Preview"
+                          width={192}
+                          height={128}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      )
+                    }
+                    return null
+                  })()}
+
+                  {/* Color Overlay */}
+                  {formData.thumbnail_path && formData.use_color_overlay && (
+                    <div
+                      className="absolute inset-0"
+                      style={{ backgroundColor: formData.card_color, opacity: 0.6 }}
+                    />
+                  )}
+
+                  {/* Content */}
+                  <div className="relative z-10 flex flex-col items-center justify-center">
+                    <FaMusic className="text-3xl mb-2 opacity-70" />
+                    <div className="text-center px-2">
+                      <p className="font-medium text-sm">{formData.playlist_title || 'Playlist Name'}</p>
+                      <p className="text-xs opacity-80">Mood: {formData.description || 'Mood/Theme'}</p>
+                    </div>
                   </div>
                 </div>
               </div>
