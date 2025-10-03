@@ -57,7 +57,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave, cu
       // New vlog - reset form with auto-incremented order
       resetForm();
     }
-  }, [vlog, isOpen]);
+  }, [vlog, isOpen, resetForm]);
 
   // Update order field when carousel count changes (e.g., after deletion)
   useEffect(() => {

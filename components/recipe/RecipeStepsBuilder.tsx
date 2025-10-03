@@ -244,7 +244,7 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
       </div>
 
       <div className="p-3 text-sm border-l-4 border-blue-400 rounded bg-blue-50 text-blue-700">
-        <p className="font-medium">💡 Images will upload when you click "Save Recipe"</p>
+        <p className="font-medium">💡 Images will upload when you click &quot;Save Recipe&quot;</p>
         <p className="mt-1 text-xs">You can preview and organize your steps before uploading.</p>
       </div>
 
