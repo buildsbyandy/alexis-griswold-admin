@@ -125,6 +125,14 @@ const AdminContent: React.FC = () => {
   const [sfItems, setSfItems] = useState<StorefrontProductRow[]>([]);
   const [sfEditing, setSfEditing] = useState<StorefrontProductRow | null>(null);
   const [sfIsAdding, setSfIsAdding] = useState(false);
+
+  // Defensive: Ensure modal states are reset when switching away from storefront
+  useEffect(() => {
+    if (activeTab !== 'storefront') {
+      setSfIsAdding(false);
+      setSfEditing(null);
+    }
+  }, [activeTab]);
   const [sfSearch, setSfSearch] = useState('');
   const [sfCategory, setSfCategory] = useState<string>('all');
   const [sfStatus, setSfStatus] = useState<string>('all');
