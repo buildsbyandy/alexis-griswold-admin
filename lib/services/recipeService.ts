@@ -160,13 +160,28 @@ class RecipeService {
 
   async getRecipe(id: string): Promise<Recipe | null> {
     try {
-      const response = await fetch(`/api/recipes/${id}`);
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes/${id}`);
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error('Failed to fetch recipe');
       }
       const data = await response.json();
       const r = data.recipe as RecipeRow;
+
+      // Fetch recipe steps to get images
+      let images: string[] = [];
+      try {
+        const stepsResponse = await fetch(`${baseUrl}/api/recipes/${r.id}/steps`);
+        if (stepsResponse.ok) {
+          const stepsData = await stepsResponse.json();
+          images = (stepsData.steps || [])
+            .filter((step: any) => step.image_path)
+            .map((step: any) => step.image_path);
+        }
+      } catch (error) {
+        console.error(`Error fetching steps for recipe ${r.id}:`, error);
+      }
 
       return {
         id: r.id,
@@ -180,7 +195,7 @@ class RecipeService {
         status: r.status,
         is_favorite: r.is_favorite || false,
         hero_image_path: r.hero_image_path || '',
-        images: r.images || [],
+        images: images,
         ingredients: [],
         instructions: [],
         prepTime: r.prepTime || '',
@@ -243,8 +258,7 @@ class RecipeService {
         is_favorite: recipe.is_favorite,
         is_beginner: recipe.is_beginner,
         is_recipe_of_week: recipe.is_recipe_of_week,
-        hero_image_path: recipe.hero_image_path,
-        images: recipe.images
+        hero_image_path: recipe.hero_image_path
       };
 
       const baseUrl = getApiBaseUrl();
@@ -262,6 +276,20 @@ class RecipeService {
       const data = await response.json();
       const r = data.recipe as RecipeRow;
 
+      // Fetch recipe steps to get images (usually empty for new recipes)
+      let images: string[] = [];
+      try {
+        const stepsResponse = await fetch(`${baseUrl}/api/recipes/${r.id}/steps`);
+        if (stepsResponse.ok) {
+          const stepsData = await stepsResponse.json();
+          images = (stepsData.steps || [])
+            .filter((step: any) => step.image_path)
+            .map((step: any) => step.image_path);
+        }
+      } catch (error) {
+        console.error(`Error fetching steps for recipe ${r.id}:`, error);
+      }
+
       return {
         id: r.id,
         title: r.title,
@@ -274,7 +302,7 @@ class RecipeService {
         status: r.status,
         is_favorite: r.is_favorite || false,
         hero_image_path: r.hero_image_path || '',
-        images: r.images || [],
+        images: images,
         ingredients: [],
         instructions: [],
         prepTime: r.prepTime || '',
@@ -312,9 +340,10 @@ class RecipeService {
       if (updates.is_beginner !== undefined) updateData.is_beginner = updates.is_beginner;
       if (updates.is_recipe_of_week !== undefined) updateData.is_recipe_of_week = updates.is_recipe_of_week;
       if (updates.hero_image_path !== undefined) updateData.hero_image_path = updates.hero_image_path;
-      if (updates.images !== undefined) updateData.images = updates.images;
+      // Note: images are now managed through recipe_steps, not directly on recipes table
 
-      const response = await fetch(`/api/recipes/${id}`, {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -329,6 +358,20 @@ class RecipeService {
       const data = await response.json();
       const r = data.recipe as RecipeRow;
 
+      // Fetch recipe steps to get images
+      let images: string[] = [];
+      try {
+        const stepsResponse = await fetch(`${baseUrl}/api/recipes/${r.id}/steps`);
+        if (stepsResponse.ok) {
+          const stepsData = await stepsResponse.json();
+          images = (stepsData.steps || [])
+            .filter((step: any) => step.image_path)
+            .map((step: any) => step.image_path);
+        }
+      } catch (error) {
+        console.error(`Error fetching steps for recipe ${r.id}:`, error);
+      }
+
       return {
         id: r.id,
         title: r.title,
@@ -341,7 +384,7 @@ class RecipeService {
         status: r.status,
         is_favorite: r.is_favorite || false,
         hero_image_path: r.hero_image_path || '',
-        images: r.images || [],
+        images: images,
         ingredients: [],
         instructions: [],
         prepTime: r.prepTime || '',
