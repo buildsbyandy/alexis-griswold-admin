@@ -11,6 +11,13 @@ export type CarouselItemUpdate = Database['public']['Tables']['carousel_items'][
 // Complete view type for carousel items with all joined data
 export type VCarouselItemRow = Database['public']['Views']['v_carousel_items']['Row']
 
+// Type representing what the API actually returns - carousel items with joined carousel metadata
+// (non-prefixed fields from carousel_items table, not the v_carousel_items view)
+export type CarouselItemWithMeta = CarouselItemRow & {
+  carousel_slug?: string | null;
+  carousel_id: string;
+}
+
 // Union types for mixed carousel items
 export type CarouselVideoItem = {
   kind: 'video'
@@ -157,7 +164,7 @@ export async function getCarouselItems(carouselId: string): Promise<ServiceResul
 	}
 }
 
-export async function listViewItems(page: PageType, slug?: string): Promise<ServiceResult<VCarouselItemRow[]>> {
+export async function listViewItems(page: PageType, slug?: string): Promise<ServiceResult<CarouselItemWithMeta[]>> {
 	try {
 		const params = new URLSearchParams({ page })
 		if (slug) params.append('slug', slug)
@@ -264,7 +271,7 @@ export async function listStorefrontItems(slug: 'storefront-favorites' | 'storef
     if (viewResult.error) return { error: viewResult.error }
 
     const viewData = viewResult.data || []
-    const refIds = viewData.map(v => v.item_ref_id).filter(Boolean) as string[]
+    const refIds = viewData.map(v => v.ref_id).filter(Boolean) as string[]
 
     // Fetch product metadata if we have ref_ids
     let products: any = { data: [], error: null }
@@ -280,13 +287,13 @@ export async function listStorefrontItems(slug: 'storefront-favorites' | 'storef
     for (const p of products.data || []) byId.set(p.id, p)
 
     const items = viewData.map(v => {
-      const p = v.item_ref_id ? byId.get(v.item_ref_id) : null
+      const p = v.ref_id ? byId.get(v.ref_id) : null
       return {
-        id: v.carousel_item_id!,
+        id: v.id,
         carousel_slug: v.carousel_slug || null,
-        order_index: v.item_order_index,
-        ref_id: v.item_ref_id,
-        caption: v.item_caption || (p?.product_title ?? null),
+        order_index: v.order_index,
+        ref_id: v.ref_id,
+        caption: v.caption || (p?.product_title ?? null),
         product_title: p?.product_title ?? null,
         image_path: p?.image_path ?? null,
         amazon_url: p?.amazon_url ?? null,

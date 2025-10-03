@@ -29,7 +29,7 @@ export interface SpotifyPlaylist {
 // Internal type for compatibility with legacy database structure
 interface PlaylistData {
   playlist_id: string;
-  carousel_item_id: string;
+  id: string;  // carousel item id
   playlist_title: string;
   description: string;
   card_color: string;
@@ -81,35 +81,38 @@ class PlaylistService {
       const playlistMap = new Map<string, PlaylistRow>(playlists.map((p: PlaylistRow) => [p.id, p]));
 
       // Combine carousel items with playlist metadata
-      return carouselItems
-        .filter(item => item.kind === 'playlist')
-        .map(item => {
-          if (!item.ref_id) {
-            console.log('[DEBUG] Carousel item missing ref_id:', item);
-            return null;
-          }
-          const playlist = playlistMap.get(item.ref_id);
-          if (!playlist) {
-            console.log('[DEBUG] No playlist found for ref_id:', item.ref_id);
-            return null;
-          }
+      const result: SpotifyPlaylist[] = [];
 
-          return {
-            id: playlist.id,
-            playlist_title: playlist.playlist_title,
-            description: playlist.description || '',
-            card_color: playlist.card_color || '',
-            thumbnail_path: playlist.thumbnail_path || undefined,
-            use_color_overlay: playlist.use_color_overlay ?? false,
-            spotify_url: playlist.spotify_url,
-            order_index: item.order_index || 0,
-            is_active: item.is_active || false,
-            created_at: new Date(playlist.created_at),
-            updated_at: new Date(playlist.updated_at)
-          };
-        })
-        .filter((playlist): playlist is SpotifyPlaylist => playlist !== null)
-        .sort((a, b) => a.order_index - b.order_index);
+      for (const item of carouselItems) {
+        if (item.kind !== 'playlist') continue;
+
+        if (!item.ref_id) {
+          console.log('[DEBUG] Carousel item missing ref_id:', item);
+          continue;
+        }
+
+        const playlist = playlistMap.get(item.ref_id);
+        if (!playlist) {
+          console.log('[DEBUG] No playlist found for ref_id:', item.ref_id);
+          continue;
+        }
+
+        result.push({
+          id: playlist.id,
+          playlist_title: playlist.playlist_title,
+          description: playlist.description || '',
+          card_color: playlist.card_color || '',
+          thumbnail_path: playlist.thumbnail_path || undefined,
+          use_color_overlay: playlist.use_color_overlay ?? false,
+          spotify_url: playlist.spotify_url,
+          order_index: item.order_index || 0,
+          is_active: item.is_active || false,
+          created_at: new Date(playlist.created_at),
+          updated_at: new Date(playlist.updated_at)
+        });
+      }
+
+      return result.sort((a, b) => a.order_index - b.order_index);
     } catch (error) {
       console.error('Error fetching playlists:', error);
       return [];
@@ -248,7 +251,7 @@ class PlaylistService {
         }
 
         const carouselItem = viewResult.data?.find(item => item.ref_id === id);
-        if (!carouselItem || !carouselItem.carousel_item_id) {
+        if (!carouselItem || !carouselItem.id) {
           throw new Error('Carousel item not found for playlist');
         }
 
@@ -258,7 +261,7 @@ class PlaylistService {
         if (input.is_active !== undefined) carouselUpdate.is_active = input.is_active;
         if (input.thumbnail_path !== undefined) carouselUpdate.image_path = input.thumbnail_path;
 
-        const carouselUpdateResult = await updateCarouselItem(carouselItem.carousel_item_id, carouselUpdate);
+        const carouselUpdateResult = await updateCarouselItem(carouselItem.id, carouselUpdate);
         if (carouselUpdateResult.error) {
           throw new Error('Failed to update carousel item: ' + carouselUpdateResult.error);
         }
@@ -283,8 +286,8 @@ class PlaylistService {
         console.error('Failed to fetch carousel items for deletion:', viewResult.error);
       } else {
         const carouselItem = viewResult.data?.find(item => item.ref_id === id);
-        if (carouselItem && carouselItem.carousel_item_id) {
-          const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
+        if (carouselItem && carouselItem.id) {
+          const deleteResult = await deleteCarouselItem(carouselItem.id);
           if (deleteResult.error) {
             console.error('Failed to delete carousel item:', deleteResult.error);
             // Continue with playlist deletion even if carousel item deletion fails

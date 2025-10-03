@@ -16,24 +16,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const itemsRes = await listViewItems('vlogs')
       if (itemsRes.error) return res.status(500).json({ error: itemsRes.error })
-      const items = (itemsRes.data || []).filter(i => (i.item_kind === 'video') && (i.carousel_slug && (VLOG_SLUGS as readonly string[]).includes(i.carousel_slug)))
+      const items = (itemsRes.data || []).filter(i => (i.kind === 'video') && (i.carousel_slug && (VLOG_SLUGS as readonly string[]).includes(i.carousel_slug)))
 
       // Pull vlog metadata by ref_id
-      const refIds = items.map(i => i.item_ref_id).filter(Boolean) as string[]
+      const refIds = items.map(i => i.ref_id).filter(Boolean) as string[]
       const { data: vlogs } = await supabaseAdmin.from('vlogs').select('*').in('id', refIds)
       const vlogById = new Map<string, any>()
       for (const v of vlogs || []) vlogById.set(v.id, v)
 
       const normalized = items
-        .sort((a, b) => (a.carousel_slug === 'vlogs-main-channel' ? 0 : 1) - (b.carousel_slug === 'vlogs-main-channel' ? 0 : 1) || (a.item_order_index || 0) - (b.item_order_index || 0))
+        .sort((a, b) => (a.carousel_slug === 'vlogs-main-channel' ? 0 : 1) - (b.carousel_slug === 'vlogs-main-channel' ? 0 : 1) || (a.order_index || 0) - (b.order_index || 0))
         .map(i => {
-          const v = i.item_ref_id ? vlogById.get(i.item_ref_id) : null
+          const v = i.ref_id ? vlogById.get(i.ref_id) : null
           return {
-            id: i.carousel_item_id,
+            id: i.id,
             carousel_slug: i.carousel_slug,
-            order_index: i.item_order_index,
-            ref_id: i.item_ref_id,
-            title: v?.title || i.item_caption || '',
+            order_index: i.order_index,
+            ref_id: i.ref_id,
+            title: v?.title || i.caption || '',
             description: v?.description || '',
             youtube_url: v?.youtube_url || '',
             thumbnail_url: v?.thumbnail_url || '',

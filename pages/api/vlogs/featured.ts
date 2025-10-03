@@ -98,7 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('carousel_items')
         .select('*')
         .eq('carousel_id', carousel!.id)
-        .eq('youtube_id', vlog.youtube_id)
+        .eq('youtube_id', vlog.youtube_id ?? '')
         .single()
 
       if (existingError && existingError.code !== 'PGRST116') {

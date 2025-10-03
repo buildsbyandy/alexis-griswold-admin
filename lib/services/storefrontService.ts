@@ -37,7 +37,7 @@ class StorefrontService {
 
       // Get category metadata for carousel items that have ref_ids (category IDs)
       const categoryIds = carouselItems
-        .map(item => item.item_ref_id)
+        .map(item => item.ref_id)
         .filter(Boolean) as string[];
 
       if (categoryIds.length === 0) {
@@ -57,16 +57,16 @@ class StorefrontService {
       // Combine carousel items with category metadata
       return carouselItems
         .map(item => {
-          if (!item.item_ref_id) return null;
-          const category = categoryMap.get(item.item_ref_id);
+          if (!item.ref_id) return null;
+          const category = categoryMap.get(item.ref_id);
           if (!category) return null;
 
           return {
-            id: item.carousel_item_id!,
+            id: item.id,
             ref_id: category.id,
             category_name: category.category_name,
             slug: category.slug,
-            order_index: item.item_order_index || 0
+            order_index: item.order_index || 0
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -133,9 +133,9 @@ class StorefrontService {
           throw new Error('Failed to fetch carousel items: ' + viewResult.error);
         }
 
-        const carouselItem = viewResult.data?.find(item => item.item_ref_id === categoryId);
-        if (carouselItem && carouselItem.carousel_item_id) {
-          const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
+        const carouselItem = viewResult.data?.find(item => item.ref_id === categoryId);
+        if (carouselItem && carouselItem.id) {
+          const deleteResult = await deleteCarouselItem(carouselItem.id);
           return !deleteResult.error;
         }
         return true; // Already not featured
@@ -160,7 +160,7 @@ class StorefrontService {
 
       // Get product metadata for carousel items that have ref_ids (product IDs)
       const productIds = carouselItems
-        .map(item => item.item_ref_id)
+        .map(item => item.ref_id)
         .filter(Boolean) as string[];
 
       if (productIds.length === 0) {
@@ -180,15 +180,15 @@ class StorefrontService {
       // Combine carousel items with product metadata
       return carouselItems
         .map(item => {
-          if (!item.item_ref_id) return null;
-          const product = productMap.get(item.item_ref_id);
+          if (!item.ref_id) return null;
+          const product = productMap.get(item.ref_id);
           if (!product) return null;
 
           return {
-            id: item.carousel_item_id!,
+            id: item.id,
             ref_id: product.id,
             product_title: product.product_title,
-            order_index: item.item_order_index || 0
+            order_index: item.order_index || 0
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -253,9 +253,9 @@ class StorefrontService {
         throw new Error('Failed to fetch carousel items: ' + viewResult.error);
       }
 
-      const carouselItem = viewResult.data?.find(item => item.item_ref_id === productId);
-      if (carouselItem && carouselItem.carousel_item_id) {
-        const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
+      const carouselItem = viewResult.data?.find(item => item.ref_id === productId);
+      if (carouselItem && carouselItem.id) {
+        const deleteResult = await deleteCarouselItem(carouselItem.id);
         return !deleteResult.error;
       }
       return true; // Already not featured
