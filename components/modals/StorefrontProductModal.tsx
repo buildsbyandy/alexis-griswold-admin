@@ -32,6 +32,9 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
   });
 
   const [newTag, setNewTag] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -89,6 +92,22 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
     }
   };
 
+  const addBatchTags = (input: string) => {
+    // Split by comma or space, filter empties, dedupe
+    const newTags = input
+      .split(/[,\s]+/)
+      .map(tag => tag.trim())
+      .filter(tag => tag && !(formData.tags || []).includes(tag));
+
+    if (newTags.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...(prev.tags || []), ...newTags]
+      }));
+    }
+    setNewTag('');
+  };
+
   const removeTag = (tagToRemove: string) => {
     setFormData(prev => ({
       ...prev,
@@ -125,10 +144,10 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
             <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
               <FaStore className="mr-3 text-[#B8A692]" />
               {product ? 'Edit Product' : 'Add New Product'}
@@ -142,59 +161,55 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
             </button>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Product Title *</label>
-                <input
-                  type="text"
-                  value={formData.product_title}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Slug</label>
-                <input
-                  type="text"
-                  value={formData.slug}
-                  readOnly
-                  className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
-                />
-                <p className="text-xs text-gray-600 mt-1">Auto-generated from title</p>
-              </div>
-            </div>
+          {/* Scrollable Content */}
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            {/* SECTION: Basic Info */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-[#383B26] uppercase tracking-wide border-b pb-2">Basic Info</h3>
 
-            {/* Category & Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
-                <select
-                  value={formData.category_slug}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category_slug: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                >
-                  <option value="">Select Category</option>
-                  {categories.length > 0 ? (
-                    categories.map((cat) => (
-                      <option key={cat.slug} value={cat.slug}>
-                        {cat.category_name}
-                      </option>
-                    ))
-                  ) : (
-                    // Fallback to hardcoded options if categories not loaded
-                    <>
-                      <option value="food">Food</option>
-                      <option value="healing">Healing</option>
-                      <option value="home">Home</option>
-                      <option value="personal-care">Personal Care</option>
-                    </>
-                  )}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Product Title - Full width on mobile, half on desktop */}
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Product Title *</label>
+                  <input
+                    type="text"
+                    value={formData.product_title}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    required
+                  />
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
+                  <select
+                    value={formData.category_slug}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category_slug: e.target.value }))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    {categories.length > 0 ? (
+                      categories.map((cat) => (
+                        <option key={cat.slug} value={cat.slug}>
+                          {cat.category_name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="food">Food</option>
+                        <option value="healing">Healing</option>
+                        <option value="home">Home</option>
+                        <option value="personal-care">Personal Care</option>
+                      </>
+                    )}
+                  </select>
+                </div>
               </div>
-              <div>
+
+              {/* Status - Compact width */}
+              <div className="w-48">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Status</label>
                 <select
                   value={formData.status}
@@ -206,11 +221,47 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   <option value="archived">Archived</option>
                 </select>
               </div>
+
+              {/* Advanced: Slug (collapsible) */}
+              {!showAdvanced && (
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(true)}
+                  className="text-sm text-[#B8A692] hover:text-[#A0956C] underline"
+                >
+                  Show Advanced (Customize URL)
+                </button>
+              )}
+
+              {showAdvanced && (
+                <div>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">
+                    Slug
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanced(false)}
+                      className="ml-2 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      (hide)
+                    </button>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Auto-generated from title</p>
+                </div>
+              )}
             </div>
 
-            {/* Amazon URL & Price */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
+            {/* SECTION: Commerce */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-[#383B26] uppercase tracking-wide border-b pb-2">Commerce</h3>
+
+              {/* Amazon URL - Full width */}
+              <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Amazon URL *</label>
                 <input
                   type="url"
@@ -220,135 +271,178 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                   placeholder="https://www.amazon.com/product-name/dp/..."
                   required
                 />
-                <p className="text-xs text-gray-600 mt-1">Must start with https:// (e.g., https://www.amazon.com/...)</p>
+                <p className="text-xs text-gray-500 mt-1">Must start with https://</p>
               </div>
-              <div>
+
+              {/* Price - Compact */}
+              <div className="w-32">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Price ($)</label>
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
+                  max="9999"
                   value={formData.price || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  placeholder="0.00"
                 />
               </div>
             </div>
 
-            {/* Product Image */}
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-3">Product Image</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {formData.image_path ? (
-                  <div className="relative">
-                    {(() => {
-                      const parsedUrl = parseSupabaseUrl(formData.image_path)
-                      if (parsedUrl) {
-                        return (
-                          <SecureImage
-                            bucket={parsedUrl.bucket}
-                            path={parsedUrl.path}
-                            alt="Product"
-                            width={800}
-                            height={192}
-                            className="w-full h-48 object-cover rounded"
-                          />
-                        )
-                      } else {
-                        return (
-                          <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
-                            <span className="text-gray-400">Invalid product image URL</span>
-                          </div>
-                        )
-                      }
-                    })()}
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+            {/* SECTION: Media */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-[#383B26] uppercase tracking-wide border-b pb-2">Media</h3>
+
+              {/* Product Image - Fixed height box */}
+              <div>
+                <label className="block text-sm font-medium text-[#383B26] mb-2">Product Image</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                  {formData.image_path ? (
+                    <div className="relative w-full h-full group">
+                      {(() => {
+                        const parsedUrl = parseSupabaseUrl(formData.image_path)
+                        if (parsedUrl) {
+                          return (
+                            <SecureImage
+                              bucket={parsedUrl.bucket}
+                              path={parsedUrl.path}
+                              alt="Product"
+                              width={400}
+                              height={200}
+                              className="w-full h-full object-cover"
+                            />
+                          )
+                        } else {
+                          return (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-400 text-sm">Invalid image URL</span>
+                            </div>
+                          )
+                        }
+                      })()}
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setImagePreviewOpen(true)}
+                          className="px-3 py-1.5 bg-white text-gray-800 rounded text-sm hover:bg-gray-100"
+                        >
+                          View Full
+                        </button>
+                        <FileUpload
+                          accept="image/*"
+                          uploadType="image"
+                          folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
+                          contentStatus={formData.status}
+                          onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
+                          className="px-3 py-1.5 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
+                        >
+                          Change
+                        </FileUpload>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
+                      <FaStore className="text-3xl text-gray-400 mb-2" />
                       <FileUpload
                         accept="image/*"
                         uploadType="image"
                         folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
                         contentStatus={formData.status}
                         onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
-                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
+                        className="px-4 py-2 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
                       >
-                        Change Image
+                        Upload Image
                       </FileUpload>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FaStore className="mx-auto text-4xl text-gray-400 mb-4" />
-                    <div className="flex justify-center">
-                    <FileUpload
-                      accept="image/*"
-                      uploadType="image"
-                      folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
-                      contentStatus={formData.status}
-                      onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
-                      className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                    >
-                      Upload Product Image
-                    </FileUpload>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Product Description */}
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-1">Description *</label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                placeholder="Product description"
-                required
-              />
-            </div>
-
-            {/* Tags */}
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-3">Tags</label>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {(formData.tags || []).map((tag, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-[#E3D4C2] text-[#383B26] rounded-full text-sm flex items-center"
-                  >
-                    {tag}
+              {/* Description - Expandable */}
+              <div>
+                <label className="block text-sm font-medium text-[#383B26] mb-1">
+                  Description *
+                  {!descriptionExpanded && (
                     <button
                       type="button"
-                      onClick={() => removeTag(tag)}
-                      className="ml-2 text-red-600 hover:text-red-800"
+                      onClick={() => setDescriptionExpanded(true)}
+                      className="ml-2 text-xs text-[#B8A692] hover:text-[#A0956C]"
                     >
-                      <FaTimes className="w-3 h-3" />
+                      (expand)
                     </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  placeholder="Add a tag..."
-                  className="flex-1 p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  )}
+                  {descriptionExpanded && (
+                    <button
+                      type="button"
+                      onClick={() => setDescriptionExpanded(false)}
+                      className="ml-2 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      (collapse)
+                    </button>
+                  )}
+                </label>
+                <textarea
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] resize-none"
+                  style={{ height: descriptionExpanded ? '120px' : '60px' }}
+                  placeholder="Product description..."
+                  required
                 />
-                <button
-                  type="button"
-                  onClick={addTag}
-                  className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                >
-                  Add
-                </button>
+              </div>
+
+              {/* Tags - Batch input */}
+              <div>
+                <label className="block text-sm font-medium text-[#383B26] mb-2">Tags</label>
+                {(formData.tags || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(formData.tags || []).map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-0.5 bg-[#E3D4C2] text-[#383B26] rounded-full text-xs flex items-center"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag)}
+                          className="ml-1.5 text-red-600 hover:text-red-800"
+                        >
+                          <FaTimes className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addBatchTags(newTag);
+                      }
+                    }}
+                    placeholder="Add tags (comma or space separated)"
+                    className="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addBatchTags(newTag)}
+                    className="px-4 py-2 bg-[#B8A692] text-white rounded-md text-sm hover:bg-[#A0956C]"
+                  >
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Separate multiple tags with commas or spaces</p>
               </div>
             </div>
-
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t">
+          {/* Sticky Footer */}
+          <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -366,6 +460,40 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
           </div>
         </form>
       </div>
+
+      {/* Image Preview Lightbox */}
+      {imagePreviewOpen && formData.image_path && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-75"
+          onClick={() => setImagePreviewOpen(false)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <button
+              type="button"
+              onClick={() => setImagePreviewOpen(false)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+            >
+              <FaTimes className="w-6 h-6" />
+            </button>
+            {(() => {
+              const parsedUrl = parseSupabaseUrl(formData.image_path)
+              if (parsedUrl) {
+                return (
+                  <SecureImage
+                    bucket={parsedUrl.bucket}
+                    path={parsedUrl.path}
+                    alt="Product Full View"
+                    width={1200}
+                    height={800}
+                    className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                  />
+                )
+              }
+              return null;
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
