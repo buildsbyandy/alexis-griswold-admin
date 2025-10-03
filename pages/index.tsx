@@ -4592,16 +4592,18 @@ const AdminContent: React.FC = () => {
       />
 
       {/* Storefront Product Modal */}
-      <StorefrontProductModal
-        isOpen={sfIsAdding || !!sfEditing}
-        onClose={() => {
-          setSfIsAdding(false);
-          setSfEditing(null);
-        }}
-        product={sfEditing}
-        onSave={handleSaveStorefrontProduct}
-        categories={sfCategories}
-      />
+      {(sfIsAdding || !!sfEditing) && (
+        <StorefrontProductModal
+          isOpen={true}
+          onClose={() => {
+            setSfIsAdding(false);
+            setSfEditing(null);
+          }}
+          product={sfEditing}
+          onSave={handleSaveStorefrontProduct}
+          categories={sfCategories}
+        />
+      )}
 
       {/* Category Photo Modal */}
       <CategoryPhotoModal
