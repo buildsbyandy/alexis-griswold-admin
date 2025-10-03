@@ -32,7 +32,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
   });
 
   const [newTag, setNewTag] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
 
@@ -118,14 +117,42 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
-      // Generate slug if empty
+      // Generate base slug if empty
+      let finalSlug = formData.slug || slugify(formData.product_title);
+
+      // Check for duplicate slugs
+      const response = await fetch('/api/storefront');
+      if (response.ok) {
+        const { products } = await response.json();
+
+        // Filter out current product when editing
+        const otherProducts = product
+          ? products.filter((p: any) => p.id !== product.id)
+          : products;
+
+        // Check if slug exists
+        const existingSlugs = new Set(otherProducts.map((p: any) => p.slug));
+
+        if (existingSlugs.has(finalSlug)) {
+          // Append number to make unique
+          let counter = 2;
+          let uniqueSlug = `${finalSlug}-${counter}`;
+          while (existingSlugs.has(uniqueSlug)) {
+            counter++;
+            uniqueSlug = `${finalSlug}-${counter}`;
+          }
+          finalSlug = uniqueSlug;
+          toast(`Slug was modified to "${finalSlug}" to avoid duplicates`, { icon: 'ℹ️' });
+        }
+      }
+
       const finalFormData = {
         ...formData,
-        slug: formData.slug || slugify(formData.product_title),
+        slug: finalSlug,
       };
-      
+
       await onSave(finalFormData);
       onClose();
       toast.success(`Product ${product ? 'updated' : 'created'} successfully!`);
@@ -144,8 +171,8 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
-        <form onSubmit={handleSubmit} className="flex flex-col h-full">
+      <div className="bg-white rounded-lg max-w-4xl w-full h-[90vh] flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
             <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
@@ -222,38 +249,10 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 </select>
               </div>
 
-              {/* Advanced: Slug (collapsible) */}
-              {!showAdvanced && (
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(true)}
-                  className="text-sm text-[#B8A692] hover:text-[#A0956C] underline"
-                >
-                  Show Advanced (Customize URL)
-                </button>
-              )}
-
-              {showAdvanced && (
-                <div>
-                  <label className="block text-sm font-medium text-[#383B26] mb-1">
-                    Slug
-                    <button
-                      type="button"
-                      onClick={() => setShowAdvanced(false)}
-                      className="ml-2 text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      (hide)
-                    </button>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.slug}
-                    readOnly
-                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Auto-generated from title</p>
-                </div>
-              )}
+              {/* Slug info - not editable */}
+              <p className="text-xs text-gray-500">
+                URL slug: <span className="font-mono text-gray-700">{formData.slug || '(auto-generated from title)'}</span>
+              </p>
             </div>
 
             {/* SECTION: Commerce */}
