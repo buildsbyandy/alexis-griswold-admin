@@ -86,13 +86,8 @@ const SpotifyPlaylistModal: React.FC<SpotifyPlaylistModalProps> = ({ isOpen, onC
     }
 
     try {
-      // Add required timestamp fields for the SpotifyPlaylist interface
-      const playlistData = {
-        ...formData,
-        created_at: playlist ? playlist.created_at : new Date(),
-        updated_at: new Date()
-      };
-      await onSave(playlistData);
+      // Pass form data without timestamp fields (they're managed by the backend)
+      await onSave(formData);
       onClose();
       toast.success(`Playlist ${playlist ? 'updated' : 'created'} successfully!`);
     } catch (error) {

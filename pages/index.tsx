@@ -1709,66 +1709,6 @@ const AdminContent: React.FC = () => {
               </div>
             </div>
 
-            {/* Media Settings */}
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold text-[#383B26] mb-4">Media Settings & Behavior</h2>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                <div>
-                  <h3 className="font-medium text-[#383B26] mb-2">Video Behavior</h3>
-                  <ul className="text-sm text-[#8F907E] space-y-1">
-                    <li>• Auto-play on desktop</li>
-                    <li>• Muted by default</li>
-                    <li>• Loops continuously</li>
-                    <li>• Responsive scaling</li>
-                    <li>• Preload optimization</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium text-[#383B26] mb-2">Mobile Experience</h3>
-                  <ul className="text-sm text-[#8F907E] space-y-1">
-                    <li>• Shows fallback image</li>
-                    <li>• Optimized loading</li>
-                    <li>• Touch-friendly</li>
-                    <li>• Bandwidth conscious</li>
-                    <li>• Battery friendly</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium text-[#383B26] mb-2">Fallback Triggers</h3>
-                  <ul className="text-sm text-[#8F907E] space-y-1">
-                    <li>• Video load failure</li>
-                    <li>• Slow connection</li>
-                    <li>• Mobile devices</li>
-                    <li>• User preference</li>
-                    <li>• Browser restrictions</li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* Performance Tips */}
-              <div className="p-4 mt-6 border-l-4 border-yellow-400 rounded-lg bg-yellow-50">
-                <h4 className="font-medium text-[#383B26] mb-2">💡 Performance Tips</h4>
-                <ul className="text-sm text-[#8F907E] space-y-1">
-                  <li>• <strong>File size matters:</strong> Large files (50MB+) will fail to upload - aim for 5-10MB</li>
-                  <li>• Use video compression tools like HandBrake, Compressor, or online converters</li>
-                  <li>• iPhone/Mac users: Export at &quot;High Efficiency&quot; or &quot;Most Compatible&quot; settings</li>
-                  <li>• Test upload with smaller files first to verify functionality</li>
-                  <li>• Consider using a CDN for better global loading performance</li>
-                  <li>• The fallback image should capture the essence of your video</li>
-                </ul>
-              </div>
-
-              {/* File Size Warning */}
-              <div className="p-4 mt-4 border-l-4 border-red-400 rounded-lg bg-red-50">
-                <h4 className="font-medium text-[#383B26] mb-2">⚠️ Common Upload Issues</h4>
-                <ul className="text-sm text-[#8F907E] space-y-1">
-                  <li>• <strong>Large files (50MB+):</strong> Upload will timeout or fail</li>
-                  <li>• <strong>Unsupported formats:</strong> System supports MP4, MOV, WebM, AVI, WMV</li>
-                  <li>• <strong>Network timeouts:</strong> Compress videos before uploading</li>
-                  <li>• <strong>Browser limits:</strong> Some browsers limit upload size to 25-50MB</li>
-                </ul>
-              </div>
-            </div>
           </div>
         )}
 
@@ -2426,10 +2366,6 @@ const AdminContent: React.FC = () => {
                 >
                   <FaPlus className="mr-2" />
                   Quick Add Album
-                </button>
-                <button className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center">
-                  <FaDownload className="mr-2" />
-                  Export
                 </button>
               </div>
             </div>
