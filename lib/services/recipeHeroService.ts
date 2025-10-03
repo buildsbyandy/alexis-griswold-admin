@@ -6,8 +6,8 @@ import {
   getCarouselItems,
   createCarouselItem,
   updateCarouselItem,
-  deleteCarouselItem,
 } from './carouselService'
+import { deleteCarouselItemDB } from '../db/carousels'
 
 type Tables = Database['public']['Tables'];
 
@@ -58,21 +58,35 @@ export async function getRecipeHeroVideos(): Promise<RecipeHeroVideoRow[]> {
   if (items.error) throw new Error(items.error)
 
   const videos = await Promise.all((items.data || [])
-    .filter(i => i.kind === 'video')
+    .filter(i => i.kind === 'video' || i.kind === 'tiktok')
     .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
     .map(async (i) => {
-      const youtube_id = i.youtube_id || ''
-      const meta = youtube_id ? await youtubeService.get_video_data(youtube_id) : { data: undefined }
-      const url = youtube_id ? (youtubeService.format_youtube_url(youtube_id).data || '') : ''
+      const isTikTok = i.kind === 'tiktok'
+
+      // For YouTube videos, use youtube_id; for TikTok, no ID needed
+      const video_id = !isTikTok ? (i.youtube_id || '') : ''
+
+      // Only fetch YouTube metadata for YouTube videos
+      const meta = !isTikTok && video_id ? await youtubeService.get_video_data(video_id) : { data: undefined }
+
+      // Format URL based on video type
+      let url = ''
+      if (isTikTok) {
+        // TikTok uses link_url field directly
+        url = i.link_url || ''
+      } else if (video_id) {
+        url = youtubeService.format_youtube_url(video_id).data || ''
+      }
+
       return {
         id: i.id,
         link_url: url,
-        youtube_id,
+        youtube_id: isTikTok ? '' : video_id,
         caption: i.caption || meta.data?.title || null,
         video_description: meta.data?.description || null,
         order_index: i.order_index || 0,
-        video_thumbnail_url: meta.data?.thumbnail_url || null,
-        video_type: 'video',
+        video_thumbnail_url: i.image_path || meta.data?.thumbnail_url || null,
+        video_type: isTikTok ? 'tiktok' : 'video',
         is_active: i.is_active ?? true,
         created_at: i.created_at,
         updated_at: i.updated_at,
@@ -198,7 +212,8 @@ export async function updateRecipeHeroVideo(id: string, input: RecipeHeroVideoUp
 }
 
 export async function deleteRecipeHeroVideo(id: string): Promise<boolean> {
-  const deleted = await deleteCarouselItem(id)
+  // Use database function directly to avoid auth issues when called from API routes
+  const deleted = await deleteCarouselItemDB(id)
   if (deleted.error) throw new Error(deleted.error)
   return true
 }

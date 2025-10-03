@@ -97,7 +97,7 @@ class AlbumService {
       .slice(0, limit);
   }
 
-  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'> & { additional_images?: string[] }, carouselId: string, orderIndex = 0): Promise<boolean> {
+  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'> & { additional_images?: string[], photos?: any[] }, carouselId: string, orderIndex = 0): Promise<boolean> {
     try {
       // Validate required fields
       if (!input.album_title?.trim()) {
@@ -107,14 +107,23 @@ class AlbumService {
         throw new Error('Cover image is required');
       }
 
-      // Prepare photos array from additional images
-      const photos = input.additional_images?.map((imageUrl, index) => ({
-        photo_url: imageUrl,
-        photo_order: index + 2, // Start from 2 since cover is 1
-        caption: null
-      })) || [];
+      // Prepare photos array - can come from either additional_images or photos
+      let photos: any[] = [];
 
-      console.log('Additional images:', input.additional_images);
+      if (input.photos && Array.isArray(input.photos)) {
+        // Photos already in correct format from PhotoAlbumModal
+        photos = input.photos;
+      } else if (input.additional_images && Array.isArray(input.additional_images)) {
+        // Convert additional_images to photos format
+        photos = input.additional_images.map((imageUrl, index) => ({
+          photo_url: imageUrl,
+          photo_order: index + 2, // Start from 2 since cover is 1
+          caption: null
+        }));
+      }
+
+      console.log('Input additional_images:', input.additional_images);
+      console.log('Input photos:', input.photos);
       console.log('Prepared photos array:', photos);
 
       // Map interface to API payload with snake_case fields matching database schema
@@ -149,7 +158,28 @@ class AlbumService {
       const result = await response.json();
       console.log('Album created successfully:', result);
 
-      // Carousel item is now created by the API endpoint
+      // Now create the carousel item linking to this album
+      if (result.album?.id) {
+        const carouselItemResult = await createCarouselItem({
+          carousel_id: carouselId,
+          kind: 'album',
+          album_id: result.album.id,
+          ref_id: result.album.id,
+          caption: result.album.album_title || null,
+          order_index: orderIndex,
+          is_active: true,
+          youtube_id: null,
+          link_url: null,
+          image_path: result.album.cover_image_path || null,
+          badge: null,
+        });
+
+        if (carouselItemResult.error) {
+          console.error('Failed to create carousel item:', carouselItemResult.error);
+          throw new Error(`Album created but failed to add to carousel: ${carouselItemResult.error}`);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('Error adding album:', error);

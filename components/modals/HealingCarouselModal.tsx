@@ -81,8 +81,11 @@ const HealingCarouselModal: React.FC<HealingCarouselModalProps> = ({
     await onSave(videoData);
   };
 
-  const handleAlbumSave = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex?: number) => {
-    await onSave({ type: 'album', data: albumData });
+  const handleAlbumSave = async (albumData: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'> & { additional_images?: string[], photos?: any[] }, carouselId: string, orderIndex?: number) => {
+    // Import albumService and create the album with carousel linkage
+    const { albumService } = await import('../../lib/services/albumService');
+    await albumService.addAlbum(albumData, carouselId, orderIndex || 0);
+    onClose(); // Close the modal after successful save
   };
 
   const handleTikTokSave = async (tiktokData: TikTokVideo) => {

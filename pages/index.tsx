@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
 import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaHeart, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt, FaFolder } from 'react-icons/fa';
+import { SiTiktok } from 'react-icons/si';
 import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
 import { STORAGE_PATHS } from '../lib/constants/storagePaths';
@@ -17,6 +18,8 @@ import HealingProductModal from '../components/modals/HealingProductModal';
 import { type HealingProductRow } from '../lib/services/healingService';
 import CarouselHeaderModal, { type CarouselHeader } from '../components/modals/CarouselHeaderModal';
 import HealingCarouselModal from '../components/modals/HealingCarouselModal';
+import SecureImage from '../components/admin/SecureImage';
+import { parseSupabaseUrl } from '../util/imageUrl';
 import TikTokVideoModal from '../components/modals/TikTokVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
@@ -75,6 +78,7 @@ const AdminContent: React.FC = () => {
   const [recipeHeroVideos, setRecipeHeroVideos] = useState<any[]>([]);
   const [showAddHeroVideo, setShowAddHeroVideo] = useState(false);
   const [showAddRecipeTikTok, setShowAddRecipeTikTok] = useState(false);
+  const [editingRecipeHeroVideo, setEditingRecipeHeroVideo] = useState<any>(null);
   const [newHeroVideo, setNewHeroVideo] = useState({
     youtube_url: '',
     video_title: '',
@@ -196,6 +200,15 @@ const AdminContent: React.FC = () => {
   const [editingCarouselHeaders, setEditingCarouselHeaders] = useState(false);
   const [currentCarouselContext, setCurrentCarouselContext] = useState<'part1' | 'part2' | 'tiktoks' | 'featured'>('part1');
   const [showHealingFeaturedVideoSelector, setShowHealingFeaturedVideoSelector] = useState(false);
+  const [healingCarousels, setHealingCarousels] = useState<{
+    part1: { title: string; description: string } | null;
+    part2: { title: string; description: string } | null;
+    tiktoks: { title: string; description: string } | null;
+  }>({
+    part1: null,
+    part2: null,
+    tiktoks: null
+  });
   const [showVlogFeaturedVideoSelector, setShowVlogFeaturedVideoSelector] = useState(false);
   const [healingHeroData, setHealingHeroData] = useState({
     title: 'HEALING',
@@ -678,21 +691,22 @@ const AdminContent: React.FC = () => {
       }
 
       if (itemData.type === 'video') {
-        // Handle YouTube video items using unified system
         const videoData = itemData.data as Omit<HealingVideo, 'id' | 'createdAt' | 'updatedAt'>;
-
-        // Extract YouTube ID from URL
-        const extractYouTubeId = (url: string): string | null => {
-          const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-          const match = url.match(regex);
-          return match ? match[1] : null;
-        };
-
+      
+        // Extract YouTube ID from URL using the service
+        const extractResult = youtubeService.extract_video_id(videoData.youtube_url);
+        if (extractResult.error || !extractResult.data) {
+          throw new Error(extractResult.error || 'Failed to extract YouTube ID');
+        }
+        const youtubeId = extractResult.data;
+      
+        console.log('[DEBUG] Extracted YouTube ID:', youtubeId, 'from URL:', videoData.youtube_url);
+      
         const createResult = await createCarouselItem({
           carousel_id: carouselResult.data.id,
           kind: 'video',
-          youtube_id: extractYouTubeId(videoData.youtube_url),
-          link_url: videoData.youtube_url,
+          youtube_id: youtubeId,  // Use the extracted ID
+          link_url: null,
           caption: videoData.video_title || null,
           order_index: videoData.order || 1,
           is_active: true,
@@ -700,37 +714,21 @@ const AdminContent: React.FC = () => {
           ref_id: null,
           image_path: null,
           badge: null,
-          // Legacy is_featured field removed - featured status managed by carousel system
         });
-
+      
         if (createResult.error) {
           throw new Error(createResult.error);
         }
 
-        // If this is for featured video management, set it as the featured video
-        if (currentCarouselContext === 'featured' && createResult.data) {
-          try {
-            const setFeaturedResult = await healingService.set_featured_video(createResult.data.id);
-            if (setFeaturedResult.error) {
-              console.warn('Video created but failed to set as featured:', setFeaturedResult.error);
-              toast.success('Video added successfully, but failed to set as featured');
-            } else {
-              toast.success('Video added and set as featured successfully!');
-            }
-          } catch (featuredError) {
-            console.warn('Video created but failed to set as featured:', featuredError);
-            toast.success('Video added successfully, but failed to set as featured');
-          }
-        } else {
-          toast.success('Video added successfully!');
-        }
+      toast.success('Video added successfully!');
+
       } else if (itemData.type === 'album') {
         // Handle album items using unified system
         const albumData = itemData.data;
 
         const createResult = await createCarouselItem({
           carousel_id: carouselResult.data.id,
-          kind: 'video', // Note: using 'video' kind for album items per existing pattern
+          kind: 'album', // Use 'album' kind for album carousel items
           youtube_id: null,
           link_url: null,
           caption: albumData.title || null,
@@ -761,10 +759,9 @@ const AdminContent: React.FC = () => {
           is_active: true,
           album_id: null,
           ref_id: null,
-          image_path: null,
+          image_path: tiktokData.thumbnail_url || null,
           youtube_id: null,
           badge: null,
-          // Legacy is_featured field removed - featured status managed by carousel system
         });
 
         if (createResult.error) {
@@ -784,6 +781,26 @@ const AdminContent: React.FC = () => {
     } catch (error) {
       console.error('Error saving carousel item:', error);
       throw error;
+    }
+  };
+
+  const loadHealingCarousels = async () => {
+    try {
+      const { findCarouselByPageSlug } = await import('../lib/services/carouselService');
+
+      const [part1, part2, tiktoks] = await Promise.all([
+        findCarouselByPageSlug('healing', 'healing-part-1'),
+        findCarouselByPageSlug('healing', 'healing-part-2'),
+        findCarouselByPageSlug('healing', 'healing-tiktoks')
+      ]);
+
+      setHealingCarousels({
+        part1: part1.data ? { title: part1.data.title || '', description: part1.data.description || '' } : null,
+        part2: part2.data ? { title: part2.data.title || '', description: part2.data.description || '' } : null,
+        tiktoks: tiktoks.data ? { title: tiktoks.data.title || '', description: tiktoks.data.description || '' } : null
+      });
+    } catch (error) {
+      console.error('Error loading healing carousels:', error);
     }
   };
 
@@ -821,6 +838,9 @@ const AdminContent: React.FC = () => {
         throw new Error(updateResult.error);
       }
 
+      // Reload carousel data to refresh UI
+      await loadHealingCarousels();
+
       setEditingCarouselHeader(null);
       toast.success('Carousel header updated successfully!');
     } catch (error) {
@@ -843,22 +863,20 @@ const AdminContent: React.FC = () => {
           amazon_url: productData.amazon_url,
           price: productData.price,
           image_path: productData.image_path,
-          image_alt: productData.image_alt,
           description: productData.description,
           tags: productData.tags,
-          // Legacy is_favorite field removed - featured status managed by carousel system
           status: productData.status,
-          sort_weight: productData.sort_weight,
         };
-        
+
         const response = await fetch(`/api/storefront/${sfEditing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(apiData)
         });
-        
+
         if (!response.ok) {
-          throw new Error('Failed to update product');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to update product');
         }
       } else {
         // Create new product
@@ -869,22 +887,20 @@ const AdminContent: React.FC = () => {
           amazon_url: productData.amazon_url,
           price: productData.price,
           image_path: productData.image_path,
-          image_alt: productData.image_alt,
           description: productData.description,
           tags: productData.tags,
-          // Legacy is_favorite field removed - featured status managed by carousel system
           status: productData.status,
-          sort_weight: productData.sort_weight,
         };
-        
+
         const response = await fetch('/api/storefront', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(apiData)
         });
-        
+
         if (!response.ok) {
-          throw new Error('Failed to create product');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to create product');
         }
       }
       
@@ -900,7 +916,10 @@ const AdminContent: React.FC = () => {
       setSfEditing(null);
     } catch (error) {
       console.error('Error saving storefront product:', error);
-      throw error;
+      // Ensure modal closes even on error
+      setSfIsAdding(false);
+      setSfEditing(null);
+      alert(error instanceof Error ? error.message : 'Failed to save product');
     }
   };
 
@@ -1203,6 +1222,9 @@ const AdminContent: React.FC = () => {
         if (featuredVideoResult.data) {
           setHealingFeaturedVideo(featuredVideoResult.data);
         }
+
+        // Load healing carousel headers
+        await loadHealingCarousels();
       } catch (error) {
         console.error('Error loading healing data:', error);
         errors.push('Failed to load healing data');
@@ -1487,7 +1509,7 @@ const AdminContent: React.FC = () => {
                     
                     {/* Upload Button - Now below video preview */}
                     <div className="flex flex-col items-center mt-3 space-y-2">
-                      <div className="text-xs text-gray-500 text-center">
+                      <div className="text-xs text-center text-gray-500">
                         Upload a video to automatically publish it as your background
                       </div>
                       <FileUpload
@@ -1557,8 +1579,8 @@ const AdminContent: React.FC = () => {
                       </FileUpload>
                     </div>
                     
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h4 className="text-sm font-medium text-blue-800 mb-2">📝 Current Content</h4>
+                    <div className="p-3 mt-4 border border-blue-200 rounded-lg bg-blue-50">
+                      <h4 className="mb-2 text-sm font-medium text-blue-800">📝 Current Content</h4>
                       <div className="space-y-1">
                         <p className="text-sm text-[#8F907E]"><strong>Hero Title:</strong> {homePageContent.heroMainTitle || 'Not set'}</p>
                         <p className="text-sm text-[#8F907E]"><strong>Hero Subtitle:</strong> {homePageContent.heroSubtitle || 'Not set'}</p>
@@ -1566,7 +1588,7 @@ const AdminContent: React.FC = () => {
                     </div>
                     
                     {/* Video Opacity Control */}
-                    <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="p-3 mt-4 border border-gray-200 rounded-lg bg-gray-50">
                       <h4 className="text-sm font-medium text-[#383B26] mb-2">Video Opacity Control</h4>
                       <p className="text-xs text-[#8F907E] mb-2">Current: {Math.round((homePageContent.videoOpacity || 0.7) * 100)}%</p>
                       <div className="space-y-2">
@@ -1621,7 +1643,7 @@ const AdminContent: React.FC = () => {
                     
                     {/* Upload Button - Now below image preview */}
                     <div className="flex flex-col items-center mt-3 space-y-2">
-                      <div className="text-xs text-gray-500 text-center">
+                      <div className="text-xs text-center text-gray-500">
                         Upload a high-quality image that represents your video content
                       </div>
                       <FileUpload
@@ -1643,9 +1665,9 @@ const AdminContent: React.FC = () => {
                       </FileUpload>
                     </div>
 
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h4 className="text-sm font-medium text-blue-800 mb-2">📱 When is this image used?</h4>
-                      <ul className="text-xs text-blue-700 space-y-1">
+                    <div className="p-3 mt-4 border border-blue-200 rounded-lg bg-blue-50">
+                      <h4 className="mb-2 text-sm font-medium text-blue-800">📱 When is this image used?</h4>
+                      <ul className="space-y-1 text-xs text-blue-700">
                         <li>• <strong>Mobile devices</strong> where video autoplay is restricted</li>
                         <li>• <strong>Slow connections</strong> when the video fails to load</li>
                         <li>• <strong>Accessibility</strong> as the poster frame before video plays</li>
@@ -1667,9 +1689,9 @@ const AdminContent: React.FC = () => {
             <div className="p-6 mb-6 bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-[#383B26] mb-2">📹 Video History</h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <h4 className="text-sm font-medium text-blue-800 mb-1">How it works:</h4>
-                  <ul className="text-xs text-blue-700 space-y-1">
+                <div className="p-3 mb-4 border border-blue-200 rounded-lg bg-blue-50">
+                  <h4 className="mb-1 text-sm font-medium text-blue-800">How it works:</h4>
+                  <ul className="space-y-1 text-xs text-blue-700">
                     <li>• <strong>Upload a video</strong> → It&apos;s automatically published as your background</li>
                     <li>• <strong>Previous videos</strong> are saved in history (max 3)</li>
                     <li>• <strong>Click any video</strong> in history to make it current</li>
@@ -1923,9 +1945,9 @@ const AdminContent: React.FC = () => {
 
             {/* Beginner Recipes Carousel View */}
             {showBeginnerRecipesView && (
-              <div className="p-6 mb-6 bg-white rounded-lg shadow-md border-2 border-blue-200">
+              <div className="p-6 mb-6 bg-white border-2 border-blue-200 rounded-lg shadow-md">
                 <h2 className="text-xl font-semibold text-[#383B26] mb-4 flex items-center">
-                  <span className="text-2xl mr-3">👶</span>
+                  <span className="mr-3 text-2xl">👶</span>
                   Beginner Recipes Carousel (Read-Only)
                 </h2>
                 <p className="text-[#8F907E] mb-6">
@@ -1933,12 +1955,12 @@ const AdminContent: React.FC = () => {
                   These are automatically synced when you check/uncheck the &quot;Beginner Recipe&quot; checkbox when editing recipes.
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {recipes
                     .filter(recipe => recipe.is_beginner)
                     .map(recipe => (
-                      <div key={recipe.id} className="text-center p-4 border border-gray-200 rounded-lg">
-                        <div className="w-full h-32 bg-gray-200 rounded mb-3 flex items-center justify-center overflow-hidden relative">
+                      <div key={recipe.id} className="p-4 text-center border border-gray-200 rounded-lg">
+                        <div className="relative flex items-center justify-center w-full h-32 mb-3 overflow-hidden bg-gray-200 rounded">
                           {recipe.hero_image_path ? (
                             <Image
                               src={recipe.hero_image_path}
@@ -1948,7 +1970,7 @@ const AdminContent: React.FC = () => {
                               className="object-cover"
                             />
                           ) : (
-                            <FaUtensils className="text-gray-400 text-2xl" />
+                            <FaUtensils className="text-2xl text-gray-400" />
                           )}
                         </div>
                         <p className="text-sm font-medium">{recipe.title}</p>
@@ -1960,8 +1982,8 @@ const AdminContent: React.FC = () => {
                     ))}
 
                   {recipes.filter(recipe => recipe.is_beginner).length === 0 && (
-                    <div className="col-span-full text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-                      <FaUtensils className="text-gray-400 text-3xl mx-auto mb-2" />
+                    <div className="p-8 text-center border-2 border-gray-300 border-dashed rounded-lg col-span-full">
+                      <FaUtensils className="mx-auto mb-2 text-3xl text-gray-400" />
                       <p className="text-gray-500">No beginner recipes yet. Mark recipes as &quot;Beginner Recipe&quot; when editing them.</p>
                     </div>
                   )}
@@ -1983,7 +2005,7 @@ const AdminContent: React.FC = () => {
                     .map(recipe => (
                       <div key={recipe.id} className="overflow-hidden transition-shadow border border-gray-200 rounded-lg hover:shadow-lg">
                         {/* Recipe Image */}
-                        <div className="flex items-center justify-center h-48 bg-gray-200 relative">
+                        <div className="relative flex items-center justify-center h-48 bg-gray-200">
                           {recipe.hero_image_path ? (
                             <div
                               className="relative w-full h-full cursor-pointer group"
@@ -2000,8 +2022,8 @@ const AdminContent: React.FC = () => {
                                 fill 
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
                               />
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium">
+                              <div className="absolute inset-0 flex items-center justify-center transition-all bg-black bg-opacity-0 group-hover:bg-opacity-20">
+                                <div className="text-sm font-medium text-white transition-opacity opacity-0 group-hover:opacity-100">
                                   Click to view
                                 </div>
                               </div>
@@ -2164,7 +2186,7 @@ const AdminContent: React.FC = () => {
                 {/* Hero Section Editor */}
                 <div className="p-6 bg-white rounded-lg shadow-md">
                   <h2 className="text-xl font-semibold text-[#383B26] mb-4 flex items-center">
-                    <span className="text-2xl mr-3">📝</span>
+                    <span className="mr-3 text-2xl">📝</span>
                     Recipe Page Hero Content
                   </h2>
                   <p className="text-[#8F907E] mb-6">Manage the main hero section text that appears at the top of the recipes page</p>
@@ -2179,7 +2201,7 @@ const AdminContent: React.FC = () => {
                         value={recipePageContent.hero_title}
                         onChange={(e) => setRecipePageContent(prev => ({ ...prev, hero_title: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Main heading displayed prominently</p>
+                      <p className="mt-1 text-xs text-gray-500">Main heading displayed prominently</p>
                     </div>
                     
                     <div>
@@ -2191,7 +2213,7 @@ const AdminContent: React.FC = () => {
                         value={recipePageContent.hero_subtitle}
                         onChange={(e) => setRecipePageContent(prev => ({ ...prev, hero_subtitle: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Supporting text under the main title</p>
+                      <p className="mt-1 text-xs text-gray-500">Supporting text under the main title</p>
                     </div>
                     
                     <div>
@@ -2203,7 +2225,7 @@ const AdminContent: React.FC = () => {
                         value={recipePageContent.hero_body_paragraph}
                         onChange={(e) => setRecipePageContent(prev => ({ ...prev, hero_body_paragraph: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Detailed description that appears in the hero section</p>
+                      <p className="mt-1 text-xs text-gray-500">Detailed description that appears in the hero section</p>
                     </div>
                     
                     <div className="flex justify-end pt-4">
@@ -2220,15 +2242,15 @@ const AdminContent: React.FC = () => {
                 </div>
 
                 {/* Preview Section */}
-                <div className="p-6 bg-gray-50 rounded-lg shadow-md">
+                <div className="p-6 rounded-lg shadow-md bg-gray-50">
                   <h3 className="text-lg font-semibold text-[#383B26] mb-4 flex items-center">
-                    <span className="text-xl mr-2">👁️</span>
+                    <span className="mr-2 text-xl">👁️</span>
                     Live Preview
                   </h3>
-                  <div className="bg-white p-8 rounded-lg border-2 border-dashed border-gray-300">
+                  <div className="p-8 bg-white border-2 border-gray-300 border-dashed rounded-lg">
                     <h1 className="text-4xl font-bold text-[#383B26] mb-3">{recipePageContent.hero_title}</h1>
                     <p className="text-lg text-[#8F907E] mb-4">{recipePageContent.hero_subtitle}</p>
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="leading-relaxed text-gray-700">
                       {recipePageContent.hero_body_paragraph}
                     </p>
                   </div>
@@ -2245,7 +2267,7 @@ const AdminContent: React.FC = () => {
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h2 className="text-xl font-semibold text-[#383B26] flex items-center">
-                        <span className="text-2xl mr-3">🎬</span>
+                        <span className="mr-3 text-2xl">🎬</span>
                         TikTok Reels Carousel
                       </h2>
                       <p className="text-[#8F907E] mt-1">Manage the TikTok video carousel that appears in the hero section</p>
@@ -2263,34 +2285,34 @@ const AdminContent: React.FC = () => {
                   <div className="space-y-4">
                     {recipeHeroVideos.length > 0 ? (
                       recipeHeroVideos.map((video) => (
-                        <div key={video.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div key={video.id} className="p-4 transition-shadow border border-gray-200 rounded-lg hover:shadow-md">
                           <div className="flex items-center gap-4">
-                            <div className="flex-shrink-0 w-24 h-16 bg-gray-200 rounded overflow-hidden">
+                            <div className="flex-shrink-0 w-24 h-16 overflow-hidden bg-gray-200 rounded">
                               {video.video_thumbnail_url ? (
                                 <Image
                                   src={video.video_thumbnail_url}
-                                  alt={video.video_title || 'Video thumbnail'}
+                                  alt={video.caption || 'Video thumbnail'}
                                   width={96}
                                   height={64}
-                                  className="w-full h-full object-cover"
+                                  className="object-cover w-full h-full"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
-                                  <FaVideo className="text-gray-600" />
+                                <div className="flex items-center justify-center w-full h-full bg-gradient-to-br from-gray-300 to-gray-400">
+                                  {video.video_type === 'tiktok' ? <SiTiktok className="text-gray-600" /> : <FaVideo className="text-gray-600" />}
                                 </div>
                               )}
                             </div>
                             <div className="flex-1">
                               <h4 className="font-medium text-[#383B26]">
-                                {video.video_title || 'Untitled Video'}
+                                {video.caption || 'Untitled Video'}
                               </h4>
-                              <p className="text-sm text-gray-600 mt-1">{video.youtube_url}</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {/* Legacy video_order field removed - order managed by carousel system */}
+                              <p className="mt-1 text-sm text-gray-600 truncate">{video.link_url}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Order: {video.order_index}
                                 {video.is_active ? (
-                                  <span className="text-green-600 ml-1">Active</span>
+                                  <span className="ml-1 text-green-600">• Active</span>
                                 ) : (
-                                  <span className="text-red-600 ml-1">Inactive</span>
+                                  <span className="ml-1 text-red-600">• Inactive</span>
                                 )}
                                 {video.video_type && (
                                   <span className="ml-1 capitalize">• {video.video_type}</span>
@@ -2298,13 +2320,18 @@ const AdminContent: React.FC = () => {
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button 
+                              <button
                                 className="p-2 text-gray-400 hover:text-[#B8A692]"
+                                onClick={() => {
+                                  console.log('[Edit Click] Video object:', video);
+                                  setEditingRecipeHeroVideo(video);
+                                  setShowAddRecipeTikTok(true);
+                                }}
                                 title="Edit video"
                               >
                                 <FaEdit />
                               </button>
-                              <button 
+                              <button
                                 className="p-2 text-gray-400 hover:text-red-600"
                                 onClick={() => handleDeleteHeroVideo(video.id)}
                                 title="Delete video"
@@ -2317,10 +2344,10 @@ const AdminContent: React.FC = () => {
                       ))
                     ) : (
                       /* Empty State */
-                      <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-                        <FaVideo className="mx-auto text-4xl text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-600 mb-2">No Hero TikTok Videos Yet</h3>
-                        <p className="text-gray-500 mb-4">Add TikTok videos to display in the hero carousel</p>
+                      <div className="py-12 text-center border-2 border-gray-300 border-dashed rounded-lg">
+                        <FaVideo className="mx-auto mb-4 text-4xl text-gray-400" />
+                        <h3 className="mb-2 text-lg font-medium text-gray-600">No Hero TikTok Videos Yet</h3>
+                        <p className="mb-4 text-gray-500">Add TikTok videos to display in the hero carousel</p>
                         <button
                           className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center mx-auto"
                           onClick={() => setShowAddRecipeTikTok(true)}
@@ -2337,15 +2364,15 @@ const AdminContent: React.FC = () => {
               {/* Add Hero Video Modal */}
               {showAddHeroVideo ? (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black bg-opacity-50">
-                  <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+                  <div className="w-full max-w-lg overflow-hidden bg-white rounded-lg shadow-xl">
                     <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-[#F5F3F0]">
                       <h3 className="text-lg font-semibold text-[#383B26]">Add Hero Video</h3>
-                      <button onClick={() => setShowAddHeroVideo(false)} className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded">
+                      <button onClick={() => setShowAddHeroVideo(false)} className="p-1 text-gray-500 rounded hover:text-gray-700 hover:bg-gray-100">
                         <FaTimes />
                       </button>
                     </div>
                     <div className="p-6 space-y-4">
-                      <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
+                      <div className="p-3 text-sm text-yellow-900 border border-yellow-200 rounded-md bg-yellow-50">
                         The YouTube Reels carousel is optimized for vertical, phone-friendly videos (Shorts). Landscape videos are accepted, but wide dimensions may be cropped within the carousel.
                       </div>
                       <div>
@@ -2591,7 +2618,7 @@ const AdminContent: React.FC = () => {
                     <div>
                       <h3 className="font-medium text-[#383B26] mb-3">Featured Video Preview</h3>
                       <div className="p-4 rounded-lg bg-gray-50">
-                        <div className="h-48 mb-3 bg-gray-200 rounded overflow-hidden relative">
+                        <div className="relative h-48 mb-3 overflow-hidden bg-gray-200 rounded">
                           {vlogHeroData.featuredVideoThumbnail ? (
                             <Image 
                               src={vlogHeroData.featuredVideoThumbnail}
@@ -2960,13 +2987,13 @@ const AdminContent: React.FC = () => {
                   <div className="grid grid-cols-1 gap-4 p-4 mb-6 rounded-lg md:grid-cols-2 bg-gray-50">
                     <div>
                       <label className="block text-sm font-medium text-[#383B26] mb-1">Section Title</label>
-                      <div className="w-full p-2 border border-gray-200 rounded-md bg-white text-gray-700">
+                      <div className="w-full p-2 text-gray-700 bg-white border border-gray-200 rounded-md">
                         {spotifySectionConfig.section_title}
                       </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-[#383B26] mb-1">Section Subtitle</label>
-                      <div className="w-full p-2 border border-gray-200 rounded-md bg-white text-gray-700">
+                      <div className="w-full p-2 text-gray-700 bg-white border border-gray-200 rounded-md">
                         {spotifySectionConfig.section_subtitle}
                       </div>
                     </div>
@@ -3338,13 +3365,13 @@ const AdminContent: React.FC = () => {
 
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                     <div className="relative p-4 border rounded-lg group">
-                      <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 1: Candida Cleanse</h3>
-                      <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
+                      <h3 className="font-medium text-[#383B26] mb-2">{healingCarousels.part1?.title || 'Gut Healing Part 1: Candida Cleanse'}</h3>
+                      <p className="text-sm text-[#8F907E]">{healingCarousels.part1?.description || 'Educational videos for candida cleansing process'}</p>
                       <button
                         onClick={() => setEditingCarouselHeader({
                           id: 'part1',
-                          title: 'Gut Healing Part 1: Candida Cleanse',
-                          description: 'Educational videos for candida cleansing process',
+                          title: healingCarousels.part1?.title || 'Gut Healing Part 1: Candida Cleanse',
+                          description: healingCarousels.part1?.description || 'Educational videos for candida cleansing process',
                           type: 'part1',
                           isActive: true,
                           updated_at: new Date()
@@ -3355,13 +3382,13 @@ const AdminContent: React.FC = () => {
                       </button>
                     </div>
                     <div className="relative p-4 border rounded-lg group">
-                      <h3 className="font-medium text-[#383B26] mb-2">Gut Healing Part 2: Rebuild & Repair</h3>
-                      <p className="text-sm text-[#8F907E]">Videos focused on rebuilding gut health after cleansing</p>
+                      <h3 className="font-medium text-[#383B26] mb-2">{healingCarousels.part2?.title || 'Gut Healing Part 2: Rebuild & Repair'}</h3>
+                      <p className="text-sm text-[#8F907E]">{healingCarousels.part2?.description || 'Videos focused on rebuilding gut health after cleansing'}</p>
                       <button
                         onClick={() => setEditingCarouselHeader({
                           id: 'part2',
-                          title: 'Gut Healing Part 2: Rebuild & Repair',
-                          description: 'Videos focused on rebuilding gut health after cleansing',
+                          title: healingCarousels.part2?.title || 'Gut Healing Part 2: Rebuild & Repair',
+                          description: healingCarousels.part2?.description || 'Videos focused on rebuilding gut health after cleansing',
                           type: 'part2',
                           isActive: true,
                           updated_at: new Date()
@@ -3372,13 +3399,13 @@ const AdminContent: React.FC = () => {
                       </button>
                     </div>
                     <div className="relative p-4 border rounded-lg group">
-                      <h3 className="font-medium text-[#383B26] mb-2">TikTok Inspirations</h3>
-                      <p className="text-sm text-[#8F907E]">Inspirational TikTok videos for motivation and healing</p>
+                      <h3 className="font-medium text-[#383B26] mb-2">{healingCarousels.tiktoks?.title || 'TikTok Inspirations'}</h3>
+                      <p className="text-sm text-[#8F907E]">{healingCarousels.tiktoks?.description || 'Inspirational TikTok videos for motivation and healing'}</p>
                       <button
                         onClick={() => setEditingCarouselHeader({
                           id: 'tiktoks',
-                          title: 'TikTok Inspirations',
-                          description: 'Inspirational TikTok videos for motivation and healing',
+                          title: healingCarousels.tiktoks?.title || 'TikTok Inspirations',
+                          description: healingCarousels.tiktoks?.description || 'Inspirational TikTok videos for motivation and healing',
                           type: 'tiktoks',
                           isActive: true,
                           updated_at: new Date()
@@ -3397,8 +3424,8 @@ const AdminContent: React.FC = () => {
                   <div className="p-6 bg-white rounded-lg shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 1: Candida Cleanse</h3>
-                        <p className="text-sm text-[#8F907E]">Educational videos for candida cleansing process</p>
+                        <h3 className="text-lg font-semibold text-[#383B26]">{healingCarousels.part1?.title || 'Gut Healing Part 1: Candida Cleanse'}</h3>
+                        <p className="text-sm text-[#8F907E]">{healingCarousels.part1?.description || 'Educational videos for candida cleansing process'}</p>
                       </div>
                       <button
                         onClick={() => {
@@ -3473,8 +3500,8 @@ const AdminContent: React.FC = () => {
                   <div className="p-6 bg-white rounded-lg shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-[#383B26]">Gut Healing Part 2: Rebuild & Repair</h3>
-                        <p className="text-sm text-[#8F907E]">Videos focused on rebuilding gut health after cleansing</p>
+                        <h3 className="text-lg font-semibold text-[#383B26]">{healingCarousels.part2?.title || 'Gut Healing Part 2: Rebuild & Repair'}</h3>
+                        <p className="text-sm text-[#8F907E]">{healingCarousels.part2?.description || 'Videos focused on rebuilding gut health after cleansing'}</p>
                       </div>
                       <button
                         onClick={() => {
@@ -3549,8 +3576,8 @@ const AdminContent: React.FC = () => {
                   <div className="p-6 bg-white rounded-lg shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-[#383B26]">TikTok Inspirations</h3>
-                        <p className="text-sm text-[#8F907E]">Inspirational TikTok videos for motivation and healing</p>
+                        <h3 className="text-lg font-semibold text-[#383B26]">{healingCarousels.tiktoks?.title || 'TikTok Inspirations'}</h3>
+                        <p className="text-sm text-[#8F907E]">{healingCarousels.tiktoks?.description || 'Inspirational TikTok videos for motivation and healing'}</p>
                       </div>
                       <button
                         onClick={() => {
@@ -3616,46 +3643,66 @@ const AdminContent: React.FC = () => {
                         .filter(product => product.is_active)
                         .sort((a, b) => (a.product_order || 0) - (b.product_order || 0))
                         .map((product) => (
-                          <div key={product.id} className="p-4 transition-shadow border rounded-lg hover:shadow-md">
+                          <div
+                            key={product.id}
+                            className="p-4 transition-shadow border rounded-lg cursor-pointer hover:shadow-md group"
+                            onClick={() => setEditingHealingProduct(product)}
+                          >
                             <div className="relative mb-3">
-                              {product.image_path ? (
-                                <Image 
-                                  src={product.image_path} 
-                                  alt={product.name}
-                                  className="object-cover w-full h-24 rounded"
-                                  width={400}
-                                  height={96}
-                                />
+                              {product.product_image_path ? (
+                                (() => {
+                                  const parsedUrl = parseSupabaseUrl(product.product_image_path);
+                                  if (parsedUrl) {
+                                    return (
+                                      <SecureImage
+                                        bucket={parsedUrl.bucket}
+                                        path={parsedUrl.path}
+                                        alt={product.product_title}
+                                        width={400}
+                                        height={128}
+                                        className="object-cover w-full h-32 rounded"
+                                      />
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="flex items-center justify-center h-32 bg-gray-200 rounded">
+                                        <span className="text-xs text-gray-400">Invalid image URL</span>
+                                      </div>
+                                    );
+                                  }
+                                })()
                               ) : (
-                                <div className="flex items-center justify-center h-24 bg-gray-200 rounded">
+                                <div className="flex items-center justify-center h-32 bg-gray-200 rounded">
                                   <FaHeartbeat className="text-xl text-gray-400" />
                                 </div>
                               )}
                             </div>
-                            <h3 className="font-medium text-[#383B26] mb-1">{product.product_title}</h3>
+                            <h3 className="font-medium text-[#383B26] mb-1 group-hover:text-[#B8A692] transition-colors">{product.product_title}</h3>
                             <p className="text-sm text-[#8F907E] mb-2 line-clamp-2">{product.product_purpose}</p>
-                            {product.product_purpose && (
-                              <p className="mb-2 text-xs text-gray-600 line-clamp-1">Purpose: {product.product_purpose}</p>
-                            )}
                             {product.amazon_url && (
-                              <a 
+                              <a
                                 href={product.amazon_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-block text-xs text-[#B8A692] hover:text-[#A0956C] mb-2"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 View on Amazon →
                               </a>
                             )}
                             <div className="flex gap-2 mt-3">
-                              <button 
-                                onClick={() => setEditingHealingProduct(product)}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingHealingProduct(product);
+                                }}
                                 className="flex-1 px-3 py-1 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
                               >
                                 Edit
                               </button>
-                              <button 
-                                onClick={async () => {
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
                                   if (window.confirm('Are you sure you want to delete this product?')) {
                                     const deleteResult = await healingService.delete_healing_product(product.id);
                                     if (deleteResult.error) throw new Error(deleteResult.error);
@@ -4097,7 +4144,7 @@ const AdminContent: React.FC = () => {
                   {/* Categories List */}
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2">
                     {sfCategories.map((category) => (
-                      <div key={category.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                      <div key={category.id} className="p-4 transition-shadow border border-gray-200 rounded-lg hover:shadow-md">
                         <div className="flex items-start gap-4">
                           {/* Category Image */}
                           <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg">
@@ -4119,7 +4166,7 @@ const AdminContent: React.FC = () => {
                           {/* Category Info */}
                           <div className="flex-1 min-w-0">
                             <h3 className="text-lg font-semibold text-[#383B26] mb-1">{category.category_name}</h3>
-                            <p className="text-sm text-gray-600 mb-2">{category.slug}</p>
+                            <p className="mb-2 text-sm text-gray-600">{category.slug}</p>
                             {category.category_description && (
                               <p className="text-sm text-gray-500 line-clamp-2">{category.category_description}</p>
                             )}
@@ -4160,7 +4207,7 @@ const AdminContent: React.FC = () => {
                     ))}
 
                     {sfCategories.length === 0 && (
-                      <div className="col-span-full p-8 text-center bg-gray-50 rounded-lg">
+                      <div className="p-8 text-center rounded-lg col-span-full bg-gray-50">
                         <FaImage className="mx-auto mb-4 text-4xl text-gray-300" />
                         <h3 className="mb-2 text-lg font-medium text-gray-600">No categories found</h3>
                         <p className="mb-4 text-gray-500">Add your first category to get started</p>
@@ -4205,7 +4252,7 @@ const AdminContent: React.FC = () => {
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {sfTopPicks.length === 0 ? (
-                      <div className="col-span-full p-8 text-center bg-gray-50 rounded-lg">
+                      <div className="p-8 text-center rounded-lg col-span-full bg-gray-50">
                         <FaStar className="mx-auto mb-4 text-4xl text-gray-300" />
                         <p className="text-gray-500">No top picks added yet</p>
                       </div>
@@ -4213,7 +4260,7 @@ const AdminContent: React.FC = () => {
                       sfTopPicks
                         .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
                         .map((item) => (
-                          <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div key={item.id} className="overflow-hidden border border-gray-200 rounded-lg">
                             <div className="relative h-32 bg-gray-100">
                               {item.image_path && (
                                 <Image
@@ -4275,13 +4322,13 @@ const AdminContent: React.FC = () => {
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {sfFavorites.length === 0 ? (
-                      <div className="col-span-full p-8 text-center bg-gray-50 rounded-lg">
+                      <div className="p-8 text-center rounded-lg col-span-full bg-gray-50">
                         <FaHeart className="mx-auto mb-4 text-4xl text-gray-300" />
                         <p className="text-gray-500">No favorites added yet</p>
                       </div>
                     ) : (
                       sfFavorites.map((item) => (
-                        <div key={item.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div key={item.id} className="overflow-hidden border border-gray-200 rounded-lg">
                           <div className="relative h-32 bg-gray-100">
                             {item.image_path && (
                               <Image
@@ -4352,35 +4399,58 @@ const AdminContent: React.FC = () => {
       {/* Recipe TikTok Modal */}
       <TikTokVideoModal
         isOpen={showAddRecipeTikTok}
-        onClose={() => setShowAddRecipeTikTok(false)}
+        onClose={() => {
+          setShowAddRecipeTikTok(false);
+          setEditingRecipeHeroVideo(null);
+        }}
+        video={editingRecipeHeroVideo ? {
+          link_url: editingRecipeHeroVideo.link_url,
+          caption: editingRecipeHeroVideo.caption,
+          order_index: editingRecipeHeroVideo.order_index,
+          thumbnail_url: editingRecipeHeroVideo.video_thumbnail_url
+        } : null}
         onSave={async (tiktokData) => {
           try {
-            const { findCarouselByPageSlug, createCarouselItem } = await import('../lib/services/carouselService');
-            const carousel = await findCarouselByPageSlug('recipes', 'recipes-hero-videos');
-
-            if (carousel.data) {
-              await createCarouselItem({
-                carousel_id: carousel.data.id,
-                kind: 'tiktok',
+            if (editingRecipeHeroVideo) {
+              // Update existing video
+              const { updateCarouselItem } = await import('../lib/services/carouselService');
+              await updateCarouselItem(editingRecipeHeroVideo.id, {
                 link_url: tiktokData.link_url,
                 caption: tiktokData.caption || null,
-                order_index: tiktokData.order_index || 0,
-                is_active: true,
-                album_id: null,
-                ref_id: null,
-                image_path: null,
-                youtube_id: null,
-                badge: null,
+                order_index: tiktokData.order_index,
+                image_path: tiktokData.thumbnail_url || null,
               });
+              toast.success('TikTok video updated successfully!');
+            } else {
+              // Create new video
+              const { findCarouselByPageSlug, createCarouselItem } = await import('../lib/services/carouselService');
+              const carousel = await findCarouselByPageSlug('recipes', 'recipes-hero-videos');
 
-              toast.success('TikTok video added successfully!');
-              setShowAddRecipeTikTok(false);
-              // Reload hero videos to show the new TikTok
-              await loadRecipeHeroVideos();
+              if (carousel.data) {
+                await createCarouselItem({
+                  carousel_id: carousel.data.id,
+                  kind: 'tiktok',
+                  link_url: tiktokData.link_url,
+                  caption: tiktokData.caption || null,
+                  order_index: tiktokData.order_index || 0,
+                  is_active: true,
+                  image_path: tiktokData.thumbnail_url || null,
+                  album_id: null,
+                  ref_id: null,
+                  youtube_id: null,
+                  badge: null,
+                });
+                toast.success('TikTok video added successfully!');
+              }
             }
+
+            setShowAddRecipeTikTok(false);
+            setEditingRecipeHeroVideo(null);
+            // Reload hero videos to show changes
+            await loadRecipeHeroVideos();
           } catch (error) {
-            console.error('Error adding TikTok:', error);
-            toast.error('Failed to add TikTok video');
+            console.error('Error saving TikTok:', error);
+            toast.error(`Failed to ${editingRecipeHeroVideo ? 'update' : 'add'} TikTok video`);
           }
         }}
       />
@@ -4388,25 +4458,25 @@ const AdminContent: React.FC = () => {
       {/* Image Modal */}
       {imageModalUrl && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black bg-opacity-90">
-          <div className="relative max-w-6xl w-full h-full flex flex-col items-center justify-center">
+          <div className="relative flex flex-col items-center justify-center w-full h-full max-w-6xl">
             <button
               onClick={() => {
                 setImageModalUrl(null);
                 setImageModalGallery([]);
                 setCurrentImageIndex(0);
               }}
-              className="absolute top-4 right-4 z-10 p-2 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white transition-all"
+              className="absolute z-10 p-2 text-white transition-all bg-black bg-opacity-50 rounded-full top-4 right-4 hover:bg-opacity-70"
               aria-label="Close image"
             >
               <FaTimes className="w-6 h-6" />
             </button>
 
             {/* Main Image */}
-            <div className="relative flex-1 w-full flex items-center justify-center mb-4">
+            <div className="relative flex items-center justify-center flex-1 w-full mb-4">
               <Image
                 src={imageModalGallery.length > 0 ? imageModalGallery[currentImageIndex] : imageModalUrl}
                 alt="Recipe image"
-                className="max-w-full max-h-full object-contain"
+                className="object-contain max-w-full max-h-full"
                 fill
                 sizes="90vw"
               />
@@ -4416,12 +4486,12 @@ const AdminContent: React.FC = () => {
             {imageModalGallery.length > 1 && (
               <div className="w-full max-w-4xl">
                 {/* Image counter */}
-                <div className="text-center text-white mb-2 text-sm">
+                <div className="mb-2 text-sm text-center text-white">
                   {currentImageIndex + 1} / {imageModalGallery.length}
                 </div>
 
                 {/* Thumbnail strip */}
-                <div className="flex gap-2 overflow-x-auto pb-2 px-4 justify-center">
+                <div className="flex justify-center gap-2 px-4 pb-2 overflow-x-auto">
                   {imageModalGallery.map((img, idx) => (
                     <button
                       key={idx}
@@ -4444,7 +4514,7 @@ const AdminContent: React.FC = () => {
                 </div>
 
                 {/* Arrow key hint */}
-                <div className="text-center text-gray-400 text-xs mt-2">
+                <div className="mt-2 text-xs text-center text-gray-400">
                   Use ← → arrow keys to navigate
                 </div>
               </div>

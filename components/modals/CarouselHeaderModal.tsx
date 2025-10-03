@@ -180,15 +180,6 @@ const CarouselHeaderModal: React.FC<CarouselHeaderModalProps> = ({ isOpen, onClo
                 </label>
               </div>
             </div>
-
-            {/* Preview */}
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <h4 className="text-sm font-medium text-[#383B26] mb-2">Preview:</h4>
-              <div>
-                <h3 className="font-medium text-[#383B26] mb-1">{formData.title || getDefaultTitle(formData.type)}</h3>
-                <p className="text-sm text-[#8F907E]">{formData.description || getDefaultDescription(formData.type)}</p>
-              </div>
-            </div>
           </div>
 
           {/* Footer */}

@@ -34,38 +34,40 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
   const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
-    if (product) {
-      // Map from StorefrontProductRow to form data
-      setFormData({
-        product_title: product.product_title || '',
-        slug: product.slug || '',
-        category_slug: product.category_slug || '',
-        amazon_url: product.amazon_url || '',
-        price: product.price || 0,
-        image_path: product.image_path || '',
-        description: product.description || '',
-        tags: product.tags || [],
-        is_alexis_pick: false, // Will be loaded from carousel system
-        // Legacy is_favorite field removed - featured status managed by carousel system
-        status: product.status || 'draft',
-      });
-    } else {
-      // Reset form for new product
-      setFormData({
-        product_title: '',
-        slug: '',
-        category_slug: '',
-        amazon_url: '',
-        price: 0,
-        image_path: '',
-        description: '',
-        tags: [],
-        is_alexis_pick: false,
-        // Legacy is_favorite field removed - featured status managed by carousel system
-        status: 'draft',
-      });
+    if (isOpen) {
+      if (product) {
+        // Map from StorefrontProductRow to form data
+        setFormData({
+          product_title: product.product_title || '',
+          slug: product.slug || '',
+          category_slug: product.category_slug || '',
+          amazon_url: product.amazon_url || '',
+          price: product.price || 0,
+          image_path: product.image_path || '',
+          description: product.description || '',
+          tags: product.tags || [],
+          is_alexis_pick: false, // Will be loaded from carousel system
+          // Legacy is_favorite field removed - featured status managed by carousel system
+          status: product.status || 'draft',
+        });
+      } else {
+        // Reset form for new product
+        setFormData({
+          product_title: '',
+          slug: '',
+          category_slug: '',
+          amazon_url: '',
+          price: 0,
+          image_path: '',
+          description: '',
+          tags: [],
+          is_alexis_pick: false,
+          // Legacy is_favorite field removed - featured status managed by carousel system
+          status: 'draft',
+        });
+      }
     }
-  }, [product]);
+  }, [product, isOpen]);
 
   // Use the utility function for slug generation
 

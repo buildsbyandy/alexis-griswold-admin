@@ -1,25 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave } from 'react-icons/fa';
 import { SiTiktok } from 'react-icons/si';
 import toast from 'react-hot-toast';
 import type { TikTokVideo } from './HealingCarouselModal';
+import ImageUpload from '../admin/ImageUpload';
+import { STORAGE_PATHS } from '../../lib/constants/storagePaths';
 
 interface TikTokVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: TikTokVideo) => Promise<void>;
+  onSave: (data: TikTokVideo & { thumbnail_url?: string }) => Promise<void>;
+  video?: TikTokVideo & { id?: string; thumbnail_url?: string } | null;
 }
 
 const TikTokVideoModal: React.FC<TikTokVideoModalProps> = ({
   isOpen,
   onClose,
-  onSave
+  onSave,
+  video
 }) => {
   const [formData, setFormData] = useState({
     link_url: '',
     caption: '',
     order_index: 1,
+    thumbnail_url: '',
   });
+
+  useEffect(() => {
+    if (video) {
+      console.log('[TikTokVideoModal] Editing video:', video);
+      setFormData({
+        link_url: video.link_url || '',
+        caption: video.caption || '',
+        order_index: video.order_index || 1,
+        thumbnail_url: video.thumbnail_url || '',
+      });
+    } else {
+      setFormData({
+        link_url: '',
+        caption: '',
+        order_index: 1,
+        thumbnail_url: '',
+      });
+    }
+  }, [video, isOpen]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,6 +77,7 @@ const TikTokVideoModal: React.FC<TikTokVideoModalProps> = ({
         link_url: formData.link_url.trim(),
         caption: formData.caption.trim() || undefined,
         order_index: formData.order_index,
+        thumbnail_url: formData.thumbnail_url || undefined,
       });
 
       // Reset form
@@ -60,10 +85,11 @@ const TikTokVideoModal: React.FC<TikTokVideoModalProps> = ({
         link_url: '',
         caption: '',
         order_index: 1,
+        thumbnail_url: '',
       });
 
       onClose();
-      toast.success('TikTok video added successfully!');
+      toast.success(`TikTok video ${video ? 'updated' : 'added'} successfully!`);
     } catch (error) {
       console.error('Error saving TikTok video:', error);
       toast.error('Failed to save TikTok video');
@@ -82,7 +108,7 @@ const TikTokVideoModal: React.FC<TikTokVideoModalProps> = ({
           <div className="flex items-center justify-between p-6 border-b">
             <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
               <SiTiktok className="mr-3 text-[#B8A692]" />
-              Add TikTok Video
+              {video ? 'Edit TikTok Video' : 'Add TikTok Video'}
             </h2>
             <button
               type="button"
@@ -125,6 +151,24 @@ const TikTokVideoModal: React.FC<TikTokVideoModalProps> = ({
               />
               <p className="text-xs text-[#8F907E] mt-1">
                 Brief description or context for this inspirational video
+              </p>
+            </div>
+
+            {/* Thumbnail */}
+            <div>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">
+                Thumbnail Image
+              </label>
+              <ImageUpload
+                value={formData.thumbnail_url ? [formData.thumbnail_url] : []}
+                onChange={(urls) => setFormData(prev => ({ ...prev, thumbnail_url: urls[0] || '' }))}
+                maxImages={1}
+                folder={STORAGE_PATHS.RECIPE_IMAGES}
+                placeholder="Upload thumbnail for TikTok video"
+                showPreview={true}
+              />
+              <p className="text-xs text-[#8F907E] mt-1">
+                Optional: Upload a custom thumbnail image for this TikTok video
               </p>
             </div>
 
@@ -187,7 +231,7 @@ const TikTokVideoModal: React.FC<TikTokVideoModalProps> = ({
               className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <FaSave className="mr-2" />
-              {isSubmitting ? 'Saving...' : 'Add TikTok Video'}
+              {isSubmitting ? 'Saving...' : (video ? 'Update TikTok Video' : 'Add TikTok Video')}
             </button>
           </div>
         </form>

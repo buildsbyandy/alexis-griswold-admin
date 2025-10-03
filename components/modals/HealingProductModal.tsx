@@ -36,31 +36,33 @@ const HealingProductModal: React.FC<HealingProductModalProps> = ({ isOpen, onClo
   });
 
   useEffect(() => {
-    if (product) {
-      setFormData({
-        product_title: product.product_title || '',
-        product_purpose: product.product_purpose || '',
-        how_to_use: product.how_to_use || '',
-        product_image_path: product.product_image_path || '',
-        amazon_url: product.amazon_url || '',
-        is_active: product.is_active ?? true,
-        product_order: product.product_order ?? 0,
-        status: product.status || 'draft',
-      });
-    } else {
-      // Reset form for new product
-      setFormData({
-        product_title: '',
-        product_purpose: '',
-        how_to_use: '',
-        product_image_path: '',
-        amazon_url: '',
-        is_active: true,
-        product_order: 0,
-        status: 'draft',
-      });
+    if (isOpen) {
+      if (product) {
+        setFormData({
+          product_title: product.product_title || '',
+          product_purpose: product.product_purpose || '',
+          how_to_use: product.how_to_use || '',
+          product_image_path: product.product_image_path || '',
+          amazon_url: product.amazon_url || '',
+          is_active: product.is_active ?? true,
+          product_order: product.product_order ?? 0,
+          status: product.status || 'draft',
+        });
+      } else {
+        // Reset form for new product
+        setFormData({
+          product_title: '',
+          product_purpose: '',
+          how_to_use: '',
+          product_image_path: '',
+          amazon_url: '',
+          is_active: true,
+          product_order: 0,
+          status: 'draft',
+        });
+      }
     }
-  }, [product]);
+  }, [product, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
