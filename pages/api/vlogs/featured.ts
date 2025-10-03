@@ -99,6 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           carousel_id: carousel!.id,
           kind: 'video',
           youtube_id: vlog.youtube_id,
+          ref_id: vlog.id,  // CRITICAL: Set ref_id so getFeaturedVlog can find it
           caption: vlog.title,
           order_index: 0,
           is_active: true

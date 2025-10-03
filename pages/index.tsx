@@ -930,14 +930,18 @@ const AdminContent: React.FC = () => {
       });
 
       if (response.ok) {
-        // Update the vlog hero data with the selected video
-        setVlogHeroData(prev => ({
-          ...prev,
-          featuredVideoId: video.id,
-          featuredVideoTitle: video.title,
-          featuredVideoDate: video.published_at || new Date().toISOString().split('T')[0],
-          featuredVideoThumbnail: video.thumbnail_url
-        }));
+        // Reload the featured vlog from the server to ensure consistency
+        const featuredVlog = await vlogService.getFeaturedVlog();
+        if (featuredVlog) {
+          setFeaturedVlogId(featuredVlog.id);
+          setVlogHeroData(prev => ({
+            ...prev,
+            featuredVideoId: featuredVlog.id,
+            featuredVideoTitle: featuredVlog.title,
+            featuredVideoThumbnail: featuredVlog.thumbnail_url,
+            featuredVideoDate: featuredVlog.published_at
+          }));
+        }
 
         // Reload vlogs and stats to reflect the new featured status
         const vlogsList = await vlogService.getAllVlogs();
