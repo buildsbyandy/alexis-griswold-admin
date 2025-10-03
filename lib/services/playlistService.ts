@@ -56,11 +56,11 @@ class PlaylistService {
 
      // Get playlist metadata for carousel items that have ref_ids (playlist IDs)
     const playlistIds = carouselItems
-      .filter(item => item.kind === 'playlist' && item.ref_id)  // Changed from item_kind to kind, item_ref_id to ref_id
-      .map(item => item.ref_id)  // Changed from item_ref_id to ref_id
+      .filter(item => item.item_kind === 'playlist' && item.item_ref_id)
+      .map(item => item.item_ref_id)
       .filter(Boolean) as string[];
 
-    console.log('[DEBUG] getAllPlaylists carouselItems with playlist kind:', carouselItems.filter(item => item.kind === 'playlist'));  // Changed from item_kind to kind
+    console.log('[DEBUG] getAllPlaylists carouselItems with playlist kind:', carouselItems.filter(item => item.item_kind === 'playlist'));
     console.log('[DEBUG] getAllPlaylists playlistIds:', playlistIds);
 
       if (playlistIds.length === 0) {
@@ -80,15 +80,15 @@ class PlaylistService {
 
       // Combine carousel items with playlist metadata
       return carouselItems
-        .filter(item => item.kind === 'playlist')  // Changed from item_kind to kind
+        .filter(item => item.item_kind === 'playlist')
         .map(item => {
-          if (!item.ref_id) {  // Changed from item_ref_id to ref_id
-            console.log('[DEBUG] Carousel item missing ref_id:', item);
+          if (!item.item_ref_id) {
+            console.log('[DEBUG] Carousel item missing item_ref_id:', item);
             return null;
           }
-          const playlist = playlistMap.get(item.ref_id);  // Changed from item_ref_id to ref_id
+          const playlist = playlistMap.get(item.item_ref_id);
           if (!playlist) {
-            console.log('[DEBUG] No playlist found for ref_id:', item.ref_id);  // Changed from item_ref_id to ref_id
+            console.log('[DEBUG] No playlist found for item_ref_id:', item.item_ref_id);
             return null;
           }
 
@@ -98,8 +98,8 @@ class PlaylistService {
             description: playlist.description || '',
             card_color: playlist.card_color || '',
             spotify_url: playlist.spotify_url,
-            order_index: item.order_index || 0,  // Changed from item_order_index to order_index
-            is_active: item.is_active || false,  // Changed from item_is_active to is_active
+            order_index: item.item_order_index || 0,
+            is_active: item.item_is_active || false,
             created_at: new Date(playlist.created_at),
             updated_at: new Date(playlist.updated_at)
           };
@@ -238,7 +238,7 @@ class PlaylistService {
           throw new Error('Failed to fetch carousel items: ' + viewResult.error);
         }
 
-        const carouselItem = viewResult.data?.find(item => item.ref_id === id);
+        const carouselItem = viewResult.data?.find(item => item.item_ref_id === id);
         if (!carouselItem || !carouselItem.carousel_item_id) {
           throw new Error('Carousel item not found for playlist');
         }
@@ -272,9 +272,9 @@ class PlaylistService {
       if (viewResult.error) {
         console.error('Failed to fetch carousel items for deletion:', viewResult.error);
       } else {
-        const carouselItem = viewResult.data?.find(item => item.ref_id === id);
-        if (carouselItem && carouselItem.id) {
-          const deleteResult = await deleteCarouselItem(carouselItem.id);
+        const carouselItem = viewResult.data?.find(item => item.item_ref_id === id);
+        if (carouselItem && carouselItem.carousel_item_id) {
+          const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
           if (deleteResult.error) {
             console.error('Failed to delete carousel item:', deleteResult.error);
             // Continue with playlist deletion even if carousel item deletion fails
