@@ -75,7 +75,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
     setFormData(prev => ({
       ...prev,
       product_title: title,
-      slug: prev.slug || slugify(title), // Only auto-generate if slug is empty
+      slug: slugify(title), // Always auto-generate slug from title
     }));
   };
 
@@ -160,9 +160,10 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 <input
                   type="text"
                   value={formData.slug}
-                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  readOnly
+                  className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-600 mt-1">Auto-generated from title</p>
               </div>
             </div>
 

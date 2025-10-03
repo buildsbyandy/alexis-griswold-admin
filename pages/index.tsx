@@ -3768,12 +3768,12 @@ const AdminContent: React.FC = () => {
                         {/* Product Image */}
                         <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg">
                           {product.image_path ? (
-                            <Image 
-                              src={product.image_path || '/placeholder.jpg'} 
-                              alt={product.product_title} 
-                              className="object-cover w-full h-full" 
-                              fill
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            <Image
+                              src={product.image_path || '/placeholder.jpg'}
+                              alt={product.product_title}
+                              className="object-cover w-full h-full"
+                              width={80}
+                              height={80}
                             />
                           ) : (
                             <div className="flex items-center justify-center w-full h-full">
