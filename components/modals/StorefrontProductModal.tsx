@@ -28,7 +28,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
     tags: [],
     is_alexis_pick: false,
     // Legacy is_favorite field removed - featured status managed by carousel system
-    status: 'draft',
+    status: 'published',
   });
 
   const [newTag, setNewTag] = useState('');
@@ -49,7 +49,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
           tags: product.tags || [],
           is_alexis_pick: false, // Will be loaded from carousel system
           // Legacy is_favorite field removed - featured status managed by carousel system
-          status: product.status || 'draft',
+          status: product.status || 'published',
         });
       } else {
         // Reset form for new product
@@ -64,7 +64,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
           tags: [],
           is_alexis_pick: false,
           // Legacy is_favorite field removed - featured status managed by carousel system
-          status: 'draft',
+          status: 'published',
         });
       }
     }
@@ -286,31 +286,78 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 </div>
               </div>
 
-              {/* Row 3: Description (left) | Image (right) */}
+              {/* Row 3: Description + Tags (left) | Image (right) */}
               <div className="grid grid-cols-12 gap-3">
-                {/* Description - Auto-expanding */}
-                <div className="col-span-5">
-                  <label className="block text-sm font-medium text-[#383B26] mb-1">Description *</label>
-                  <textarea
-                    value={formData.description || ''}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, description: e.target.value }));
-                      // Auto-expand based on content
-                      const textarea = e.target;
-                      textarea.style.height = 'auto';
-                      textarea.style.height = Math.max(150, Math.min(300, textarea.scrollHeight)) + 'px';
-                    }}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] resize-none"
-                    style={{ minHeight: '150px', maxHeight: '300px' }}
-                    placeholder="Product description..."
-                    required
-                  />
+                {/* Left column: Description + Tags */}
+                <div className="col-span-5 flex flex-col">
+                  {/* Description - Auto-expanding */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-[#383B26] mb-1">Description *</label>
+                    <textarea
+                      value={formData.description || ''}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, description: e.target.value }));
+                        // Auto-expand based on content
+                        const textarea = e.target;
+                        textarea.style.height = 'auto';
+                        textarea.style.height = Math.max(100, Math.min(150, textarea.scrollHeight)) + 'px';
+                      }}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] resize-none"
+                      style={{ minHeight: '100px', maxHeight: '150px' }}
+                      placeholder="Product description..."
+                      required
+                    />
+                  </div>
+
+                  {/* Tags - Below description, aligned with bottom of image */}
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      {(formData.tags || []).map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-0.5 bg-[#E3D4C2] text-[#383B26] rounded-full text-xs flex items-center"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(tag)}
+                            className="ml-1.5 text-red-600 hover:text-red-800"
+                          >
+                            <FaTimes className="w-2.5 h-2.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addBatchTags(newTag);
+                          }
+                        }}
+                        placeholder="Add tags (comma/space separated)"
+                        className="flex-1 p-1.5 border border-gray-300 rounded text-sm focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addBatchTags(newTag)}
+                        className="px-3 py-1.5 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C] whitespace-nowrap"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Product Image - Fixed box */}
+                {/* Right column: Product Image - Fixed box */}
                 <div className="col-span-7">
                   <label className="block text-sm font-medium text-[#383B26] mb-1">Product Image</label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden" style={{ height: '240px' }}>
                     {formData.image_path ? (
                       <div className="relative w-full h-full group">
                         {(() => {
@@ -322,7 +369,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                                 path={parsedUrl.path}
                                 alt="Product"
                                 width={400}
-                                height={200}
+                                height={240}
                                 className="w-full h-full object-cover"
                               />
                             )
@@ -370,48 +417,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Tags - Inline at bottom */}
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(formData.tags || []).map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-0.5 bg-[#E3D4C2] text-[#383B26] rounded-full text-xs flex items-center"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="ml-1.5 text-red-600 hover:text-red-800"
-                      >
-                        <FaTimes className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addBatchTags(newTag);
-                      }
-                    }}
-                    placeholder="Add tags (comma/space separated)"
-                    className="flex-1 min-w-[200px] p-1.5 border border-gray-300 rounded text-sm focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addBatchTags(newTag)}
-                    className="px-3 py-1.5 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
-                  >
-                    Add
-                  </button>
                 </div>
               </div>
             </div>
