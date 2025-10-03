@@ -12,16 +12,18 @@ interface FileUploadProps {
   children?: React.ReactNode;
   disabled?: boolean;
   folder?: StoragePath;
+  contentStatus?: 'published' | 'draft' | 'archived'; // Optional: Pass content status for correct bucket routing
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ 
-  accept, 
-  onUpload, 
-  uploadType, 
+const FileUpload: React.FC<FileUploadProps> = ({
+  accept,
+  onUpload,
+  uploadType,
   className = '',
   children,
   disabled = false,
-  folder
+  folder,
+  contentStatus
 }) => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +40,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
       // Determine content type and status from folder context
       let contentType: 'recipe' | 'product' | 'healing' | 'vlog' | 'homepage' | 'general' = 'general';
-      let status: 'published' | 'draft' = 'draft'; // Default to draft for safety
+      // Use passed contentStatus if available, otherwise default to draft for safety
+      // Note: archived content should also use private bucket (same as draft)
+      let status: 'published' | 'draft' | 'archived' = contentStatus || 'draft';
 
       // Map folder to content type
       if (folder?.includes('recipe')) contentType = 'recipe';

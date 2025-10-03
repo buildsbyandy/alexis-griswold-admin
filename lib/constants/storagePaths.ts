@@ -9,25 +9,25 @@
  */
 
 export const STORAGE_PATHS = {
-  // Recipes (public bucket)
-  RECIPE_IMAGES: 'public/images/recipes/',
-  RECIPE_STEPS: 'public/images/recipes/',
+  // Recipes - bucket determined by status (published = public, draft/archived = private)
+  RECIPE_IMAGES: 'images/recipes',
+  RECIPE_STEPS: 'images/recipes',
 
-  // Vlogs (public bucket)
-  VLOG_THUMBNAILS: 'public/images/vlogs/',
-  VLOG_ALBUM_IMAGES: 'public/images/vlogs/',
+  // Vlogs - bucket determined by status
+  VLOG_THUMBNAILS: 'images/vlogs',
+  VLOG_ALBUM_IMAGES: 'images/vlogs',
 
-  // Storefront (public bucket)
-  STOREFRONT_CATEGORY_IMAGES: 'public/images/storefront/',
-  STOREFRONT_PRODUCT_IMAGES: 'public/images/storefront/',
+  // Storefront - bucket determined by status
+  STOREFRONT_CATEGORY_IMAGES: 'images/storefront',
+  STOREFRONT_PRODUCT_IMAGES: 'images/storefront',
 
-  // Healing (public bucket)
-  HEALING_PRODUCT_IMAGES: 'public/images/healing/',
-  HEALING_ALBUM_IMAGES: 'public/images/healing/',
+  // Healing - bucket determined by status
+  HEALING_PRODUCT_IMAGES: 'images/healing',
+  HEALING_ALBUM_IMAGES: 'images/healing',
 
-  // Home Page (public bucket)
-  HOME_VIDEOS: 'public/videos/home/',
-  HOME_IMAGES: 'public/images/home/',
+  // Home Page - always published (public bucket)
+  HOME_VIDEOS: 'videos/home',
+  HOME_IMAGES: 'images/home',
 
 } as const; // "as const" makes it readonly and improves autocompletion
 
