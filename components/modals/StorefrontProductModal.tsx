@@ -259,7 +259,9 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               <div className="grid grid-cols-12 gap-3">
                 {/* Amazon URL */}
                 <div className="col-span-9">
-                  <label className="block text-sm font-medium text-[#383B26] mb-1">Amazon URL *</label>
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">
+                    Amazon URL * <span className="text-xs text-gray-500 font-normal">(Must start with https://)</span>
+                  </label>
                   <input
                     type="url"
                     value={formData.amazon_url}
@@ -268,7 +270,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                     placeholder="https://www.amazon.com/product-name/dp/..."
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">Must start with https://</p>
                 </div>
 
                 {/* Status */}
@@ -289,28 +290,21 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
               {/* Row 3: Description + Tags (left) | Image (right) */}
               <div className="grid grid-cols-12 gap-3">
                 {/* Left column: Description + Tags */}
-                <div className="col-span-5 flex flex-col">
-                  {/* Description - Auto-expanding */}
-                  <div className="flex-1">
+                <div className="col-span-5 flex flex-col" style={{ height: '240px' }}>
+                  {/* Description - Fixed height with scroll */}
+                  <div className="flex-1 mb-2 flex flex-col">
                     <label className="block text-sm font-medium text-[#383B26] mb-1">Description *</label>
                     <textarea
                       value={formData.description || ''}
-                      onChange={(e) => {
-                        setFormData(prev => ({ ...prev, description: e.target.value }));
-                        // Auto-expand based on content
-                        const textarea = e.target;
-                        textarea.style.height = 'auto';
-                        textarea.style.height = Math.max(100, Math.min(150, textarea.scrollHeight)) + 'px';
-                      }}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] resize-none"
-                      style={{ minHeight: '100px', maxHeight: '150px' }}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      className="flex-1 w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] overflow-y-auto"
                       placeholder="Product description..."
                       required
                     />
                   </div>
 
-                  {/* Tags - Below description, aligned with bottom of image */}
-                  <div className="mt-2">
+                  {/* Tags - Below description, at bottom */}
+                  <div>
                     <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       {(formData.tags || []).map((tag, index) => (
