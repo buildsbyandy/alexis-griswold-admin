@@ -126,9 +126,16 @@ const AdminContent: React.FC = () => {
   const [sfEditing, setSfEditing] = useState<StorefrontProductRow | null>(null);
   const [sfIsAdding, setSfIsAdding] = useState(false);
 
+  // Debug: Log when modal states change
+  useEffect(() => {
+    console.log('[Storefront Debug] sfEditing:', sfEditing);
+    console.log('[Storefront Debug] sfIsAdding:', sfIsAdding);
+  }, [sfEditing, sfIsAdding]);
+
   // Defensive: Ensure modal states are reset when switching away from storefront
   useEffect(() => {
     if (activeTab !== 'storefront') {
+      console.log('[Storefront Debug] Resetting modal states because leaving storefront tab');
       setSfIsAdding(false);
       setSfEditing(null);
     }

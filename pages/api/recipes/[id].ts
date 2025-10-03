@@ -217,6 +217,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
+      // First, fetch the recipe and its steps to get image paths
+      const { data: recipe } = await supabaseAdmin
+        .from('recipes')
+        .select(`
+          hero_image_path,
+          recipe_steps(image_path)
+        `)
+        .eq('id', id)
+        .single()
+
+      // Collect all image paths to delete from storage
+      const imagePaths: string[] = []
+      if (recipe?.hero_image_path) {
+        imagePaths.push(recipe.hero_image_path)
+      }
+      if (recipe?.recipe_steps && Array.isArray(recipe.recipe_steps)) {
+        recipe.recipe_steps.forEach((step: any) => {
+          if (step.image_path) imagePaths.push(step.image_path)
+        })
+      }
+
+      // Delete recipe from database (cascade will delete recipe_steps)
       const { error } = await supabaseAdmin
         .from('recipes')
         .delete()
@@ -225,6 +247,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error) {
         console.error('Error deleting recipe:', error)
         return res.status(500).json({ error: 'Failed to delete recipe' })
+      }
+
+      // Delete images from storage
+      if (imagePaths.length > 0) {
+        // Extract bucket and path from full URLs
+        const filesToDelete = imagePaths
+          .map(path => {
+            // Extract path from Supabase URL if it's a full URL
+            const match = path.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/)
+            if (match) {
+              return { bucket: match[1], path: match[2] }
+            }
+            // If it's already just a path, assume it's in public bucket
+            return { bucket: 'public', path: path.replace(/^public\//, '') }
+          })
+
+        // Delete files from their respective buckets
+        for (const file of filesToDelete) {
+          const { error: storageError } = await supabaseAdmin.storage
+            .from(file.bucket)
+            .remove([file.path])
+
+          if (storageError) {
+            console.error(`Failed to delete ${file.path} from ${file.bucket}:`, storageError)
+            // Continue anyway - database is already cleaned up
+          }
+        }
       }
 
       return res.status(200).json({ message: 'Recipe deleted successfully' })

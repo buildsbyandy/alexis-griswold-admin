@@ -9,25 +9,25 @@
  */
 
 export const STORAGE_PATHS = {
-  // Recipes
-  RECIPE_IMAGES: 'images/recipes/',
-  RECIPE_STEPS: 'images/recipes/steps/',
+  // Recipes (public bucket)
+  RECIPE_IMAGES: 'public/images/recipes/',
+  RECIPE_STEPS: 'public/images/recipes/',
 
-  // Vlogs
-  VLOG_THUMBNAILS: 'thumbnails/vlogs/',
-  VLOG_ALBUM_IMAGES: 'images/vlogs/albums/',
+  // Vlogs (public bucket)
+  VLOG_THUMBNAILS: 'public/images/vlogs/',
+  VLOG_ALBUM_IMAGES: 'public/images/vlogs/',
 
-  // Storefront
-  STOREFRONT_CATEGORY_IMAGES: 'images/storefront/categories/',
-  STOREFRONT_PRODUCT_IMAGES: 'images/storefront/products/',
+  // Storefront (public bucket)
+  STOREFRONT_CATEGORY_IMAGES: 'public/images/storefront/',
+  STOREFRONT_PRODUCT_IMAGES: 'public/images/storefront/',
 
-  // Healing
-  HEALING_PRODUCT_IMAGES: 'images/healing/products/',
-  HEALING_ALBUM_IMAGES: 'images/healing/albums/',
+  // Healing (public bucket)
+  HEALING_PRODUCT_IMAGES: 'public/images/healing/',
+  HEALING_ALBUM_IMAGES: 'public/images/healing/',
 
-  // Home Page
-  HOME_VIDEOS: 'videos/home/',
-  HOME_IMAGES: 'images/home/',
+  // Home Page (public bucket)
+  HOME_VIDEOS: 'public/videos/home/',
+  HOME_IMAGES: 'public/images/home/',
 
 } as const; // "as const" makes it readonly and improves autocompletion
 

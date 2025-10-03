@@ -137,23 +137,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
-      // Delete photos first (foreign key constraint)
+      // First, fetch the album and its photos to get image paths
+      const { data: album } = await supabaseAdmin
+        .from('photo_albums')
+        .select(`
+          cover_image_path,
+          photos:album_photos(image_path)
+        `)
+        .eq('id', id)
+        .single()
+
+      // Collect all image paths to delete from storage
+      const imagePaths: string[] = []
+      if (album?.cover_image_path) {
+        imagePaths.push(album.cover_image_path)
+      }
+      if (album?.photos && Array.isArray(album.photos)) {
+        album.photos.forEach((photo: any) => {
+          if (photo.image_path) imagePaths.push(photo.image_path)
+        })
+      }
+
+      // Delete photos from database first (foreign key constraint)
       await supabaseAdmin
         .from('album_photos')
         .delete()
         .eq('album_id', id)
 
-      // Delete album
+      // Delete album from database
       const { error } = await supabaseAdmin
         .from('photo_albums')
         .delete()
         .eq('id', id)
-      
+
       if (error) {
         console.error('Supabase album delete error:', error)
         return res.status(500).json({ error: 'Failed to delete album' })
       }
-      
+
+      // Delete images from storage
+      if (imagePaths.length > 0) {
+        // Extract bucket and path from full URLs
+        const filesToDelete = imagePaths
+          .map(path => {
+            // Extract path from Supabase URL if it's a full URL
+            const match = path.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/)
+            if (match) {
+              return { bucket: match[1], path: match[2] }
+            }
+            // If it's already just a path, assume it's in public bucket
+            return { bucket: 'public', path: path.replace(/^public\//, '') }
+          })
+
+        // Delete files from their respective buckets
+        for (const file of filesToDelete) {
+          const { error: storageError } = await supabaseAdmin.storage
+            .from(file.bucket)
+            .remove([file.path])
+
+          if (storageError) {
+            console.error(`Failed to delete ${file.path} from ${file.bucket}:`, storageError)
+            // Continue anyway - database is already cleaned up
+          }
+        }
+      }
+
       return res.status(200).json({ success: true })
     } catch (error) {
       console.error('Album delete error:', error)
