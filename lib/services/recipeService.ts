@@ -8,6 +8,21 @@ import {
   deleteCarouselItem,
 } from './carouselService'
 
+/**
+ * Gets the appropriate base URL for API calls based on the current environment.
+ */
+function getApiBaseUrl(): string {
+  // Client-side: browser can handle relative URLs
+  if (typeof window !== 'undefined') {
+    return '';
+  }
+
+  // Server-side: Node.js needs absolute URLs
+  return process.env.NODE_ENV === 'production'
+    ? 'https://admin.alexisgriswold.com'
+    : 'http://localhost:3000';
+}
+
 type RecipeRow = Database['public']['Tables']['recipes']['Row']
 type RecipeInsert = Database['public']['Tables']['recipes']['Insert']
 type RecipeUpdate = Database['public']['Tables']['recipes']['Update']
@@ -88,7 +103,8 @@ class RecipeService {
 
   async getAllRecipes(): Promise<Recipe[]> {
     try {
-      const response = await fetch('/api/recipes');
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes`);
       if (!response.ok) throw new Error('Failed to fetch recipes');
       const data = await response.json();
 
@@ -98,7 +114,7 @@ class RecipeService {
           // Fetch recipe steps to get images
           let images: string[] = [];
           try {
-            const stepsResponse = await fetch(`/api/recipes/${r.id}/steps`);
+            const stepsResponse = await fetch(`${baseUrl}/api/recipes/${r.id}/steps`);
             if (stepsResponse.ok) {
               const stepsData = await stepsResponse.json();
               images = (stepsData.steps || [])
@@ -231,7 +247,8 @@ class RecipeService {
         images: recipe.images
       };
 
-      const response = await fetch('/api/recipes', {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recipeData)
@@ -374,7 +391,8 @@ class RecipeService {
   // Page Content Methods
   async getPageContent(): Promise<RecipePageContent | null> {
     try {
-      const response = await fetch('/api/recipes/page-content');
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes/page-content`);
       if (!response.ok) throw new Error('Failed to fetch page content');
       const data = await response.json();
       const content = data.content as PageContentRow;
@@ -419,7 +437,8 @@ class RecipeService {
       if (content.pageSeoTitle !== undefined) updateData.page_seo_title = content.pageSeoTitle;
       if (content.pageSeoDescription !== undefined) updateData.page_seo_description = content.pageSeoDescription;
 
-      const response = await fetch('/api/recipes/page-content', {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes/page-content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -745,7 +764,8 @@ class RecipeService {
   // Recipe Folders CRUD
   async getAllFolders(): Promise<RecipeFolder[]> {
     try {
-      const response = await fetch('/api/recipes/folders');
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes/folders`);
       if (!response.ok) throw new Error('Failed to fetch recipe folders');
       const data = await response.json();
 
@@ -767,7 +787,8 @@ class RecipeService {
 
   async createFolder(folderData: Omit<RecipeFolder, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
     try {
-      const response = await fetch('/api/recipes/folders', {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/recipes/folders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(folderData)
