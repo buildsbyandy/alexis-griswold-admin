@@ -278,15 +278,15 @@ class VlogService {
         return null;
       }
 
-      // Get the first (and should be only) item from the featured carousel
-      const featuredItem = items.data[0];
-      if (!featuredItem.ref_id) {
+      // Find the item marked as is_featured
+      const featuredItem = items.data.find(item => item.is_featured === true);
+      if (!featuredItem || !featuredItem.youtube_id) {
         return null;
       }
 
-      // Fetch the actual vlog data
+      // Fetch the actual vlog data by matching youtube_id
       const allVlogs = await this.getAllVlogs();
-      const featuredVlog = allVlogs.find(v => v.id === featuredItem.ref_id);
+      const featuredVlog = allVlogs.find(v => v.youtube_id === featuredItem.youtube_id);
       return featuredVlog || null;
     } catch (error) {
       console.error('Error fetching featured vlog from carousel:', error);

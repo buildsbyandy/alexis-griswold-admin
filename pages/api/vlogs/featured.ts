@@ -67,16 +67,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to find featured carousel' })
       }
 
-      // Step 2: Delete all existing items from the featured carousel
-      console.log(`[DEBUG] Clearing existing featured items`)
-      const { error: deleteError } = await supabaseAdmin
+      // Step 2: Unset is_featured flag on all carousel items in this carousel
+      console.log(`[DEBUG] Clearing existing featured flags`)
+      const { error: unfeaturedError } = await supabaseAdmin
         .from('carousel_items')
-        .delete()
+        .update({ is_featured: false })
         .eq('carousel_id', carousel!.id)
+        .eq('is_featured', true)
 
-      if (deleteError) {
-        console.error('Error deleting existing items:', deleteError)
-        return res.status(500).json({ error: 'Failed to clear existing featured items' })
+      if (unfeaturedError) {
+        console.error('Error clearing featured flags:', unfeaturedError)
+        return res.status(500).json({ error: 'Failed to clear existing featured flags' })
       }
 
       // Step 3: Get the vlog data to create a proper carousel item
@@ -91,25 +92,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Vlog not found' })
       }
 
-      // Step 4: Create the new featured carousel item
-      console.log(`[DEBUG] Creating new featured carousel item`)
-      const { data: carouselItem, error: itemError } = await supabaseAdmin
+      // Step 4: Check if this vlog already exists in the carousel
+      console.log(`[DEBUG] Checking if vlog already exists in carousel`)
+      const { data: existingItems, error: existingError } = await supabaseAdmin
         .from('carousel_items')
-        .insert({
-          carousel_id: carousel!.id,
-          kind: 'video',
-          youtube_id: vlog.youtube_id,
-          ref_id: vlog.id,  // CRITICAL: Set ref_id so getFeaturedVlog can find it
-          caption: vlog.title,
-          order_index: 0,
-          is_active: true
-        })
         .select('*')
+        .eq('carousel_id', carousel!.id)
+        .eq('youtube_id', vlog.youtube_id)
         .single()
 
-      if (itemError) {
-        console.error('Error creating carousel item:', itemError)
-        return res.status(500).json({ error: 'Failed to create featured item' })
+      if (existingError && existingError.code !== 'PGRST116') {
+        console.error('Error checking existing items:', existingError)
+        return res.status(500).json({ error: 'Failed to check existing items' })
+      }
+
+      if (existingItems) {
+        // Item already exists, just set is_featured to true
+        console.log(`[DEBUG] Updating existing carousel item to be featured`)
+        const { error: updateError } = await supabaseAdmin
+          .from('carousel_items')
+          .update({ is_featured: true })
+          .eq('id', existingItems.id)
+
+        if (updateError) {
+          console.error('Error updating carousel item:', updateError)
+          return res.status(500).json({ error: 'Failed to update featured item' })
+        }
+      } else {
+        // Create new carousel item with is_featured flag
+        console.log(`[DEBUG] Creating new featured carousel item`)
+        const { data: carouselItem, error: itemError } = await supabaseAdmin
+          .from('carousel_items')
+          .insert({
+            carousel_id: carousel!.id,
+            kind: 'video',
+            youtube_id: vlog.youtube_id,
+            caption: vlog.title,
+            order_index: 0,
+            is_active: true,
+            is_featured: true  // Use is_featured flag instead of ref_id
+          })
+          .select('*')
+          .single()
+
+        if (itemError) {
+          console.error('Error creating carousel item:', itemError)
+          return res.status(500).json({ error: 'Failed to create featured item' })
+        }
       }
 
       console.log(`[DEBUG] Successfully set featured vlog: ${vlogId}`)
