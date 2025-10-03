@@ -4,7 +4,8 @@ import type { Recipe, RecipeStatus, RecipeFolder } from '../../lib/services/reci
 import recipeService from '../../lib/services/recipeService';
 import { findCarouselByPageSlug, getCarouselItems } from '../../lib/services/carouselService';
 import toast from 'react-hot-toast';
-import RecipeStepsBuilder, { type RecipeStep } from '../recipe/RecipeStepsBuilder';
+import RecipeStepsBuilder, { type RecipeStep, type PendingStepUpload } from '../recipe/RecipeStepsBuilder';
+import { FileUploadService } from '../../lib/utils/fileUpload';
 
 interface RecipeModalProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
   });
 
   const [recipeSteps, setRecipeSteps] = useState<RecipeStep[]>([]);
+  const [pendingUploads, setPendingUploads] = useState<PendingStepUpload[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [newTag, setNewTag] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
@@ -229,8 +232,50 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     }
 
     try {
+      setIsUploading(true);
+
+      // Upload pending images first
+      const updatedSteps = [...recipeSteps];
+
+      if (pendingUploads.length > 0) {
+        toast.loading(`Uploading ${pendingUploads.length} image${pendingUploads.length > 1 ? 's' : ''}...`, { id: 'upload-progress' });
+
+        for (const upload of pendingUploads) {
+          const { stepIndex, file } = upload;
+
+          try {
+            const uploadResult = await FileUploadService.uploadImage(
+              file,
+              'recipe',
+              formData.status
+            );
+
+            if (uploadResult.success && uploadResult.url) {
+              // Update the step with the uploaded image path
+              updatedSteps[stepIndex] = {
+                ...updatedSteps[stepIndex],
+                image_path: uploadResult.url,
+                pendingFile: undefined
+              };
+            } else {
+              throw new Error(uploadResult.error || 'Upload failed');
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading image for step ${stepIndex}:`, uploadError);
+            toast.error(`Failed to upload image for step ${stepIndex + 1}`);
+            throw uploadError;
+          }
+        }
+
+        toast.success('Images uploaded successfully!', { id: 'upload-progress' });
+
+        // Update state with uploaded image paths
+        setRecipeSteps(updatedSteps);
+        setPendingUploads([]);
+      }
+
       // Automatically set hero_image_path from first step
-      const heroImagePath = recipeSteps[0]?.image_path || '';
+      const heroImagePath = updatedSteps[0]?.image_path || '';
 
       // Add required timestamp fields for the Recipe interface
       const recipeData = {
@@ -261,7 +306,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
       }
 
       if (recipeId) {
-        await saveRecipeSteps(recipeId);
+        await saveRecipeSteps(recipeId, updatedSteps);
       }
 
       onClose();
@@ -269,15 +314,17 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     } catch (error) {
       console.error('Error saving recipe:', error);
       toast.error(`Failed to ${recipe ? 'update' : 'create'} recipe`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const saveRecipeSteps = async (recipeId: string) => {
+  const saveRecipeSteps = async (recipeId: string, steps: RecipeStep[]) => {
     try {
       const response = await fetch(`/api/recipes/${recipeId}/steps`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ steps: recipeSteps })
+        body: JSON.stringify({ steps })
       });
 
       if (!response.ok) {
@@ -286,6 +333,13 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
     } catch (error) {
       console.error('Error saving recipe steps:', error);
       throw error;
+    }
+  };
+
+  const handleStepsChange = (steps: RecipeStep[], uploads?: PendingStepUpload[]) => {
+    setRecipeSteps(steps);
+    if (uploads) {
+      setPendingUploads(uploads);
     }
   };
 
@@ -359,7 +413,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
             <div className="pt-6 border-t border-gray-200">
               <RecipeStepsBuilder
                 steps={recipeSteps}
-                onChange={setRecipeSteps}
+                onChange={handleStepsChange}
                 status={formData.status}
               />
               <p className="mt-2 text-xs text-gray-500">
@@ -558,10 +612,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center"
+              disabled={isUploading}
+              className="px-6 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FaSave className="mr-2" />
-              {recipe ? 'Update Recipe' : 'Create Recipe'}
+              {isUploading ? 'Uploading...' : recipe ? 'Update Recipe' : 'Create Recipe'}
             </button>
           </div>
         </form>
