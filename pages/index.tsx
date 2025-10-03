@@ -363,59 +363,6 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  // Recipe export functionality
-  const handleExportRecipes = async () => {
-    try {
-      const recipesDataString = await recipeService.exportRecipes();
-      const blob = new Blob([recipesDataString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `recipes-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting recipes:', error);
-    }
-  };
-
-  // Recipe import functionality - simplified for now
-  const handleImportRecipes = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        try {
-          const text = await file.text();
-          const importedRecipes = JSON.parse(text);
-          
-          // Add each imported recipe individually
-          for (const recipe of importedRecipes) {
-            const { id, created_at, updated_at, ...recipeData } = recipe;
-            await recipeService.addRecipe(recipeData);
-          }
-          
-          // Reload recipes
-          const recipesList = await recipeService.getAllRecipes();
-          setRecipes(recipesList);
-          
-          const recipeStats = await recipeService.getRecipeStats();
-          setStats(recipeStats);
-          
-          alert(`Successfully imported ${importedRecipes.length} recipes!`);
-        } catch (error) {
-          console.error('Error importing recipes:', error);
-          alert('Error importing recipes. Please check the file format.');
-        }
-      }
-    };
-    input.click();
-  };
-
   // Recipe page content functionality
   const loadRecipePageContent = async () => {
     try {
@@ -1457,13 +1404,6 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
               
-              {/* Action Buttons */}
-              <div className="flex mt-4 space-x-3">
-                <button className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] flex items-center">
-                  <FaDownload className="mr-2" />
-                  Export Settings
-                </button>
-              </div>
             </div>
 
             {/* Media Management */}
@@ -1898,20 +1838,6 @@ const AdminContent: React.FC = () => {
                     >
                       <FaPlus className="mr-2" />
                       Add New Recipe
-                    </button>
-                    <button
-                      onClick={handleExportRecipes}
-                      className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
-                    >
-                      <FaDownload className="mr-2" />
-                      Export
-                    </button>
-                    <button
-                      onClick={handleImportRecipes}
-                      className="px-4 py-2 bg-[#8F907E] text-white rounded-md hover:bg-[#7A7A6B] flex items-center"
-                    >
-                      <FaUploadIcon className="mr-2" />
-                      Import
                     </button>
                     <button
                       onClick={() => setShowBeginnerRecipesView(!showBeginnerRecipesView)}
@@ -3840,56 +3766,6 @@ const AdminContent: React.FC = () => {
                     className="bg-[#B89178] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#A67B62] transition-colors"
                   >
                     <FaPlus /> Add Product
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        // TODO: Implement export functionality
-                        const dataStr = JSON.stringify(sfProducts, null, 2);
-                        const blob = new Blob([dataStr], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'storefront-backup.json';
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        toast.success('Products exported!');
-                      } catch (error) {
-                        toast.error('Export failed');
-                      }
-                    }}
-                    className="bg-[#8F907E] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#7A7B6A] transition-colors"
-                  >
-                    <FaDownload /> Export
-                  </button>
-                  <button
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = '.json';
-                      input.onchange = async (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) {
-                          try {
-                            const text = await file.text();
-                            // TODO: Implement import functionality
-                            // storefrontService.import(text);
-                            const products = await storefrontService.get_storefront_products();
-                            setSfProducts(products);
-                            setSfItems(products);
-                            const stats = await storefrontService.get_storefront_stats();
-                            setSfStats(stats);
-                            toast.success('Products imported!');
-                          } catch (error) {
-                            toast.error('Import failed');
-                          }
-                        }
-                      };
-                      input.click();
-                    }}
-                    className="bg-[#8F907E] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#7A7B6A] transition-colors"
-                  >
-                    <FaUploadIcon /> Import
                   </button>
                   <button
                     onClick={() => setShowCategoryPhotoModal(true)}
