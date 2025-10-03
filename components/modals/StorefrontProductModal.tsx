@@ -32,7 +32,6 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
   });
 
   const [newTag, setNewTag] = useState('');
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
 
   useEffect(() => {
@@ -189,15 +188,21 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
           </div>
 
           {/* Scrollable Content */}
-          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
             {/* SECTION: Basic Info */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="text-sm font-semibold text-[#383B26] uppercase tracking-wide border-b pb-2">Basic Info</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Product Title - Full width on mobile, half on desktop */}
-                <div>
-                  <label className="block text-sm font-medium text-[#383B26] mb-1">Product Title *</label>
+              {/* Row 1: Product Title + Slug | Category | Price */}
+              <div className="grid grid-cols-12 gap-3">
+                {/* Product Title with inline slug */}
+                <div className="col-span-5">
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">
+                    Product Title *
+                    <span className="ml-2 text-xs text-gray-500 font-normal">
+                      URL slug: <span className="font-mono text-gray-600">{formData.slug || 'auto'}</span>
+                    </span>
+                  </label>
                   <input
                     type="text"
                     value={formData.product_title}
@@ -208,7 +213,7 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                 </div>
 
                 {/* Category */}
-                <div>
+                <div className="col-span-4">
                   <label className="block text-sm font-medium text-[#383B26] mb-1">Category *</label>
                   <select
                     value={formData.category_slug}
@@ -233,187 +238,160 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                     )}
                   </select>
                 </div>
+
+                {/* Price */}
+                <div className="col-span-3">
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Price ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="9999"
+                    value={formData.price || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
 
-              {/* Status - Compact width */}
-              <div className="w-48">
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </select>
+              {/* Row 2: Amazon URL | Status (right-aligned) */}
+              <div className="grid grid-cols-12 gap-3">
+                {/* Amazon URL */}
+                <div className="col-span-9">
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Amazon URL *</label>
+                  <input
+                    type="url"
+                    value={formData.amazon_url}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amazon_url: e.target.value }))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="https://www.amazon.com/product-name/dp/..."
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Must start with https://</p>
+                </div>
+
+                {/* Status */}
+                <div className="col-span-3">
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Slug info - not editable */}
-              <p className="text-xs text-gray-500">
-                URL slug: <span className="font-mono text-gray-700">{formData.slug || '(auto-generated from title)'}</span>
-              </p>
-            </div>
+              {/* Row 3: Description (left) | Image (right) */}
+              <div className="grid grid-cols-12 gap-3">
+                {/* Description - Auto-expanding */}
+                <div className="col-span-5">
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Description *</label>
+                  <textarea
+                    value={formData.description || ''}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, description: e.target.value }));
+                      // Auto-expand based on content
+                      const textarea = e.target;
+                      textarea.style.height = 'auto';
+                      textarea.style.height = Math.max(150, Math.min(300, textarea.scrollHeight)) + 'px';
+                    }}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] resize-none"
+                    style={{ minHeight: '150px', maxHeight: '300px' }}
+                    placeholder="Product description..."
+                    required
+                  />
+                </div>
 
-            {/* SECTION: Commerce */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-[#383B26] uppercase tracking-wide border-b pb-2">Commerce</h3>
-
-              {/* Amazon URL - Full width */}
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Amazon URL *</label>
-                <input
-                  type="url"
-                  value={formData.amazon_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amazon_url: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="https://www.amazon.com/product-name/dp/..."
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">Must start with https://</p>
-              </div>
-
-              {/* Price - Compact */}
-              <div className="w-32">
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Price ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="9999"
-                  value={formData.price || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            {/* SECTION: Media */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-[#383B26] uppercase tracking-wide border-b pb-2">Media</h3>
-
-              {/* Product Image - Fixed height box */}
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-2">Product Image</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden" style={{ height: '200px' }}>
-                  {formData.image_path ? (
-                    <div className="relative w-full h-full group">
-                      {(() => {
-                        const parsedUrl = parseSupabaseUrl(formData.image_path)
-                        if (parsedUrl) {
-                          return (
-                            <SecureImage
-                              bucket={parsedUrl.bucket}
-                              path={parsedUrl.path}
-                              alt="Product"
-                              width={400}
-                              height={200}
-                              className="w-full h-full object-cover"
-                            />
-                          )
-                        } else {
-                          return (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-400 text-sm">Invalid image URL</span>
-                            </div>
-                          )
-                        }
-                      })()}
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setImagePreviewOpen(true)}
-                          className="px-3 py-1.5 bg-white text-gray-800 rounded text-sm hover:bg-gray-100"
-                        >
-                          View Full
-                        </button>
+                {/* Product Image - Fixed box */}
+                <div className="col-span-7">
+                  <label className="block text-sm font-medium text-[#383B26] mb-1">Product Image</label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                    {formData.image_path ? (
+                      <div className="relative w-full h-full group">
+                        {(() => {
+                          const parsedUrl = parseSupabaseUrl(formData.image_path)
+                          if (parsedUrl) {
+                            return (
+                              <SecureImage
+                                bucket={parsedUrl.bucket}
+                                path={parsedUrl.path}
+                                alt="Product"
+                                width={400}
+                                height={200}
+                                className="w-full h-full object-cover"
+                              />
+                            )
+                          } else {
+                            return (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-gray-400 text-sm">Invalid image URL</span>
+                              </div>
+                            )
+                          }
+                        })()}
+                        <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setImagePreviewOpen(true)}
+                            className="px-3 py-1.5 bg-white text-gray-800 rounded text-sm hover:bg-gray-100"
+                          >
+                            View Full
+                          </button>
+                          <FileUpload
+                            accept="image/*"
+                            uploadType="image"
+                            folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
+                            contentStatus={formData.status}
+                            onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
+                            className="px-3 py-1.5 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
+                          >
+                            Change
+                          </FileUpload>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
+                        <FaStore className="text-3xl text-gray-400 mb-2" />
                         <FileUpload
                           accept="image/*"
                           uploadType="image"
                           folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
                           contentStatus={formData.status}
                           onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
-                          className="px-3 py-1.5 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
+                          className="px-4 py-2 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
                         >
-                          Change
+                          Upload Image
                         </FileUpload>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
-                      <FaStore className="text-3xl text-gray-400 mb-2" />
-                      <FileUpload
-                        accept="image/*"
-                        uploadType="image"
-                        folder={STORAGE_PATHS.STOREFRONT_PRODUCT_IMAGES}
-                        contentStatus={formData.status}
-                        onUpload={(url) => setFormData(prev => ({ ...prev, image_path: url }))}
-                        className="px-4 py-2 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
-                      >
-                        Upload Image
-                      </FileUpload>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Description - Expandable */}
+              {/* Tags - Inline at bottom */}
               <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">
-                  Description *
-                  {!descriptionExpanded && (
-                    <button
-                      type="button"
-                      onClick={() => setDescriptionExpanded(true)}
-                      className="ml-2 text-xs text-[#B8A692] hover:text-[#A0956C]"
+                <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(formData.tags || []).map((tag, index) => (
+                    <span
+                      key={index}
+                      className="px-2 py-0.5 bg-[#E3D4C2] text-[#383B26] rounded-full text-xs flex items-center"
                     >
-                      (expand)
-                    </button>
-                  )}
-                  {descriptionExpanded && (
-                    <button
-                      type="button"
-                      onClick={() => setDescriptionExpanded(false)}
-                      className="ml-2 text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      (collapse)
-                    </button>
-                  )}
-                </label>
-                <textarea
-                  value={formData.description || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692] resize-none"
-                  style={{ height: descriptionExpanded ? '120px' : '60px' }}
-                  placeholder="Product description..."
-                  required
-                />
-              </div>
-
-              {/* Tags - Batch input */}
-              <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-2">Tags</label>
-                {(formData.tags || []).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {(formData.tags || []).map((tag, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-0.5 bg-[#E3D4C2] text-[#383B26] rounded-full text-xs flex items-center"
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="ml-1.5 text-red-600 hover:text-red-800"
                       >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-1.5 text-red-600 hover:text-red-800"
-                        >
-                          <FaTimes className="w-2.5 h-2.5" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
+                        <FaTimes className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  ))}
                   <input
                     type="text"
                     value={newTag}
@@ -424,18 +402,17 @@ const StorefrontProductModal: React.FC<StorefrontProductModalProps> = ({ isOpen,
                         addBatchTags(newTag);
                       }
                     }}
-                    placeholder="Add tags (comma or space separated)"
-                    className="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
+                    placeholder="Add tags (comma/space separated)"
+                    className="flex-1 min-w-[200px] p-1.5 border border-gray-300 rounded text-sm focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   />
                   <button
                     type="button"
                     onClick={() => addBatchTags(newTag)}
-                    className="px-4 py-2 bg-[#B8A692] text-white rounded-md text-sm hover:bg-[#A0956C]"
+                    className="px-3 py-1.5 bg-[#B8A692] text-white rounded text-sm hover:bg-[#A0956C]"
                   >
                     Add
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Separate multiple tags with commas or spaces</p>
               </div>
             </div>
           </div>
