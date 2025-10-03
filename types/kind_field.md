@@ -5,4 +5,5 @@
 | recipe   | ref_id               | album_id, youtube_id, link_url   |
 | product  | ref_id               | album_id, youtube_id, link_url   |
 | tiktok   | link_url             | ref_id, album_id, youtube_id     |
+| playlist | ref_id               | album_id, youtube_id, link_url   |
 | external | link_url             | ref_id, album_id, youtube_id     |

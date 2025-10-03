@@ -147,15 +147,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         servings,
         prepTime,
         cookTime,
-        ingredients,
-        instructions,
         tags,
         status,
         is_favorite,
         is_beginner,
         is_recipe_of_week,
-        hero_image_path,
-        images
+        hero_image_path
       } = req.body
 
       // Build update object with only provided fields
@@ -178,7 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (is_beginner !== undefined) updateData.is_beginner = is_beginner
       if (is_recipe_of_week !== undefined) updateData.is_recipe_of_week = is_recipe_of_week
       if (hero_image_path !== undefined) updateData.hero_image_path = hero_image_path
-      if (images !== undefined) updateData.images = images
+      // Note: images field removed - images are now managed via recipe_steps table
 
       const { data, error } = await supabaseAdmin
         .from('recipes')

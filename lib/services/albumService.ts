@@ -97,7 +97,7 @@ class AlbumService {
       .slice(0, limit);
   }
 
-  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex = 0): Promise<boolean> {
+  async addAlbum(input: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'> & { additional_images?: string[] }, carouselId: string, orderIndex = 0): Promise<boolean> {
     try {
       // Validate required fields
       if (!input.album_title?.trim()) {
@@ -107,16 +107,31 @@ class AlbumService {
         throw new Error('Cover image is required');
       }
 
+      // Prepare photos array from additional images
+      const photos = input.additional_images?.map((imageUrl, index) => ({
+        photo_url: imageUrl,
+        photo_order: index + 2, // Start from 2 since cover is 1
+        caption: null
+      })) || [];
+
+      console.log('Additional images:', input.additional_images);
+      console.log('Prepared photos array:', photos);
+
       // Map interface to API payload with snake_case fields matching database schema
-      const albumPayload: AlbumInsert = {
+      const albumPayload: AlbumInsert & { photos?: any[], carousel_id?: string, order_index?: number } = {
         album_title: input.album_title,
         album_date: input.album_date,
         album_order: input.album_order || 0,
         album_description: input.album_description,
         is_visible: input.is_visible || false,
         cover_image_path: input.cover_image_path,
-        // page_type field removed - now managed by carousel_page in unified system
+        photos: photos.length > 0 ? photos : undefined,
+        carousel_id: carouselId,
+        order_index: orderIndex
       };
+
+      console.log('Creating album with payload:', albumPayload);
+      console.log('Photos being sent to API:', albumPayload.photos);
 
       // First create the album record
       const response = await fetch('/api/albums', {
@@ -124,34 +139,21 @@ class AlbumService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(albumPayload)
       });
-
+  
       if (!response.ok) {
         const error = await response.json();
+        console.error('Album API error response:', error);
         throw new Error(error.error || 'Failed to create album');
       }
-
+  
       const result = await response.json();
-      const createdAlbum = result.album;
+      console.log('Album created successfully:', result);
 
-      // Now create carousel item linking the new album
-      const carouselItemResult = await createCarouselItem({
-        carousel_id: carouselId,
-        kind: 'album',
-        album_id: createdAlbum.id,
-        caption: input.album_title,
-        order_index: orderIndex,
-        is_active: input.is_visible || false,
-      });
-
-      if (carouselItemResult.error) {
-        console.warn('Album created but failed to add to carousel:', carouselItemResult.error);
-        // Don't fail the whole operation since the album was created
-      }
-
+      // Carousel item is now created by the API endpoint
       return true;
     } catch (error) {
       console.error('Error adding album:', error);
-      return false;
+      throw error;
     }
   }
 

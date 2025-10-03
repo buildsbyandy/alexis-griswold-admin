@@ -17,9 +17,10 @@ export interface RecipeStep {
 interface RecipeStepsBuilderProps {
   steps: RecipeStep[];
   onChange: (steps: RecipeStep[]) => void;
+  status?: 'draft' | 'published' | 'archived';
 }
 
-const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange }) => {
+const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange, status = 'published' }) => {
   const [localSteps, setLocalSteps] = useState<RecipeStep[]>(steps);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +90,9 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
 
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
-        const result = await FileUploadService.uploadImage(file, 'recipe', 'draft');
+        // Use 'published' for published recipes, 'draft' for others
+        const folder = status === 'published' ? 'published' : 'draft';
+        const result = await FileUploadService.uploadImage(file, 'recipe', folder);
         if (result.success && result.url) {
           return result.url;
         }
@@ -125,11 +128,15 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
   const handleSingleImageUpload = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
+  
     toast.loading('Uploading image...', { id: 'single-upload' });
-
+  
     try {
-      const result = await FileUploadService.uploadImage(file, 'recipe', 'draft');
+      // Change this line only:
+      const folder = status === 'published' ? 'published' : 'draft';
+      const result = await FileUploadService.uploadImage(file, 'recipe', folder);
+      
+      // Rest stays the same:
       if (result.success && result.url) {
         updateStepImage(index, result.url);
         toast.success('Image uploaded successfully!', { id: 'single-upload' });
@@ -176,11 +183,11 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
       </div>
 
       {localSteps.length === 0 ? (
-        <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-          <FaImages className="text-4xl text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500 mb-2 font-medium">No steps added yet</p>
-          <p className="text-gray-400 text-sm mb-4">Upload multiple images at once or add steps one by one</p>
-          <div className="flex items-center gap-2 justify-center">
+        <div className="py-8 text-center border-2 border-gray-300 border-dashed rounded-lg">
+          <FaImages className="mx-auto mb-3 text-4xl text-gray-400" />
+          <p className="mb-2 font-medium text-gray-500">No steps added yet</p>
+          <p className="mb-4 text-sm text-gray-400">Upload multiple images at once or add steps one by one</p>
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -252,7 +259,7 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
                   <button
                     type="button"
                     onClick={() => removeStep(index)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                    className="p-2 text-red-600 rounded hover:bg-red-50"
                     title="Delete step"
                   >
                     <FaTrash />
@@ -267,7 +274,7 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
                 </label>
                 {step.image_path ? (
                   <div className="relative">
-                    <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="w-full h-64 overflow-hidden bg-gray-100 rounded-lg">
                       {(() => {
                         const parsed = parseSupabaseUrl(step.image_path);
                         if (!parsed) return null;
@@ -278,7 +285,7 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
                             alt={`Step ${index + 1}`}
                             width={400}
                             height={256}
-                            className="w-full h-full object-cover"
+                            className="object-cover w-full h-full"
                           />
                         );
                       })()}
@@ -286,7 +293,7 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
                     <button
                       type="button"
                       onClick={() => updateStepImage(index, '')}
-                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      className="absolute p-2 text-white bg-red-500 rounded-full top-2 right-2 hover:bg-red-600"
                     >
                       <FaTrash className="w-4 h-4" />
                     </button>
@@ -304,9 +311,9 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
                       htmlFor={`step-image-${index}`}
                       className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#B8A692] bg-gray-50 flex flex-col items-center justify-center cursor-pointer transition-colors"
                     >
-                      <FaPlus className="text-3xl text-gray-400 mb-2" />
+                      <FaPlus className="mb-2 text-3xl text-gray-400" />
                       <span className="text-sm text-gray-600">Upload Step Image</span>
-                      <span className="text-xs text-gray-500 mt-1">Click to browse</span>
+                      <span className="mt-1 text-xs text-gray-500">Click to browse</span>
                     </label>
                   </div>
                 )}
@@ -325,7 +332,7 @@ const RecipeStepsBuilder: React.FC<RecipeStepsBuilderProps> = ({ steps, onChange
                   className="w-full p-3 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Describe what the user should do in this step
                 </p>
               </div>

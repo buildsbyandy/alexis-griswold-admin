@@ -12,10 +12,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { ids } = req.query
 
       if (!ids || typeof ids !== 'string') {
+        console.log('[DEBUG] metadata.ts: No IDs provided');
         return res.status(400).json({ error: 'IDs parameter is required' })
       }
 
       const playlistIds = ids.split(',').filter(Boolean)
+      console.log('[DEBUG] metadata.ts: Fetching playlists with IDs:', playlistIds);
+      
       if (playlistIds.length === 0) {
         return res.status(200).json({ playlists: [] })
       }
@@ -30,6 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to fetch playlist metadata' })
       }
 
+      console.log('[DEBUG] metadata.ts: Found playlists:', data?.length || 0);
       return res.status(200).json({ playlists: data as PlaylistRow[] })
     } catch (error) {
       console.error('Playlist metadata fetch error:', error)

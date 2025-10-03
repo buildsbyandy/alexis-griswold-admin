@@ -52,13 +52,19 @@ class PlaylistService {
       }
 
       const carouselItems = viewResult.data || [];
+      console.log('[DEBUG] getAllPlaylists carouselItems:', carouselItems);
 
-      // Get playlist metadata for carousel items that have ref_ids (playlist IDs)
-      const playlistIds = carouselItems
-        .map(item => item.item_ref_id)
-        .filter(Boolean) as string[];
+     // Get playlist metadata for carousel items that have ref_ids (playlist IDs)
+    const playlistIds = carouselItems
+      .filter(item => item.kind === 'playlist' && item.ref_id)  // Changed from item_kind to kind, item_ref_id to ref_id
+      .map(item => item.ref_id)  // Changed from item_ref_id to ref_id
+      .filter(Boolean) as string[];
+
+    console.log('[DEBUG] getAllPlaylists carouselItems with playlist kind:', carouselItems.filter(item => item.kind === 'playlist'));  // Changed from item_kind to kind
+    console.log('[DEBUG] getAllPlaylists playlistIds:', playlistIds);
 
       if (playlistIds.length === 0) {
+        console.log('[DEBUG] getAllPlaylists no playlist IDs found');
         return [];
       }
 
@@ -74,10 +80,17 @@ class PlaylistService {
 
       // Combine carousel items with playlist metadata
       return carouselItems
+        .filter(item => item.kind === 'playlist')  // Changed from item_kind to kind
         .map(item => {
-          if (!item.item_ref_id) return null;
-          const playlist = playlistMap.get(item.item_ref_id);
-          if (!playlist) return null;
+          if (!item.ref_id) {  // Changed from item_ref_id to ref_id
+            console.log('[DEBUG] Carousel item missing ref_id:', item);
+            return null;
+          }
+          const playlist = playlistMap.get(item.ref_id);  // Changed from item_ref_id to ref_id
+          if (!playlist) {
+            console.log('[DEBUG] No playlist found for ref_id:', item.ref_id);  // Changed from item_ref_id to ref_id
+            return null;
+          }
 
           return {
             id: playlist.id,
@@ -85,8 +98,8 @@ class PlaylistService {
             description: playlist.description || '',
             card_color: playlist.card_color || '',
             spotify_url: playlist.spotify_url,
-            order_index: item.item_order_index || 0,
-            is_active: item.item_is_active || false,
+            order_index: item.order_index || 0,  // Changed from item_order_index to order_index
+            is_active: item.is_active || false,  // Changed from item_is_active to is_active
             created_at: new Date(playlist.created_at),
             updated_at: new Date(playlist.updated_at)
           };
@@ -129,6 +142,15 @@ class PlaylistService {
         throw new Error('Spotify URL is required');
       }
 
+      // Auto-increment order_index if not provided or is 0
+      let orderIndex = input.order_index;
+      if (orderIndex === undefined || orderIndex === 0) {
+        const allPlaylists = await this.getAllPlaylists();
+        const maxOrder = allPlaylists.reduce((max, p) => Math.max(max, p.order_index), -1);
+        orderIndex = maxOrder + 1;
+        console.log(`[DEBUG] Auto-assigned order_index: ${orderIndex}`);
+      }
+
       // Ensure the vlogs-spotify-playlists carousel exists
       const carouselResult = await findCarouselByPageSlug('vlogs', this.CAROUSEL_SLUG);
       if (carouselResult.error) {
@@ -161,10 +183,10 @@ class PlaylistService {
       // Then, create a carousel item that references this playlist
       const carouselItemResult = await createCarouselItem({
         carousel_id: carouselResult.data.id,
-        kind: 'external',
-        link_url: input.spotify_url,
+        kind: 'playlist',
+        ref_id: playlist.id,  // Link to the playlist record
         caption: input.playlist_title,
-        order_index: input.order_index,
+        order_index: orderIndex,  // Use the auto-incremented order
         is_active: input.is_active,
       });
 
@@ -216,7 +238,7 @@ class PlaylistService {
           throw new Error('Failed to fetch carousel items: ' + viewResult.error);
         }
 
-        const carouselItem = viewResult.data?.find(item => item.item_ref_id === id);
+        const carouselItem = viewResult.data?.find(item => item.ref_id === id);
         if (!carouselItem || !carouselItem.carousel_item_id) {
           throw new Error('Carousel item not found for playlist');
         }
@@ -241,14 +263,18 @@ class PlaylistService {
 
   async deletePlaylist(id: string): Promise<boolean> {
     try {
+      // Get the playlist being deleted to know its order_index
+      const allPlaylists = await this.getAllPlaylists();
+      const deletedPlaylist = allPlaylists.find(p => p.id === id);
+
       // First, find and delete the carousel item
       const viewResult = await listViewItems('vlogs', this.CAROUSEL_SLUG);
       if (viewResult.error) {
         console.error('Failed to fetch carousel items for deletion:', viewResult.error);
       } else {
-        const carouselItem = viewResult.data?.find(item => item.item_ref_id === id);
-        if (carouselItem && carouselItem.carousel_item_id) {
-          const deleteResult = await deleteCarouselItem(carouselItem.carousel_item_id);
+        const carouselItem = viewResult.data?.find(item => item.ref_id === id);
+        if (carouselItem && carouselItem.id) {
+          const deleteResult = await deleteCarouselItem(carouselItem.id);
           if (deleteResult.error) {
             console.error('Failed to delete carousel item:', deleteResult.error);
             // Continue with playlist deletion even if carousel item deletion fails
@@ -265,10 +291,39 @@ class PlaylistService {
         const error = await response.json();
         throw new Error(error.error || 'Failed to delete playlist');
       }
+
+      // Reorder remaining playlists to fill the gap
+      if (deletedPlaylist) {
+        await this.reorderAfterDeletion(deletedPlaylist.order_index, allPlaylists);
+      }
+
       return true;
     } catch (error) {
       console.error('Error deleting playlist:', error);
       return false;
+    }
+  }
+
+  /**
+   * Reorder playlists after deletion to close gaps in order_index
+   */
+  private async reorderAfterDeletion(deletedIndex: number, allPlaylists: SpotifyPlaylist[]): Promise<void> {
+    try {
+      // Find playlists that come after the deleted one
+      const playlistsToUpdate = allPlaylists.filter(p => p.order_index > deletedIndex);
+
+      // Update each playlist's order_index by decrementing it
+      const updatePromises = playlistsToUpdate.map(playlist =>
+        this.updatePlaylist(playlist.id, {
+          order_index: playlist.order_index - 1
+        })
+      );
+
+      await Promise.all(updatePromises);
+      console.log(`[DEBUG] Reordered ${playlistsToUpdate.length} playlists after deletion`);
+    } catch (error) {
+      console.error('Error reordering playlists after deletion:', error);
+      // Don't throw - deletion was successful, reordering is a nice-to-have
     }
   }
 

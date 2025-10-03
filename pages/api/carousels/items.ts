@@ -131,6 +131,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             error: `${kind} carousel items must have a ref_id.`
           })
         }
+      } else if (kind === 'playlist') {
+        if (!input.ref_id) {
+          return res.status(400).json({
+            error: 'Playlist carousel items must have a ref_id.'
+          })
+        }
       } else if (kind === 'tiktok' || kind === 'external') {
         if (!input.link_url) {
           return res.status(400).json({

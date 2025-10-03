@@ -44,15 +44,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         servings,
         prepTime,
         cookTime,
-        ingredients,
-        instructions,
         tags,
         status,
         is_favorite,
         is_beginner,
         is_recipe_of_week,
-        hero_image_path,
-        images
+        hero_image_path
       } = req.body
 
       // Validate required fields
@@ -85,7 +82,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         is_beginner: is_beginner || false,
         is_recipe_of_week: is_recipe_of_week || false,
         hero_image_path: hero_image_path || null,
-        images: images || []
       }
 
       const { data, error } = await supabaseAdmin

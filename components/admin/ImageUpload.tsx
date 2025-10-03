@@ -144,39 +144,42 @@ export default function ImageUpload({
 
     setUploadingFiles(prev => [...prev, ...newUploadingFiles])
 
+    // Accumulate all successfully uploaded URLs
+    const uploadedUrls: string[] = []
+
     // Upload each file
     for (const uploadingFile of newUploadingFiles) {
       try {
         const url = await uploadFile(uploadingFile.file, folder || '', (progress) => {
-          setUploadingFiles(prev => 
-            prev.map(f => 
-              f.id === uploadingFile.id 
+          setUploadingFiles(prev =>
+            prev.map(f =>
+              f.id === uploadingFile.id
                 ? { ...f, progress }
                 : f
             )
           )
         })
 
-        // Mark as successful and add to value
-        setUploadingFiles(prev => 
-          prev.map(f => 
-            f.id === uploadingFile.id 
+        // Mark as successful
+        setUploadingFiles(prev =>
+          prev.map(f =>
+            f.id === uploadingFile.id
               ? { ...f, status: 'success', url, progress: 100 }
               : f
           )
         )
 
-        // Add to the final value
-        onChange([...value, url])
+        // Add to accumulated URLs
+        uploadedUrls.push(url)
 
         toast.success(`${uploadingFile.file.name} uploaded successfully`)
       } catch (error) {
         console.error('Upload error:', error)
-        
+
         // Mark as error
-        setUploadingFiles(prev => 
-          prev.map(f => 
-            f.id === uploadingFile.id 
+        setUploadingFiles(prev =>
+          prev.map(f =>
+            f.id === uploadingFile.id
               ? { ...f, status: 'error' }
               : f
           )
@@ -184,6 +187,11 @@ export default function ImageUpload({
 
         toast.error(`Failed to upload ${uploadingFile.file.name}`)
       }
+    }
+
+    // Update all URLs at once after all uploads complete
+    if (uploadedUrls.length > 0) {
+      onChange([...value, ...uploadedUrls])
     }
 
     // Clean up completed uploads after a delay

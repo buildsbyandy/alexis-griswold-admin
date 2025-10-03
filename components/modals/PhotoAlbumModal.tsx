@@ -9,22 +9,21 @@ interface PhotoAlbumModalProps {
   isOpen: boolean;
   onClose: () => void;
   album?: PhotoAlbum | null;
-  onSave: (album: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'>, carouselId: string, orderIndex?: number) => Promise<void>;
-  forcePageType?: string; // Auto-assign page_type for carousel context
-  carouselId: string; // Required carousel ID for new albums
+  onSave: (album: Omit<PhotoAlbum, 'id' | 'created_at' | 'updated_at'> & { photos?: Array<{ photo_url: string; photo_order: number; caption: string | null }> }, carouselId: string, orderIndex?: number) => Promise<void>;
+  forcePageType?: string;
+  carouselId: string;
 }
-
 
 const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, album, onSave, forcePageType, carouselId }) => {
   const [formData, setFormData] = useState({
     album_title: '',
     album_description: '',
     cover_image_path: '',
+    additional_images: [] as string[],
     album_date: '',
     is_visible: false,
-    album_order: 0
+    album_order: 1
   });
-
 
   useEffect(() => {
     if (album) {
@@ -32,19 +31,20 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
         album_title: album.album_title,
         album_description: album.album_description || '',
         cover_image_path: album.cover_image_path || '',
+        additional_images: [],
         album_date: album.album_date || '',
         is_visible: album.is_visible || false,
-        album_order: album.album_order || 0
+        album_order: album.album_order || 1
       });
     } else {
-      // Reset form for new album
       setFormData({
         album_title: '',
         album_description: '',
         cover_image_path: '',
+        additional_images: [],
         album_date: new Date().toISOString().split('T')[0],
         is_visible: false,
-        album_order: 0
+        album_order: 1
       });
     }
   }, [album]);
@@ -63,17 +63,27 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     }
 
     try {
-      // Map form data to PhotoAlbum interface
+      // Build photos array from additional images
+      const photos = formData.additional_images.map((url, index) => ({
+        photo_url: url,
+        photo_order: index + 1,
+        caption: null
+      }));
+
       const albumData = {
         album_title: formData.album_title,
         album_description: formData.album_description || null,
-        page_type: forcePageType || null, // Auto-assign page_type for carousel context
+        page_type: forcePageType || null,
         cover_image_path: formData.cover_image_path,
         album_date: formData.album_date || null,
         album_order: formData.album_order,
-        is_visible: formData.is_visible
+        is_visible: formData.is_visible,
+        photos: photos.length > 0 ? photos : undefined
       };
-      await onSave(albumData, carouselId, formData.album_order);
+      
+      console.log('Submitting album data:', albumData);
+      
+      await onSave(albumData as any, carouselId, formData.album_order);
       onClose();
       toast.success(`Album ${album ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -82,14 +92,12 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
     }
   };
 
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
             <h2 className="text-2xl font-bold text-[#383B26] flex items-center">
               <FaImage className="mr-3 text-[#B8A692]" />
@@ -105,8 +113,7 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Album Title *</label>
                 <input
@@ -128,13 +135,14 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order</label>
+                <label className="block text-sm font-medium text-[#383B26] mb-1">Display Order (1-6)</label>
                 <input
                   type="number"
                   value={formData.album_order}
-                  onChange={(e) => setFormData(prev => ({ ...prev, album_order: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, album_order: parseInt(e.target.value) || 1 }))}
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
-                  min="0"
+                  min="1"
+                  max="6"
                 />
               </div>
               <div className="flex items-center">
@@ -164,6 +172,7 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
             {/* Cover Image */}
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Cover Image *</label>
+              <p className="mb-2 text-xs text-gray-600">Main image that represents the album</p>
               <ImageUpload
                 value={formData.cover_image_path ? [formData.cover_image_path] : []}
                 onChange={(urls) => setFormData(prev => ({ ...prev, cover_image_path: urls[0] || '' }))}
@@ -174,10 +183,25 @@ const PhotoAlbumModal: React.FC<PhotoAlbumModalProps> = ({ isOpen, onClose, albu
               />
             </div>
 
+            {/* Additional Album Photos */}
+            <div>
+              <label className="block text-sm font-medium text-[#383B26] mb-1">Additional Photos (Optional)</label>
+              <p className="mb-2 text-xs text-gray-600">Upload additional photos for this album (up to 20)</p>
+              <ImageUpload
+                value={formData.additional_images}
+                onChange={(urls) => {
+                  console.log('Additional images updated:', urls);
+                  setFormData(prev => ({ ...prev, additional_images: urls }));
+                }}
+                maxImages={20}
+                folder={STORAGE_PATHS.VLOG_ALBUM_IMAGES}
+                placeholder="Upload additional album photos"
+                showPreview={true}
+              />
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+          <div className="flex justify-end p-6 space-x-3 border-t bg-gray-50">
             <button
               type="button"
               onClick={onClose}

@@ -13,9 +13,10 @@ interface VlogModalProps {
   onClose: () => void;
   vlog?: VlogVideo | null;
   onSave: (vlog: Omit<VlogVideo, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  currentCarouselCount?: number; // Number of vlogs currently in the selected carousel
 }
 
-const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) => {
+const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave, currentCarouselCount = 0 }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -27,8 +28,22 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
   });
   const [isLoadingYouTubeData, setIsLoadingYouTubeData] = useState(false);
 
+  // Helper to reset form to initial state
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      youtubeUrl: '',
+      thumbnailUrl: '',
+      publishedAt: new Date().toISOString().split('T')[0],
+      carousel: 'vlogs-main-channel',
+      order: currentCarouselCount, // Auto-increment based on current count
+    });
+  };
+
   useEffect(() => {
     if (vlog) {
+      // Editing existing vlog
       setFormData({
         title: vlog.title,
         description: vlog.description,
@@ -39,18 +54,20 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
         order: vlog.order_index,
       });
     } else {
-      // Reset form for new vlog
-      setFormData({
-        title: '',
-        description: '',
-        youtubeUrl: '',
-        thumbnailUrl: '',
-        publishedAt: new Date().toISOString().split('T')[0], // Default to today
-        carousel: 'vlogs-main-channel',
-        order: 0,
-      });
+      // New vlog - reset form with auto-incremented order
+      resetForm();
     }
-  }, [vlog]);
+  }, [vlog, isOpen]);
+
+  // Update order field when carousel count changes (e.g., after deletion)
+  useEffect(() => {
+    if (!vlog && isOpen) {
+      setFormData(prev => ({
+        ...prev,
+        order: currentCarouselCount
+      }));
+    }
+  }, [currentCarouselCount, vlog, isOpen]);
 
   // Extract YouTube video ID from URL
   const extractYouTubeId = (url: string): string | null => {
@@ -166,8 +183,14 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave }) 
 
     try {
       await onSave(submitData);
-      onClose();
       toast.success(`Vlog ${vlog ? 'updated' : 'created'} successfully!`);
+
+      // Clear form after successful save (only for new vlogs)
+      if (!vlog) {
+        resetForm();
+      }
+
+      onClose();
     } catch (error) {
       toast.error(`Failed to ${vlog ? 'update' : 'create'} vlog`);
     }

@@ -92,30 +92,50 @@ class RecipeService {
       if (!response.ok) throw new Error('Failed to fetch recipes');
       const data = await response.json();
 
-      // Map database fields to service interface
-      return (data.recipes as RecipeRow[] || []).map((r: RecipeRow) => ({
-        id: r.id,
-        title: r.title,
-        slug: r.slug,
-        description: r.description || '',
-        category: r.category || '',
-        folder_slug: r.folder_slug || '',
-        is_beginner: r.is_beginner || false,
-        is_recipe_of_week: r.is_recipe_of_week || false,
-        status: r.status,
-        is_favorite: r.is_favorite || false,
-        hero_image_path: r.hero_image_path || '',
-        images: r.images || [],
-        ingredients: [],
-        instructions: [],
-        prepTime: r.prepTime || '',
-        cookTime: r.cookTime || '',
-        servings: r.servings || 1,
-        difficulty: r.difficulty || 'Easy',
-        tags: r.tags || [],
-        created_at: new Date(r.created_at),
-        updated_at: new Date(r.updated_at)
-      }));
+      // Map database fields to service interface and fetch images from recipe_steps
+      const recipes = await Promise.all(
+        (data.recipes as RecipeRow[] || []).map(async (r: RecipeRow) => {
+          // Fetch recipe steps to get images
+          let images: string[] = [];
+          try {
+            const stepsResponse = await fetch(`/api/recipes/${r.id}/steps`);
+            if (stepsResponse.ok) {
+              const stepsData = await stepsResponse.json();
+              images = (stepsData.steps || [])
+                .filter((step: any) => step.image_path)
+                .map((step: any) => step.image_path);
+            }
+          } catch (error) {
+            console.error(`Error fetching steps for recipe ${r.id}:`, error);
+          }
+
+          return {
+            id: r.id,
+            title: r.title,
+            slug: r.slug,
+            description: r.description || '',
+            category: r.category || '',
+            folder_slug: r.folder_slug || '',
+            is_beginner: r.is_beginner || false,
+            is_recipe_of_week: r.is_recipe_of_week || false,
+            status: r.status,
+            is_favorite: r.is_favorite || false,
+            hero_image_path: r.hero_image_path || '',
+            images: images,
+            ingredients: [],
+            instructions: [],
+            prepTime: r.prepTime || '',
+            cookTime: r.cookTime || '',
+            servings: r.servings || 1,
+            difficulty: r.difficulty || 'Easy',
+            tags: r.tags || [],
+            created_at: new Date(r.created_at),
+            updated_at: new Date(r.updated_at)
+          };
+        })
+      );
+
+      return recipes;
     } catch (error) {
       console.error('Error fetching recipes:', error);
       return [];

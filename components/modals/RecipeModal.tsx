@@ -232,16 +232,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
       // Automatically set hero_image_path from first step
       const heroImagePath = recipeSteps[0]?.image_path || '';
 
-      // Collect all images from steps for the images array
-      const allImages = recipeSteps
-        .filter(step => step.image_path)
-        .map(step => step.image_path as string);
-
       // Add required timestamp fields for the Recipe interface
       const recipeData = {
         ...formData,
         hero_image_path: heroImagePath,
-        images: allImages,
+        images: [], // Legacy field - images now stored in recipe_steps table
         ingredients: [], // Empty array for legacy field
         instructions: [], // Empty array for legacy field
         is_favorite: false, // Legacy field - will be ignored by API but required by interface
@@ -325,7 +320,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
 
           <div className="p-6 space-y-6">
             {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Recipe Title *</label>
                 <input
@@ -345,7 +340,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   className="w-full p-2 border border-gray-300 rounded-md focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                   placeholder="auto-generated-from-title"
                 />
-                <p className="text-xs text-gray-600 mt-1">URL-friendly version (auto-generated from title)</p>
+                <p className="mt-1 text-xs text-gray-600">URL-friendly version (auto-generated from title)</p>
               </div>
             </div>
 
@@ -357,22 +352,23 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                 className="w-full p-2 border border-gray-300 rounded-md h-24 focus:border-[#B8A692] focus:ring-1 focus:ring-[#B8A692]"
                 placeholder="Brief description of the recipe (shown in recipe cards and search results)"
               />
-              <p className="text-xs text-gray-600 mt-1">2-3 sentences describing what makes this recipe special</p>
+              <p className="mt-1 text-xs text-gray-600">2-3 sentences describing what makes this recipe special</p>
             </div>
 
             {/* Recipe Steps Builder - Replaces separate image uploads */}
-            <div className="border-t border-gray-200 pt-6">
+            <div className="pt-6 border-t border-gray-200">
               <RecipeStepsBuilder
                 steps={recipeSteps}
                 onChange={setRecipeSteps}
+                status={formData.status}
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="mt-2 text-xs text-gray-500">
                 💡 <strong>Tip:</strong> The first step&apos;s image will automatically be used as the hero image for the recipe card. You can bulk upload multiple images at once!
               </p>
             </div>
 
             {/* Category & Settings */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Folder</label>
                 <select
@@ -393,7 +389,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                       ))
                   )}
                 </select>
-                <p className="text-xs text-gray-600 mt-1">Recipe folder for organization and filtering</p>
+                <p className="mt-1 text-xs text-gray-600">Recipe folder for organization and filtering</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Difficulty</label>
@@ -417,12 +413,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
                   min="1"
                   placeholder="4"
                 />
-                <p className="text-xs text-gray-600 mt-1">Number of people this recipe serves</p>
+                <p className="mt-1 text-xs text-gray-600">Number of people this recipe serves</p>
               </div>
             </div>
 
             {/* Time Settings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-[#383B26] mb-1">Prep Time</label>
                 <input
@@ -445,18 +441,10 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
               </div>
             </div>
 
-            {/* Recipe Steps Builder */}
-            <div className="border-t border-gray-200 pt-6">
-              <RecipeStepsBuilder
-                steps={recipeSteps}
-                onChange={setRecipeSteps}
-              />
-            </div>
-
             {/* Tags */}
             <div>
               <label className="block text-sm font-medium text-[#383B26] mb-1">Tags</label>
-              <p className="text-xs text-gray-600 mb-3">Keywords to help users find this recipe (e.g., &quot;gluten-free&quot;, &quot;30-minute&quot;, &quot;comfort food&quot;)</p>
+              <p className="mb-3 text-xs text-gray-600">Keywords to help users find this recipe (e.g., &quot;gluten-free&quot;, &quot;30-minute&quot;, &quot;comfort food&quot;)</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {formData.tags.map((tag, index) => (
                   <span
@@ -494,7 +482,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipe, onSa
             </div>
 
             {/* Status and Checkboxes */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <label className="flex flex-col">
                 <span className="text-sm text-[#383B26] mb-1">Status</span>
                 <select

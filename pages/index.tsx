@@ -52,6 +52,8 @@ const AdminContent: React.FC = () => {
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showBeginnerRecipesView, setShowBeginnerRecipesView] = useState(false);
   const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
+  const [imageModalGallery, setImageModalGallery] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [recipeActiveTab, setRecipeActiveTab] = useState<'recipes' | 'page-content' | 'hero-videos'>('recipes');
   
   // Recipe page content state
@@ -1299,11 +1301,19 @@ const AdminContent: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // Handle escape key for image modal
+  // Handle keyboard navigation for image modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && imageModalUrl) {
+      if (!imageModalUrl) return;
+
+      if (event.key === 'Escape') {
         setImageModalUrl(null);
+        setImageModalGallery([]);
+        setCurrentImageIndex(0);
+      } else if (event.key === 'ArrowRight' && imageModalGallery.length > 0) {
+        setCurrentImageIndex(prev => (prev + 1) % imageModalGallery.length);
+      } else if (event.key === 'ArrowLeft' && imageModalGallery.length > 0) {
+        setCurrentImageIndex(prev => (prev - 1 + imageModalGallery.length) % imageModalGallery.length);
       }
     };
 
@@ -1311,7 +1321,7 @@ const AdminContent: React.FC = () => {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [imageModalUrl]);
+  }, [imageModalUrl, imageModalGallery]);
 
   // Load carousel data when switching to carousels tab
   useEffect(() => {
@@ -1975,9 +1985,13 @@ const AdminContent: React.FC = () => {
                         {/* Recipe Image */}
                         <div className="flex items-center justify-center h-48 bg-gray-200 relative">
                           {recipe.hero_image_path ? (
-                            <div 
+                            <div
                               className="relative w-full h-full cursor-pointer group"
-                              onClick={() => setImageModalUrl(recipe.hero_image_path || null)}
+                              onClick={() => {
+                                setImageModalUrl(recipe.hero_image_path || null);
+                                setImageModalGallery(recipe.images || []);
+                                setCurrentImageIndex(0);
+                              }}
                             >
                               <Image 
                                 src={recipe.hero_image_path} 
@@ -2832,12 +2846,16 @@ const AdminContent: React.FC = () => {
                             <FaEdit className="mr-1" />
                             Edit
                           </button>
-                          <button 
+                          <button
                             onClick={async () => {
                               if (confirm('Are you sure you want to delete this album?')) {
                                 try {
                                   const success = await albumService.deleteAlbum(album.id);
                                   if (success) {
+                                    // Clear editing state to prevent trying to load deleted album images
+                                    setEditingAlbum(null);
+                                    setShowAlbumModal(false);
+
                                     const albumsList = await albumService.getAllAlbums();
                                     setPhotoAlbums(albumsList);
                                     const vlogStatsData = await vlogService.getStats();
@@ -3011,6 +3029,10 @@ const AdminContent: React.FC = () => {
                                     if (confirm('Are you sure you want to delete this playlist?')) {
                                       const success = await playlistService.deletePlaylist(playlist.id);
                                       if (success) {
+                                        // Clear editing state to prevent trying to load deleted playlist
+                                        setEditingPlaylist(null);
+                                        setShowPlaylistModal(false);
+
                                         const allPlaylists = await playlistService.getAllPlaylists();
                                         setSpotifyPlaylists(allPlaylists);
                                         setSpotifyStats({
@@ -4365,24 +4387,68 @@ const AdminContent: React.FC = () => {
 
       {/* Image Modal */}
       {imageModalUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
-          <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black bg-opacity-90">
+          <div className="relative max-w-6xl w-full h-full flex flex-col items-center justify-center">
             <button
-              onClick={() => setImageModalUrl(null)}
+              onClick={() => {
+                setImageModalUrl(null);
+                setImageModalGallery([]);
+                setCurrentImageIndex(0);
+              }}
               className="absolute top-4 right-4 z-10 p-2 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white transition-all"
               aria-label="Close image"
             >
               <FaTimes className="w-6 h-6" />
             </button>
-            <div className="relative w-full h-full flex items-center justify-center">
+
+            {/* Main Image */}
+            <div className="relative flex-1 w-full flex items-center justify-center mb-4">
               <Image
-                src={imageModalUrl}
+                src={imageModalGallery.length > 0 ? imageModalGallery[currentImageIndex] : imageModalUrl}
                 alt="Recipe image"
                 className="max-w-full max-h-full object-contain"
                 fill
                 sizes="90vw"
               />
             </div>
+
+            {/* Gallery Navigation */}
+            {imageModalGallery.length > 1 && (
+              <div className="w-full max-w-4xl">
+                {/* Image counter */}
+                <div className="text-center text-white mb-2 text-sm">
+                  {currentImageIndex + 1} / {imageModalGallery.length}
+                </div>
+
+                {/* Thumbnail strip */}
+                <div className="flex gap-2 overflow-x-auto pb-2 px-4 justify-center">
+                  {imageModalGallery.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`relative flex-shrink-0 w-20 h-20 rounded overflow-hidden border-2 transition-all ${
+                        idx === currentImageIndex
+                          ? 'border-white scale-110'
+                          : 'border-gray-500 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <Image
+                        src={img}
+                        alt={`Thumbnail ${idx + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Arrow key hint */}
+                <div className="text-center text-gray-400 text-xs mt-2">
+                  Use ← → arrow keys to navigate
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -4396,6 +4462,7 @@ const AdminContent: React.FC = () => {
         }}
         vlog={editingVlog}
         onSave={handleSaveVlog}
+        currentCarouselCount={vlogs.length}
       />
 
       {/* Photo Album Modal */}
