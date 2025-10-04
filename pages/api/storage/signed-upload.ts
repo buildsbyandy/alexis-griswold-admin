@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!path) return res.status(400).json({ error: 'Missing path' })
 
   // Whitelist allowed buckets for security
-  const allowedBuckets = ['public', 'private', 'media'] // Keep 'media' for backward compatibility
+  const allowedBuckets = ['public', 'private']
   if (!allowedBuckets.includes(bucket)) {
     return res.status(400).json({ error: 'Invalid bucket' })
   }

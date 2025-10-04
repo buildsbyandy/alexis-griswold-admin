@@ -22,6 +22,8 @@ interface ImageUploadProps {
   maxImages?: number
   /** Upload folder for organization */
   folder?: StoragePath
+  /** Content status to route bucket/folder */
+  status?: 'published' | 'draft'
   /** Accept specific file types */
   accept?: string
   /** Custom placeholder text */
@@ -47,6 +49,7 @@ export default function ImageUpload({
   onChange,
   maxImages = 5,
   folder,
+  status: contentStatus = 'draft',
   accept = 'image/*',
   placeholder = 'Click to upload or drag and drop images',
   disabled = false,
@@ -66,7 +69,7 @@ export default function ImageUpload({
 
     // Determine content type and status from folder/context
     let contentType: 'recipe' | 'product' | 'healing' | 'general' = 'general';
-    let status: 'published' | 'draft' = 'draft'; // Default to draft for safety
+    let status: 'published' | 'draft' = contentStatus;
 
     // Map folder to content type
     if (folder.includes('recipe')) contentType = 'recipe';

@@ -49,7 +49,7 @@ export default async function handler(
   const { bucket, path } = parsedUrl
 
   // Whitelist allowed buckets for security
-  const allowedBuckets = ['public', 'private', 'media'] // Keep 'media' for backward compatibility
+  const allowedBuckets = ['public', 'private']
   if (!allowedBuckets.includes(bucket)) {
     return res.status(400).json({ error: 'Invalid bucket' })
   }

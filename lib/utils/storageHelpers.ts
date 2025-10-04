@@ -27,14 +27,16 @@ export function getStoragePath(
   if (customPath) {
     folder = customPath;
   } else if (mediaType === 'thumbnail') {
+    // Thumbnails should follow drafts/images when not published
+    const base = status === 'published' ? 'images' : 'drafts/images';
     if (contentType === 'vlog') {
-      folder = 'images/vlogs';
+      folder = `${base}/vlogs`;
     } else if (contentType === 'healing') {
-      folder = 'images/healing';
+      folder = `${base}/healing`;
     } else if (contentType === 'recipe') {
-      folder = 'images/recipes';
+      folder = `${base}/recipes`;
     } else {
-      folder = 'images';
+      folder = `${base}`;
     }
   } else if (mediaType === 'video') {
     if (contentType === 'homepage') {
@@ -48,7 +50,8 @@ export function getStoragePath(
     if (contentType === 'general') {
       folder = status === 'published' ? 'images' : 'uploads';
     } else if (contentType === 'product') {
-      folder = 'images/storefront';
+      // Product images should go to drafts/images when not published
+      folder = status === 'published' ? 'images/storefront' : 'drafts/images/storefront';
     } else if (status === 'published') {
       folder = `images/${contentType}`;
     } else {
