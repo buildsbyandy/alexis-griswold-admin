@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FaTimes, FaSave, FaImage, FaUpload, FaStar, FaPlus, FaTrash, FaEdit } from 'react-icons/fa';
 import type { StorefrontCategoryRow, StorefrontProductRow } from '../../lib/types/storefront';
 import SecureImage from '../admin/SecureImage';
@@ -76,7 +76,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
     }
   }, [isOpen, mode, propCategory, categories, selectedCategory, clearPreviews]);
 
-  const loadFeaturedProducts = async () => {
+  const loadFeaturedProducts = useCallback(async () => {
     if (!selectedCategory) return;
 
     setIsLoadingFeatured(true);
@@ -89,9 +89,9 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
     } finally {
       setIsLoadingFeatured(false);
     }
-  };
+  }, [selectedCategory]);
 
-  const loadAvailableProducts = async () => {
+  const loadAvailableProducts = useCallback(async () => {
     if (!selectedCategory) return;
 
     try {
@@ -103,7 +103,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
       console.error('Error loading available products:', error);
       toast.error('Failed to load available products');
     }
-  };
+  }, [selectedCategory]);
 
   useEffect(() => {
     if (selectedCategory && activeTab === 'featured') {

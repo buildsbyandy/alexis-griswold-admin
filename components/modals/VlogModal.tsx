@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FaTimes, FaSave, FaVideo, FaSpinner } from 'react-icons/fa';
 import type { VlogVideo, VlogCarouselType } from '../../lib/services/vlogService';
 import { vlogService } from '../../lib/services/vlogService';
@@ -29,7 +29,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave, cu
   const [isLoadingYouTubeData, setIsLoadingYouTubeData] = useState(false);
 
   // Helper to reset form to initial state
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       title: '',
       description: '',
@@ -39,7 +39,7 @@ const VlogModal: React.FC<VlogModalProps> = ({ isOpen, onClose, vlog, onSave, cu
       carousel: 'vlogs-main-channel',
       order: currentCarouselCount, // Auto-increment based on current count
     });
-  };
+  }, [currentCarouselCount]);
 
   useEffect(() => {
     if (vlog) {
