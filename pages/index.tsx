@@ -22,6 +22,7 @@ import SecureImage from '../components/admin/SecureImage';
 import { parseSupabaseUrl } from '../util/imageUrl';
 import TikTokVideoModal from '../components/modals/TikTokVideoModal';
 import LoadingScreen from '../components/admin/LoadingScreen';
+import InactivityWarningModal from '../components/modals/InactivityWarningModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
 import FeaturedProductsModal from '../components/modals/FeaturedProductsModal';
@@ -237,6 +238,11 @@ const AdminContent: React.FC = () => {
     videoDescription: 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
   });
   const [videoHistory, setVideoHistory] = useState<VideoHistoryItem[]>([]);
+
+  // Inactivity tracking state
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [inactivityCountdown, setInactivityCountdown] = useState(300); // 5 minutes in seconds
+  const [lastActivityTime, setLastActivityTime] = useState(Date.now());
 
   // Healing tab state
   const [healingActiveTab, setHealingActiveTab] = useState<'hero' | 'carousels' | 'products'>('hero');
@@ -1449,6 +1455,76 @@ const AdminContent: React.FC = () => {
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
   }, [imageModalUrl, imageModalGallery]);
+
+  // Inactivity tracking - show warning after 10 minutes, auto-logout after 5 more minutes
+  useEffect(() => {
+    const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+    const WARNING_DURATION = 5 * 60 * 1000; // 5 minutes
+
+    let inactivityTimer: NodeJS.Timeout;
+    let countdownInterval: NodeJS.Timeout;
+
+    const resetInactivityTimer = () => {
+      setLastActivityTime(Date.now());
+      setShowInactivityWarning(false);
+      setInactivityCountdown(300); // Reset to 5 minutes
+
+      // Clear existing timers
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      // Set new inactivity timer
+      inactivityTimer = setTimeout(() => {
+        setShowInactivityWarning(true);
+
+        // Start countdown
+        let secondsLeft = 300; // 5 minutes
+        setInactivityCountdown(secondsLeft);
+
+        countdownInterval = setInterval(() => {
+          secondsLeft -= 1;
+          setInactivityCountdown(secondsLeft);
+
+          if (secondsLeft <= 0) {
+            clearInterval(countdownInterval);
+            // Auto logout
+            signOut({ callbackUrl: '/auth/signin' });
+          }
+        }, 1000);
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    // Track user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetInactivityTimer);
+    });
+
+    // Initialize timer
+    resetInactivityTimer();
+
+    // Cleanup
+    return () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (countdownInterval) clearInterval(countdownInterval);
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, resetInactivityTimer);
+      });
+    };
+  }, []);
+
+  // Handler for "Continue Working" button
+  const handleContinueWorking = () => {
+    setShowInactivityWarning(false);
+    setInactivityCountdown(300);
+    setLastActivityTime(Date.now());
+  };
+
+  // Handler for manual logout from warning modal
+  const handleInactivityLogout = () => {
+    signOut({ callbackUrl: '/auth/signin' });
+  };
 
   // Load carousel data when switching to carousels tab
   useEffect(() => {
@@ -4796,6 +4872,14 @@ const AdminContent: React.FC = () => {
         onClose={() => setSpotifySectionConfigModalOpen(false)}
         initialData={spotifySectionConfig}
         onSave={handleSaveSpotifySectionConfig}
+      />
+
+      {/* Inactivity Warning Modal */}
+      <InactivityWarningModal
+        isOpen={showInactivityWarning}
+        onContinue={handleContinueWorking}
+        onLogout={handleInactivityLogout}
+        remainingSeconds={inactivityCountdown}
       />
     </div>
   );
