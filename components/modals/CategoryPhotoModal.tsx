@@ -3,10 +3,12 @@ import { FaTimes, FaSave, FaImage, FaUpload, FaStar, FaPlus, FaTrash, FaEdit } f
 import type { StorefrontCategoryRow, StorefrontProductRow } from '../../lib/types/storefront';
 import SecureImage from '../admin/SecureImage';
 import { parseSupabaseUrl } from '@/util/imageUrl';
-import FileUpload from '../ui/FileUpload';
+import { useFilePreview } from '@/hooks/useFilePreview';
 import toast from 'react-hot-toast';
 import storefrontService from '../../lib/services/storefrontService';
 import { STORAGE_PATHS } from '@/lib/constants/storagePaths';
+import Image from 'next/image';
+import { FileUploadService } from '@/lib/utils/fileUpload';
 
 interface CategoryPhotoModalProps {
   isOpen: boolean;
@@ -32,6 +34,9 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
   const [availableProducts, setAvailableProducts] = useState<StorefrontProductRow[]>([]);
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(false);
 
+  // Local file preview hook
+  const { previews, addFiles, clearPreviews } = useFilePreview();
+
   // Form state for create/edit
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
@@ -50,6 +55,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
         setIsVisible(true);
         setSelectedCategory(null);
         setActiveTab('details');
+        clearPreviews();
       } else if (mode === 'edit' && propCategory) {
         // Load existing category data
         setSelectedCategory(propCategory);
@@ -59,12 +65,16 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
         setCategoryImagePath(propCategory.category_image_path || '');
         setIsVisible(propCategory.is_visible ?? true);
         setActiveTab('details');
+        clearPreviews();
       } else if (mode === 'edit' && categories.length > 0 && !selectedCategory) {
         // Fallback for old behavior
         setSelectedCategory(categories[0]);
       }
+    } else {
+      // Clear previews when modal closes
+      clearPreviews();
     }
-  }, [isOpen, mode, propCategory, categories, selectedCategory]);
+  }, [isOpen, mode, propCategory, categories, selectedCategory, clearPreviews]);
 
   const loadFeaturedProducts = async () => {
     if (!selectedCategory) return;
@@ -151,42 +161,20 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
     }
   };
 
-  const handleImageUpload = async (imageUrl: string) => {
-    if (!selectedCategory) return;
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    setIsUpdating(true);
-    try {
-      await storefrontService.update_storefront_category(selectedCategory.id, {
-        category_image_path: imageUrl
-      });
-      
-      toast.success('Category photo updated successfully!');
-      onUpdate(); // Refresh the categories list
-    } catch (error) {
-      console.error('Error updating category photo:', error);
-      toast.error('Failed to update category photo');
-    } finally {
-      setIsUpdating(false);
-    }
+    // Add file for local preview
+    addFiles(file);
   };
 
-  const handleRemoveImage = async () => {
-    if (!selectedCategory) return;
+  const handleRemovePreview = () => {
+    clearPreviews();
+  };
 
-    setIsUpdating(true);
-    try {
-      await storefrontService.update_storefront_category(selectedCategory.id, {
-        category_image_path: undefined
-      });
-
-      toast.success('Category photo removed successfully!');
-      onUpdate(); // Refresh the categories list
-    } catch (error) {
-      console.error('Error removing category photo:', error);
-      toast.error('Failed to remove category photo');
-    } finally {
-      setIsUpdating(false);
-    }
+  const handleRemoveExistingImage = () => {
+    setCategoryImagePath('');
   };
 
   const handleNameChange = (name: string) => {
@@ -215,12 +203,29 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
 
     setIsUpdating(true);
     try {
+      let finalImagePath = categoryImagePath;
+
+      // Upload new image if there's a preview
+      if (previews.length > 0) {
+        const file = previews[0].file;
+        toast.loading('Uploading category image...', { id: 'upload-image' });
+
+        const result = await FileUploadService.uploadImage(file, 'product', 'published');
+
+        if (result.success && result.url) {
+          finalImagePath = result.url;
+          toast.success('Image uploaded!', { id: 'upload-image' });
+        } else {
+          throw new Error(result.error || 'Image upload failed');
+        }
+      }
+
       if (mode === 'create') {
         await storefrontService.create_storefront_category({
           category_name: categoryName,
           slug: categorySlug,
           category_description: categoryDescription || undefined,
-          category_image_path: categoryImagePath || undefined,
+          category_image_path: finalImagePath || undefined,
           is_visible: isVisible,
           sort_order: undefined
         });
@@ -230,12 +235,13 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
           category_name: categoryName,
           slug: categorySlug,
           category_description: categoryDescription || undefined,
-          category_image_path: categoryImagePath || undefined,
+          category_image_path: finalImagePath || undefined,
           is_visible: isVisible
         });
         toast.success('Category updated successfully!');
       }
 
+      clearPreviews();
       onUpdate(); // Refresh the categories list
       onClose();
     } catch (error: any) {
@@ -371,98 +377,109 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
 
           {activeTab === 'photo' && (
             <>
+          <div>
+            <label className="block text-sm font-medium text-[#383B26] mb-3">
+              Category Photo
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              {/* Show local preview first, then existing image, then placeholder */}
+              {previews.length > 0 ? (
+                <div className="relative">
+                  <Image
+                    src={previews[0].previewUrl}
+                    alt="Preview"
+                    width={400}
+                    height={200}
+                    className="w-full h-48 object-cover rounded"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <button
+                      onClick={handleRemovePreview}
+                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="mt-2 text-center text-sm text-gray-600">
+                    Preview - will upload when you save
+                  </div>
+                </div>
+              ) : categoryImagePath ? (
+                <div className="relative">
+                  {(() => {
+                    const parsedUrl = parseSupabaseUrl(categoryImagePath);
+                    if (parsedUrl) {
+                      return (
+                        <SecureImage
+                          bucket={parsedUrl.bucket}
+                          path={parsedUrl.path}
+                          alt={categoryName}
+                          width={400}
+                          height={200}
+                          className="w-full h-48 object-cover rounded"
+                        />
+                      );
+                    } else {
+                      return (
+                        <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-400">Invalid image URL</span>
+                        </div>
+                      );
+                    }
+                  })()}
+                  <div className="absolute top-2 right-2">
+                    <button
+                      onClick={handleRemoveExistingImage}
+                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FaImage className="mx-auto text-4xl text-gray-400 mb-4" />
+                  <p className="text-gray-500 mb-4">No photo set for this category</p>
+                </div>
+              )}
 
-          {/* Current Image Display */}
-          {selectedCategory && (
-            <div>
-              <label className="block text-sm font-medium text-[#383B26] mb-3">
-                Current Category Photo
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {selectedCategory.category_image_path ? (
-                  <div className="relative">
-                    {(() => {
-                      const parsedUrl = parseSupabaseUrl(selectedCategory.category_image_path);
-                      if (parsedUrl) {
-                        return (
-                          <SecureImage
-                            bucket={parsedUrl.bucket}
-                            path={parsedUrl.path}
-                            alt={selectedCategory.category_name}
-                            width={400}
-                            height={200}
-                            className="w-full h-48 object-cover rounded"
-                          />
-                        );
-                      } else {
-                        return (
-                          <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
-                            <span className="text-gray-400">Invalid image URL</span>
-                          </div>
-                        );
-                      }
-                    })()}
-                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <FileUpload
-                        accept="image/*"
-                        uploadType="image"
-                        folder={STORAGE_PATHS.STOREFRONT_CATEGORY_IMAGES}
-                        onUpload={handleImageUpload}
-                        className="px-4 py-2 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                        disabled={isUpdating}
-                      >
-                        Change Photo
-                      </FileUpload>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FaImage className="mx-auto text-4xl text-gray-400 mb-4" />
-                    <p className="text-gray-500 mb-4">No photo set for this category</p>
-                      <FileUpload
-                        accept="image/*"
-                        uploadType="image"
-                        folder={STORAGE_PATHS.STOREFRONT_CATEGORY_IMAGES}
-                        onUpload={handleImageUpload}
-                        className="px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C]"
-                        disabled={isUpdating}
-                      >
-                        Upload Category Photo
-                      </FileUpload>
-                  </div>
-                )}
-              </div>
-              
-              {/* Remove button - separate from upload area */}
-              {selectedCategory.category_image_path && (
-                <div className="mt-3 text-center">
-                  <button
-                    onClick={handleRemoveImage}
-                    disabled={isUpdating}
-                    className="px-4 py-2 text-red-600 hover:text-red-800 text-sm disabled:opacity-50"
+              {/* File input for selecting new image */}
+              {previews.length === 0 && (
+                <div className="mt-4 text-center">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="category-image-input"
+                  />
+                  <label
+                    htmlFor="category-image-input"
+                    className="inline-flex items-center px-6 py-3 bg-[#B8A692] text-white rounded-md hover:bg-[#A0956C] cursor-pointer"
                   >
-                    Remove Photo
-                  </button>
+                    <FaUpload className="mr-2" />
+                    {categoryImagePath ? 'Change Photo' : 'Upload Category Photo'}
+                  </label>
+                  <p className="text-xs text-gray-500 mt-2">Image will upload when you save</p>
                 </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* Category Info */}
-          {selectedCategory && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-[#383B26] mb-2">Category Information</h3>
-              <div className="space-y-1 text-sm text-gray-600">
-                <div><strong>Name:</strong> {selectedCategory.category_name}</div>
-                <div><strong>Slug:</strong> {selectedCategory.slug}</div>
-                {selectedCategory.category_description && (
-                  <div><strong>Description:</strong> {selectedCategory.category_description}</div>
-                )}
-                <div><strong>Status:</strong> {selectedCategory.is_visible ? 'Visible' : 'Hidden'}</div>
-                {/* Legacy is_featured field removed - featured status managed by carousel system */}
-              </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-medium text-[#383B26] mb-2">Category Information</h3>
+            <div className="space-y-1 text-sm text-gray-600">
+              <div><strong>Name:</strong> {categoryName || 'N/A'}</div>
+              <div><strong>Slug:</strong> {categorySlug || 'N/A'}</div>
+              {categoryDescription && (
+                <div><strong>Description:</strong> {categoryDescription}</div>
+              )}
+              <div><strong>Status:</strong> {isVisible ? 'Visible' : 'Hidden'}</div>
             </div>
-          )}
+          </div>
           </>
           )}
 
@@ -553,7 +570,7 @@ const CategoryPhotoModal: React.FC<CategoryPhotoModalProps> = ({
           >
             Cancel
           </button>
-          {activeTab === 'details' && (
+          {(activeTab === 'details' || activeTab === 'photo') && (
             <button
               type="button"
               onClick={handleSaveCategory}

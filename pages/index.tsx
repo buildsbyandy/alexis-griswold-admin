@@ -23,6 +23,7 @@ import { parseSupabaseUrl } from '../util/imageUrl';
 import TikTokVideoModal from '../components/modals/TikTokVideoModal';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
+import FeaturedProductsModal from '../components/modals/FeaturedProductsModal';
 import FeaturedVideoSelectorModal from '../components/modals/FeaturedVideoSelectorModal';
 import recipeService from '../lib/services/recipeService';
 import type { Recipe, RecipeFolder } from '../lib/services/recipeService';
@@ -151,6 +152,8 @@ const AdminContent: React.FC = () => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [sfTopPicks, setSfTopPicks] = useState<Array<{ id: string; ref_id: string; order_index: number | null; product_title: string | null; image_path: string | null; amazon_url: string | null }>>([]);
   const [sfFavorites, setSfFavorites] = useState<Array<{ id: string; ref_id: string; product_title: string | null; image_path: string | null; amazon_url: string | null }>>([]);
+  const [showFeaturedProductsModal, setShowFeaturedProductsModal] = useState(false);
+  const [featuredProductsByCategory, setFeaturedProductsByCategory] = useState<Record<string, Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>>>({});
   const [showVlogModal, setShowVlogModal] = useState(false);
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<PhotoAlbum | null>(null);
@@ -353,13 +356,55 @@ const AdminContent: React.FC = () => {
         if (success) {
           const recipesList = await recipeService.getAllRecipes();
           setRecipes(recipesList);
-          
+
           const recipeStats = await recipeService.getRecipeStats();
           setStats(recipeStats);
         }
       } catch (error) {
         console.error('Error deleting recipe:', error);
       }
+    }
+  };
+
+  // Storefront featured product toggle
+  const handleToggleFeaturedProduct = async (product: StorefrontProductRow) => {
+    if (!product.category_slug) {
+      toast.error('Product must have a category to be featured');
+      return;
+    }
+
+    try {
+      // Check if product is currently featured in its category
+      const categorySlug = product.category_slug;
+      const featuredProducts = await storefrontService.list_featured_products_for_category(categorySlug);
+      const isFeatured = featuredProducts.some(fp => fp.ref_id === product.id);
+
+      if (isFeatured) {
+        // Remove from featured
+        const success = await storefrontService.remove_featured_product_from_category(categorySlug, product.id);
+        if (success) {
+          toast.success('Removed from featured products');
+          // Refresh featured products for this category
+          const updated = await storefrontService.list_featured_products_for_category(categorySlug);
+          setFeaturedProductsByCategory(prev => ({ ...prev, [categorySlug]: updated }));
+        } else {
+          toast.error('Failed to remove from featured');
+        }
+      } else {
+        // Add to featured
+        const success = await storefrontService.add_featured_product_to_category(categorySlug, product.id);
+        if (success) {
+          toast.success('Added to featured products');
+          // Refresh featured products for this category
+          const updated = await storefrontService.list_featured_products_for_category(categorySlug);
+          setFeaturedProductsByCategory(prev => ({ ...prev, [categorySlug]: updated }));
+        } else {
+          toast.error('Failed to add to featured');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling featured product:', error);
+      toast.error('Failed to update featured status');
     }
   };
 
@@ -1090,7 +1135,16 @@ const AdminContent: React.FC = () => {
         const response = await fetch('/api/storefront/categories');
         if (response.ok) {
           const data = await response.json();
-          setSfCategories(data.categories || []);
+          const categories = data.categories || [];
+          setSfCategories(categories);
+
+          // Load featured products for each category
+          const featuredByCategory: Record<string, Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>> = {};
+          for (const category of categories) {
+            const featured = await storefrontService.list_featured_products_for_category(category.slug);
+            featuredByCategory[category.slug] = featured;
+          }
+          setFeaturedProductsByCategory(featuredByCategory);
         }
       } catch (error) {
         console.error('Error loading storefront data:', error);
@@ -3713,6 +3767,12 @@ const AdminContent: React.FC = () => {
                   >
                     <FaImage /> Category Photos
                   </button>
+                  <button
+                    onClick={() => setShowFeaturedProductsModal(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                  >
+                    <FaStar /> View Featured Products
+                  </button>
                 </div>
                 
                 {/* Search */}
@@ -3750,8 +3810,8 @@ const AdminContent: React.FC = () => {
               </div>
             </div>
 
-            {/* Enhanced Product Grid */}
-            <div className="space-y-4">
+            {/* Enhanced Product Grid - 5 Column Layout */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {sfItems.length > 0 ? (
                 sfItems
                   .filter(product => {
@@ -3763,98 +3823,100 @@ const AdminContent: React.FC = () => {
                     return matchesCategory && matchesStatus && matchesSearch;
                   })
                   .map(product => (
-                    <div key={product.id} className="p-4 transition-shadow bg-white border border-gray-200 rounded-lg hover:shadow-md">
-                      <div className="flex items-start gap-4">
-                        {/* Product Image */}
-                        <div className="flex-shrink-0 w-20 h-20 overflow-hidden bg-gray-100 rounded-lg">
-                          {product.image_path ? (
-                            <Image
-                              src={product.image_path || '/placeholder.jpg'}
-                              alt={product.product_title}
-                              className="object-cover w-full h-full"
-                              width={80}
-                              height={80}
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center w-full h-full">
-                              <FaStore className="text-xl text-gray-400" />
+                    <div key={product.id} className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                      {/* Product Image - Fit to container to show more content */}
+                      <div className="aspect-square overflow-hidden bg-gray-100 rounded-t-lg">
+                        {product.image_path ? (
+                          <Image
+                            src={product.image_path || '/placeholder.jpg'}
+                            alt={product.product_title}
+                            className="object-contain w-full h-full"
+                            width={200}
+                            height={200}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center w-full h-full">
+                            <FaStore className="text-3xl text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Info - Compact vertical layout */}
+                      <div className="p-3">
+                        <div className="mb-2">
+                          <h3 className="text-sm font-semibold text-[#383B26] truncate mb-1">{product.product_title}</h3>
+                          
+                          <div className="flex items-center gap-2 text-xs text-[#8F907E] mb-2">
+                            <span className="bg-[#E3D4C2] px-2 py-1 rounded-full capitalize">{product.category_slug?.replace('-', ' ')}</span>
+                            <span className={`px-2 py-1 rounded-full ${
+                              product.status === 'published' ? 'bg-green-100 text-green-800' :
+                              product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {product.status}
+                            </span>
+                          </div>
+                          
+                          {product.price && (
+                            <div className="text-sm font-semibold text-[#B89178] mb-2">
+                              ${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}
                             </div>
                           )}
                         </div>
-
-                        {/* Product Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-lg font-semibold text-[#383B26] truncate">{product.product_title}</h3>
-                                
-                              </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-[#8F907E] mb-2">
-                                <span className="bg-[#E3D4C2] px-2 py-1 rounded-full capitalize">{product.category_slug?.replace('-', ' ')}</span>
-                                <span className={`px-2 py-1 rounded-full ${
-                                  product.status === 'published' ? 'bg-green-100 text-green-800' :
-                                  product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {product.status}
-                                </span>
-                                {product.price && (
-                                  <span className="font-semibold text-[#B89178]">
-                                    ${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <p className="mb-2 text-sm text-gray-600 line-clamp-2">
-                                {product.description || 'No description'}
-                              </p>
-                              
-                              {product.tags && product.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
-                                  {product.tags.slice(0, 3).map((tag, index) => (
-                                    <span key={index} className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {product.tags.length > 3 && (
-                                    <span className="text-xs text-gray-500">+{product.tags.length - 3} more</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setSfEditing(product)}
-                                className="bg-[#B89178] text-white px-3 py-1.5 rounded-md text-sm hover:bg-[#A67B62] flex items-center gap-1"
-                              >
-                                <FaEdit className="text-xs" /> Edit
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (confirm(`Delete "${product.product_title}"?`)) {
-                                    try {
-                                      await storefrontService.delete_storefront_product(product.id);
-                                      const products = await storefrontService.get_storefront_products();
-                                      setSfProducts(products);
-                                      setSfItems(products);
-                                      const stats = await storefrontService.get_storefront_stats();
-                                      setSfStats(stats);
-                                      toast.success('Product deleted');
-                                    } catch (error) {
-                                      toast.error('Delete failed');
-                                    }
-                                  }
-                                }}
-                                className="bg-red-500 text-white px-3 py-1.5 rounded-md text-sm hover:bg-red-600"
-                              >
-                                <FaTrash className="text-xs" />
-                              </button>
-                            </div>
+                        
+                        {/* Tags - Compact display */}
+                        {product.tags && product.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {product.tags.slice(0, 2).map((tag, index) => (
+                              <span key={index} className="px-1.5 py-0.5 text-xs text-gray-600 bg-gray-100 rounded">
+                                {tag}
+                              </span>
+                            ))}
+                            {product.tags.length > 2 && (
+                              <span className="text-xs text-gray-500">+{product.tags.length - 2}</span>
+                            )}
                           </div>
+                        )}
+
+                        {/* Actions - Compact buttons */}
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setSfEditing(product)}
+                            className="flex-1 bg-[#B89178] text-white px-2 py-1.5 rounded text-xs hover:bg-[#A67B62] flex items-center justify-center gap-1"
+                          >
+                            <FaEdit className="text-xs" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleFeaturedProduct(product)}
+                            className={`px-2 py-1.5 rounded text-xs flex items-center justify-center ${
+                              featuredProductsByCategory[product.category_slug || '']?.some(fp => fp.ref_id === product.id)
+                                ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            }`}
+                            title={featuredProductsByCategory[product.category_slug || '']?.some(fp => fp.ref_id === product.id) ? 'Remove from featured' : 'Add to featured'}
+                          >
+                            <FaStar className="text-xs" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Delete "${product.product_title}"?`)) {
+                                try {
+                                  await storefrontService.delete_storefront_product(product.id);
+                                  const products = await storefrontService.get_storefront_products();
+                                  setSfProducts(products);
+                                  setSfItems(products);
+                                  const stats = await storefrontService.get_storefront_stats();
+                                  setSfStats(stats);
+                                  toast.success('Product deleted');
+                                } catch (error) {
+                                  toast.error('Delete failed');
+                                }
+                              }
+                            }}
+                            className="bg-red-500 text-white px-2 py-1.5 rounded text-xs hover:bg-red-600 flex items-center justify-center"
+                          >
+                            <FaTrash className="text-xs" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -4457,6 +4519,33 @@ const AdminContent: React.FC = () => {
             }
           } catch (error) {
             console.error('Error refreshing categories:', error);
+          }
+        }}
+      />
+
+      {/* Featured Products Modal */}
+      <FeaturedProductsModal
+        isOpen={showFeaturedProductsModal}
+        onClose={() => setShowFeaturedProductsModal(false)}
+        categories={sfCategories}
+        featuredProductsByCategory={featuredProductsByCategory}
+        onUpdate={async () => {
+          // Refresh featured products when updated
+          try {
+            const response = await fetch('/api/storefront/categories');
+            if (response.ok) {
+              const data = await response.json();
+              const categories = data.categories || [];
+
+              const featuredByCategory: Record<string, Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>> = {};
+              for (const category of categories) {
+                const featured = await storefrontService.list_featured_products_for_category(category.slug);
+                featuredByCategory[category.slug] = featured;
+              }
+              setFeaturedProductsByCategory(featuredByCategory);
+            }
+          } catch (error) {
+            console.error('Error refreshing featured products:', error);
           }
         }}
       />
