@@ -103,7 +103,7 @@ export default function ImageUpload({
     // We cannot stream progress here; set to 100% on completion
     onProgress(100)
     return publicUrl
-  }, [])
+  }, [uploadToSupabase])
 
   /**
    * Handle file selection from input or drag & drop

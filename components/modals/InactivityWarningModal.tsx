@@ -39,7 +39,7 @@ const InactivityWarningModal: React.FC<InactivityWarningModalProps> = ({
 
         {/* Message */}
         <p className="text-gray-600 text-center mb-6">
-          You've been inactive for 10 minutes. For security reasons, you'll be automatically logged out in:
+          You&apos;ve been inactive for 10 minutes. For security reasons, you&apos;ll be automatically logged out in:
         </p>
 
         {/* Countdown Timer */}
@@ -70,7 +70,7 @@ const InactivityWarningModal: React.FC<InactivityWarningModalProps> = ({
 
         {/* Additional Info */}
         <p className="text-xs text-gray-500 text-center mt-4">
-          Click "Continue Working" to stay logged in
+          Click &quot;Continue Working&quot; to stay logged in
         </p>
       </div>
     </div>

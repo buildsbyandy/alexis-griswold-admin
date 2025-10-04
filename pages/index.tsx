@@ -1123,7 +1123,7 @@ const AdminContent: React.FC = () => {
   };
 
   // Domain-specific data loading functions
-  const loadRecipeData = async () => {
+  const loadRecipeData = useCallback(async () => {
     try {
       const [recipeStats, recipesList, foldersList, featuredRecipe] = await Promise.all([
         recipeService.getRecipeStats(),
@@ -1147,7 +1147,7 @@ const AdminContent: React.FC = () => {
       toast.error('Failed to load recipe data');
       throw error;
     }
-  };
+  }, []);
 
   const loadStorefrontData = async () => {
     try {
@@ -1248,7 +1248,7 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  const loadHealingData = async () => {
+  const loadHealingData = useCallback(async () => {
     try {
       const [contentResponse, healingProductsList, healingVideosList, featuredVideoResult] = await Promise.all([
         fetch('/api/healing/content'),
@@ -1284,7 +1284,7 @@ const AdminContent: React.FC = () => {
       toast.error('Failed to load healing data');
       throw error;
     }
-  };
+  }, []);
 
   const loadPlaylistData = async () => {
     try {
@@ -1423,7 +1423,7 @@ const AdminContent: React.FC = () => {
     };
 
     loadTabData();
-  }, [activeTab, tabDataLoaded, tabLoading]);
+  }, [activeTab, tabDataLoaded, tabLoading, loadRecipeData, loadHealingData]);
 
   // Legacy loadData function for backwards compatibility (loads playlists separately for Spotify section)
   const loadData = useCallback(async () => {
