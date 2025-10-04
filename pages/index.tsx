@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { withAdminSSP } from '../lib/auth/withAdminSSP';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaHeart, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt, FaFolder } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaStar, FaHeart, FaDownload, FaUpload as FaUploadIcon, FaVideo, FaStore, FaUtensils, FaImage, FaHeartbeat, FaMusic, FaSignOutAlt, FaFolder, FaSpinner } from 'react-icons/fa';
 import { SiTiktok } from 'react-icons/si';
 import toast from 'react-hot-toast';
 import FileUpload from '../components/ui/FileUpload';
@@ -21,6 +21,7 @@ import HealingCarouselModal from '../components/modals/HealingCarouselModal';
 import SecureImage from '../components/admin/SecureImage';
 import { parseSupabaseUrl } from '../util/imageUrl';
 import TikTokVideoModal from '../components/modals/TikTokVideoModal';
+import LoadingScreen from '../components/admin/LoadingScreen';
 import StorefrontProductModal from '../components/modals/StorefrontProductModal';
 import CategoryPhotoModal from '../components/modals/CategoryPhotoModal';
 import FeaturedProductsModal from '../components/modals/FeaturedProductsModal';
@@ -48,7 +49,32 @@ interface VideoHistoryItem {
 // Component for authenticated admin content
 const AdminContent: React.FC = () => {
   // All useState hooks at the top level
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>('home');
+
+  // Tab-based lazy loading tracking
+  const [tabDataLoaded, setTabDataLoaded] = useState<Record<AdminTab, boolean>>({
+    home: false,
+    vlogs: false,
+    recipes: false,
+    healing: false,
+    storefront: false
+  });
+  const [tabLoadingErrors, setTabLoadingErrors] = useState<Record<AdminTab, string | null>>({
+    home: null,
+    vlogs: null,
+    recipes: null,
+    healing: null,
+    storefront: null
+  });
+  const [tabLoading, setTabLoading] = useState<Record<AdminTab, boolean>>({
+    home: false,
+    vlogs: false,
+    recipes: false,
+    healing: false,
+    storefront: false
+  });
+
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [featuredRecipeId, setFeaturedRecipeId] = useState<string | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
@@ -1090,258 +1116,317 @@ const AdminContent: React.FC = () => {
     }
   };
 
-  // Load data function - moved outside useEffect so it can be called from other places
-  const loadData = useCallback(async () => {
-    const errors: string[] = [];
-    
+  // Domain-specific data loading functions
+  const loadRecipeData = async () => {
     try {
-      // Load recipe data
-      try {
-        const recipeStats = await recipeService.getRecipeStats();
-        setStats(recipeStats);
+      const [recipeStats, recipesList, foldersList, featuredRecipe] = await Promise.all([
+        recipeService.getRecipeStats(),
+        recipeService.getAllRecipes(),
+        recipeService.getAllFolders(),
+        recipeService.getFeaturedRecipe()
+      ]);
 
-        const recipesList = await recipeService.getAllRecipes();
-        setRecipes(recipesList);
+      setStats(recipeStats);
+      setRecipes(recipesList);
+      setRecipeFolders(foldersList);
+      setFeaturedRecipeId(featuredRecipe ? featuredRecipe.id : null);
 
-        // Load recipe folders
-        const foldersList = await recipeService.getAllFolders();
-        setRecipeFolders(foldersList);
+      // Load page content and hero videos in parallel
+      await Promise.all([
+        loadRecipePageContent(),
+        loadRecipeHeroVideos()
+      ]);
+    } catch (error) {
+      console.error('Error loading recipe data:', error);
+      toast.error('Failed to load recipe data');
+      throw error;
+    }
+  };
 
-        // Load featured recipe
-        const featuredRecipe = await recipeService.getFeaturedRecipe();
-        if (featuredRecipe) {
-          setFeaturedRecipeId(featuredRecipe.id);
-        } else {
-          setFeaturedRecipeId(null);
-        }
+  const loadStorefrontData = async () => {
+    try {
+      const [storefrontStats, storefrontItems, categoriesResponse] = await Promise.all([
+        storefrontService.get_storefront_stats(),
+        storefrontService.get_storefront_products(),
+        fetch('/api/storefront/categories')
+      ]);
 
-        // Load recipe page content
-        await loadRecipePageContent();
-        await loadRecipeHeroVideos();
-      } catch (error) {
-        console.error('Error loading recipe data:', error);
-        errors.push('Failed to load recipe data');
-      }
+      setSfStats(storefrontStats);
+      setSfItems(storefrontItems);
 
-      // Load storefront data
-      try {
-        const storefrontStats = await storefrontService.get_storefront_stats();
-        setSfStats(storefrontStats);
+      if (categoriesResponse.ok) {
+        const data = await categoriesResponse.json();
+        const categories = data.categories || [];
+        setSfCategories(categories);
 
-        const storefrontItems = await storefrontService.get_storefront_products();
-        setSfItems(storefrontItems);
-
-        // Load storefront categories
-        const response = await fetch('/api/storefront/categories');
-        if (response.ok) {
-          const data = await response.json();
-          const categories = data.categories || [];
-          setSfCategories(categories);
-
-          // Load featured products for each category
-          const featuredByCategory: Record<string, Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>> = {};
-          for (const category of categories) {
-            const featured = await storefrontService.list_featured_products_for_category(category.slug);
-            featuredByCategory[category.slug] = featured;
-          }
-          setFeaturedProductsByCategory(featuredByCategory);
-        }
-      } catch (error) {
-        console.error('Error loading storefront data:', error);
-        errors.push('Failed to load storefront data');
-      }
-
-      // Load vlog data
-      try {
-        const vlogStatsData = await vlogService.getStats();
-        setVlogStats(prev => ({
-          totalVlogs: vlogStatsData.totalVlogs,
-          featuredVlogs: vlogStatsData.featuredVlogs,
-          totalAlbums: prev.totalAlbums,
-          totalPhotos: prev.totalPhotos,
+        // Load featured products for each category in parallel
+        const featuredPromises = categories.map(async (category: StorefrontCategoryRow) => ({
+          slug: category.slug,
+          products: await storefrontService.list_featured_products_for_category(category.slug)
         }));
 
-        const vlogsList = await vlogService.getAllVlogs();
-        setVlogs(vlogsList);
-
-        // Load featured vlog for hero section
-        const featuredVlog = await vlogService.getFeaturedVlog();
-        if (featuredVlog) {
-          setFeaturedVlogId(featuredVlog.id);
-          setVlogHeroData(prev => ({
-            ...prev,
-            featuredVideoId: featuredVlog.id,
-            featuredVideoTitle: featuredVlog.title,
-            featuredVideoThumbnail: featuredVlog.thumbnail_url,
-            featuredVideoDate: featuredVlog.published_at
-          }));
-        } else {
-          setFeaturedVlogId(null);
-          // Clear featured video data if none is selected
-          setVlogHeroData(prev => ({
-            ...prev,
-            featuredVideoId: '',
-            featuredVideoTitle: '',
-            featuredVideoThumbnail: '',
-            featuredVideoDate: ''
-          }));
-        }
-
-        const albumsList = await albumService.getAllAlbums();
-        setPhotoAlbums(albumsList);
-
-        // Initialize or find the vlogs photo gallery carousel
-        const { findCarouselByPageSlug, createCarousel } = await import('../lib/services/carouselService');
-        let vlogsGalleryCarousel = await findCarouselByPageSlug('vlogs', 'vlogs-photo-gallery');
-
-        if (!vlogsGalleryCarousel.data) {
-          // Create the carousel if it doesn't exist
-          const created = await createCarousel({
-            page: 'vlogs',
-            slug: 'vlogs-photo-gallery',
-            title: 'Photo Gallery',
-            is_active: true
-          });
-          if (!created.error && created.data) {
-            setVlogsPhotoGalleryCarouselId(created.data.id);
-          }
-        } else {
-          setVlogsPhotoGalleryCarouselId(vlogsGalleryCarousel.data.id);
-        }
-      } catch (error) {
-        console.error('Error loading vlog data:', error);
-        errors.push('Failed to load vlog data');
-      }
-
-      // Load healing data
-      try {
-        // Load healing page content (hero section)
-        const contentResponse = await fetch('/api/healing/content');
-        if (contentResponse.ok) {
-          const contentData = await contentResponse.json();
-          if (contentData.data) {
-            setHealingHeroData({
-              title: contentData.data.hero_header || 'HEALING',
-              subtitle: contentData.data.hero_subtitle || 'Your journey to wellness starts here.',
-              bodyText: contentData.data.hero_body_paragraph || 'From gut health to holistic healing, discover natural methods to restore your body\'s balance and vitality.',
-              featuredVideoId: contentData.data.hero_video_youtube_url || '',
-              featuredVideoTitle: contentData.data.hero_video_title || '',
-              featuredVideoDate: contentData.data.hero_video_date || '',
-            });
-          }
-        }
-
-        const healingProductsList = await healingService.get_all_products();
-        setHealingProducts(healingProductsList);
-
-        const healingVideosList = await healingService.get_all_videos();
-        setHealingVideos(healingVideosList);
-
-        // Load featured video from carousel system
-        const featuredVideoResult = await healingService.get_featured_video();
-        if (featuredVideoResult.data) {
-          setHealingFeaturedVideo(featuredVideoResult.data);
-        }
-
-        // Load healing carousel headers
-        await loadHealingCarousels();
-      } catch (error) {
-        console.error('Error loading healing data:', error);
-        errors.push('Failed to load healing data');
-      }
-
-      // Load playlist data
-      try {
-        const playlists = await playlistService.getAllPlaylists();
-        setSpotifyPlaylists(playlists);
-        setSpotifyStats({
-          totalPlaylists: playlists.length,
-          activePlaylists: playlists.filter(p => p.is_active).length
+        const featuredResults = await Promise.all(featuredPromises);
+        const featuredByCategory: Record<string, Array<{ id: string; ref_id: string; product_title: string | null; order_index: number | null }>> = {};
+        featuredResults.forEach(result => {
+          featuredByCategory[result.slug] = result.products;
         });
-
-        // Load Spotify section configuration
-        const configResponse = await fetch('/api/playlists/section-config');
-        if (configResponse.ok) {
-          const configData = await configResponse.json();
-          setSpotifySectionConfig(configData.config);
-        }
-      } catch (error) {
-        console.error('Error loading playlist data:', error);
-        errors.push('Failed to load playlist data');
-      }
-
-      // Load home content - this is critical for the home page
-      try {
-        const homeResponse = await fetch('/api/home');
-        if (homeResponse.ok) {
-          const homeData = await homeResponse.json();
-          const content = homeData.content;
-          // Normalize paths: strip accidental '/public' prefix and ensure video is full URL
-          const normalizedFallback = (content?.fallback_image_path || '').replace(/^\/public\//, '/');
-          const normalizedVideo = content?.background_video_path || '';
-          
-          // Map API response to frontend state structure (safe defaults)
-          setHomePageContent({
-            background_video_path: normalizedVideo,
-            fallback_image_path: normalizedFallback,
-            hero_main_title: content?.hero_main_title || 'Welcome to Alexis Griswold',
-            hero_subtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
-            video_title: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
-            video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
-            videoOpacity: content?.videoOpacity || 0.7,
-            // Frontend-specific field names for compatibility
-            videoBackground: normalizedVideo,
-            fallbackImage: normalizedFallback,
-            heroMainTitle: content?.hero_main_title || 'Welcome to Alexis Griswold',
-            heroSubtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
-            videoTitle: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
-            videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
-          });
-          
-          // Load video history with better error handling
-          try {
-            if (content?.video_history) {
-              let parsedHistory;
-              if (Array.isArray(content.video_history)) {
-                parsedHistory = content.video_history;
-              } else if (typeof content.video_history === 'string') {
-                parsedHistory = JSON.parse(content.video_history);
-              } else {
-                parsedHistory = [];
-              }
-              setVideoHistory(parsedHistory);
-            } else {
-              // Ensure video history is always initialized as an empty array
-              setVideoHistory([]);
-            }
-          } catch (parseError) {
-            console.error('Error parsing video history:', parseError);
-            setVideoHistory([]);
-          }
-        } else {
-          console.error('Failed to fetch home content:', homeResponse.status, homeResponse.statusText);
-          errors.push('Failed to load home page content');
-        }
-      } catch (error) {
-        console.error('Error loading home content:', error);
-        errors.push('Failed to load home page content');
-      }
-
-      // Show errors if any occurred, but don't fail the entire load
-      if (errors.length > 0) {
-        console.warn('Some dashboard data failed to load:', errors);
-        toast.error(`Some data failed to load: ${errors.join(', ')}`);
+        setFeaturedProductsByCategory(featuredByCategory);
       }
     } catch (error) {
-      console.error('Critical error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      console.error('Error loading storefront data:', error);
+      toast.error('Failed to load storefront data');
+      throw error;
+    }
+  };
+
+  const loadVlogData = async () => {
+    try {
+      const [vlogStatsData, vlogsList, albumsList, featuredVlog] = await Promise.all([
+        vlogService.getStats(),
+        vlogService.getAllVlogs(),
+        albumService.getAllAlbums(),
+        vlogService.getFeaturedVlog()
+      ]);
+
+      setVlogStats(prev => ({
+        totalVlogs: vlogStatsData.totalVlogs,
+        featuredVlogs: vlogStatsData.featuredVlogs,
+        totalAlbums: prev.totalAlbums,
+        totalPhotos: prev.totalPhotos,
+      }));
+
+      setVlogs(vlogsList);
+      setPhotoAlbums(albumsList);
+
+      if (featuredVlog) {
+        setFeaturedVlogId(featuredVlog.id);
+        setVlogHeroData(prev => ({
+          ...prev,
+          featuredVideoId: featuredVlog.id,
+          featuredVideoTitle: featuredVlog.title,
+          featuredVideoThumbnail: featuredVlog.thumbnail_url,
+          featuredVideoDate: featuredVlog.published_at
+        }));
+      } else {
+        setFeaturedVlogId(null);
+        setVlogHeroData(prev => ({
+          ...prev,
+          featuredVideoId: '',
+          featuredVideoTitle: '',
+          featuredVideoThumbnail: '',
+          featuredVideoDate: ''
+        }));
+      }
+
+      // Initialize or find the vlogs photo gallery carousel
+      const { findCarouselByPageSlug, createCarousel } = await import('../lib/services/carouselService');
+      let vlogsGalleryCarousel = await findCarouselByPageSlug('vlogs', 'vlogs-photo-gallery');
+
+      if (!vlogsGalleryCarousel.data) {
+        const created = await createCarousel({
+          page: 'vlogs',
+          slug: 'vlogs-photo-gallery',
+          title: 'Photo Gallery',
+          is_active: true
+        });
+        if (!created.error && created.data) {
+          setVlogsPhotoGalleryCarouselId(created.data.id);
+        }
+      } else {
+        setVlogsPhotoGalleryCarouselId(vlogsGalleryCarousel.data.id);
+      }
+    } catch (error) {
+      console.error('Error loading vlog data:', error);
+      toast.error('Failed to load vlog data');
+      throw error;
+    }
+  };
+
+  const loadHealingData = async () => {
+    try {
+      const [contentResponse, healingProductsList, healingVideosList, featuredVideoResult] = await Promise.all([
+        fetch('/api/healing/content'),
+        healingService.get_all_products(),
+        healingService.get_all_videos(),
+        healingService.get_featured_video()
+      ]);
+
+      if (contentResponse.ok) {
+        const contentData = await contentResponse.json();
+        if (contentData.data) {
+          setHealingHeroData({
+            title: contentData.data.hero_header || 'HEALING',
+            subtitle: contentData.data.hero_subtitle || 'Your journey to wellness starts here.',
+            bodyText: contentData.data.hero_body_paragraph || 'From gut health to holistic healing, discover natural methods to restore your body\'s balance and vitality.',
+            featuredVideoId: contentData.data.hero_video_youtube_url || '',
+            featuredVideoTitle: contentData.data.hero_video_title || '',
+            featuredVideoDate: contentData.data.hero_video_date || '',
+          });
+        }
+      }
+
+      setHealingProducts(healingProductsList);
+      setHealingVideos(healingVideosList);
+
+      if (featuredVideoResult.data) {
+        setHealingFeaturedVideo(featuredVideoResult.data);
+      }
+
+      await loadHealingCarousels();
+    } catch (error) {
+      console.error('Error loading healing data:', error);
+      toast.error('Failed to load healing data');
+      throw error;
+    }
+  };
+
+  const loadPlaylistData = async () => {
+    try {
+      const [playlists, configResponse] = await Promise.all([
+        playlistService.getAllPlaylists(),
+        fetch('/api/playlists/section-config')
+      ]);
+
+      setSpotifyPlaylists(playlists);
+      setSpotifyStats({
+        totalPlaylists: playlists.length,
+        activePlaylists: playlists.filter(p => p.is_active).length
+      });
+
+      if (configResponse.ok) {
+        const configData = await configResponse.json();
+        setSpotifySectionConfig(configData.config);
+      }
+    } catch (error) {
+      console.error('Error loading playlist data:', error);
+      toast.error('Failed to load playlist data');
+      throw error;
+    }
+  };
+
+  const loadHomeData = async () => {
+    try {
+      const homeResponse = await fetch('/api/home');
+      if (homeResponse.ok) {
+        const homeData = await homeResponse.json();
+        const content = homeData.content;
+        const normalizedFallback = (content?.fallback_image_path || '').replace(/^\/public\//, '/');
+        const normalizedVideo = content?.background_video_path || '';
+
+        setHomePageContent({
+          background_video_path: normalizedVideo,
+          fallback_image_path: normalizedFallback,
+          hero_main_title: content?.hero_main_title || 'Welcome to Alexis Griswold',
+          hero_subtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
+          video_title: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+          video_description: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.',
+          videoOpacity: content?.videoOpacity || 0.7,
+          videoBackground: normalizedVideo,
+          fallbackImage: normalizedFallback,
+          heroMainTitle: content?.hero_main_title || 'Welcome to Alexis Griswold',
+          heroSubtitle: content?.hero_subtitle || 'Experience wellness, recipes, and lifestyle content',
+          videoTitle: content?.video_title || 'Welcome to Alexis Griswold - Wellness and Lifestyle Content',
+          videoDescription: content?.video_description || 'Experience wellness, recipes, and lifestyle content with Alexis Griswold. Discover healthy recipes, healing practices, and lifestyle tips.'
+        });
+
+        try {
+          if (content?.video_history) {
+            let parsedHistory;
+            if (Array.isArray(content.video_history)) {
+              parsedHistory = content.video_history;
+            } else if (typeof content.video_history === 'string') {
+              parsedHistory = JSON.parse(content.video_history);
+            } else {
+              parsedHistory = [];
+            }
+            setVideoHistory(parsedHistory);
+          } else {
+            setVideoHistory([]);
+          }
+        } catch (parseError) {
+          console.error('Error parsing video history:', parseError);
+          setVideoHistory([]);
+        }
+      } else {
+        console.error('Failed to fetch home content:', homeResponse.status, homeResponse.statusText);
+        throw new Error('Failed to load home page content');
+      }
+    } catch (error) {
+      console.error('Error loading home content:', error);
+      toast.error('Failed to load home page content');
+      throw error;
+    }
+  };
+
+  // Load initial home tab data only
+  const loadInitialData = useCallback(async () => {
+    setIsInitialLoading(true);
+
+    try {
+      await loadHomeData();
+      setTabDataLoaded(prev => ({ ...prev, home: true }));
+    } catch (error) {
+      console.error('Error loading initial home data:', error);
+      setTabLoadingErrors(prev => ({ ...prev, home: 'Failed to load home data' }));
+    } finally {
+      setIsInitialLoading(false);
     }
   }, []);
 
-  // Load data on component mount
+  // Load data on component mount (home tab only)
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Lazy load tab data when user switches tabs
+  useEffect(() => {
+    const loadTabData = async () => {
+      // Skip if already loaded or currently loading
+      if (tabDataLoaded[activeTab] || tabLoading[activeTab]) return;
+
+      setTabLoading(prev => ({ ...prev, [activeTab]: true }));
+      setTabLoadingErrors(prev => ({ ...prev, [activeTab]: null }));
+
+      try {
+        switch (activeTab) {
+          case 'recipes':
+            await loadRecipeData();
+            break;
+          case 'vlogs':
+            await loadVlogData();
+            break;
+          case 'healing':
+            await loadHealingData();
+            break;
+          case 'storefront':
+            await loadStorefrontData();
+            break;
+          case 'home':
+            // Home already loaded on mount
+            break;
+        }
+
+        setTabDataLoaded(prev => ({ ...prev, [activeTab]: true }));
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : `Failed to load ${activeTab} data`;
+        setTabLoadingErrors(prev => ({ ...prev, [activeTab]: errorMsg }));
+        console.error(`Error loading ${activeTab} data:`, error);
+      } finally {
+        setTabLoading(prev => ({ ...prev, [activeTab]: false }));
+      }
+    };
+
+    loadTabData();
+  }, [activeTab, tabDataLoaded, tabLoading]);
+
+  // Legacy loadData function for backwards compatibility (loads playlists separately for Spotify section)
+  const loadData = useCallback(async () => {
+    try {
+      await loadPlaylistData();
+    } catch (error) {
+      console.error('Error loading playlist data:', error);
+    }
+  }, []);
 
   // Handle keyboard navigation for image modal
   useEffect(() => {
@@ -1386,6 +1471,10 @@ const AdminContent: React.FC = () => {
   }, [activeTab, storefrontActiveTab]);
 
   // Main dashboard render
+  if (isInitialLoading) {
+    return <LoadingScreen message="Loading your dashboard..." />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -1772,6 +1861,35 @@ const AdminContent: React.FC = () => {
 
         {activeTab === 'recipes' && (
           <div>
+            {/* Loading State */}
+            {tabLoading.recipes && !tabDataLoaded.recipes && (
+              <div className="flex items-center justify-center p-12">
+                <div className="text-center">
+                  <FaSpinner className="animate-spin text-4xl text-[#B8A692] mx-auto mb-4" />
+                  <p className="text-gray-600">Loading recipes...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {tabLoadingErrors.recipes && !tabDataLoaded.recipes && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-800 mb-2">{tabLoadingErrors.recipes}</p>
+                <button
+                  onClick={() => {
+                    setTabLoadingErrors(prev => ({ ...prev, recipes: null }));
+                    setTabDataLoaded(prev => ({ ...prev, recipes: false }));
+                  }}
+                  className="text-sm text-red-600 underline hover:text-red-800"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Content (only show when loaded) */}
+            {tabDataLoaded.recipes && (
+              <>
             {/* Header */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h1 className="text-3xl font-bold text-[#383B26] mb-2">Recipe Management</h1>
@@ -2379,11 +2497,42 @@ const AdminContent: React.FC = () => {
               ) : null}
               </>
             )}
+              </>
+            )}
           </div>
         )}
 
         {activeTab === 'vlogs' && (
           <div>
+            {/* Loading State */}
+            {tabLoading.vlogs && !tabDataLoaded.vlogs && (
+              <div className="flex items-center justify-center p-12">
+                <div className="text-center">
+                  <FaSpinner className="animate-spin text-4xl text-[#B8A692] mx-auto mb-4" />
+                  <p className="text-gray-600">Loading vlogs...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {tabLoadingErrors.vlogs && !tabDataLoaded.vlogs && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-800 mb-2">{tabLoadingErrors.vlogs}</p>
+                <button
+                  onClick={() => {
+                    setTabLoadingErrors(prev => ({ ...prev, vlogs: null }));
+                    setTabDataLoaded(prev => ({ ...prev, vlogs: false }));
+                  }}
+                  className="text-sm text-red-600 underline hover:text-red-800"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Content (only show when loaded) */}
+            {tabDataLoaded.vlogs && (
+              <>
             {/* Header */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h1 className="text-3xl font-bold text-[#383B26] mb-2">Vlogs Content Management</h1>
@@ -3098,11 +3247,42 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
 
         {activeTab === 'healing' && (
           <div>
+            {/* Loading State */}
+            {tabLoading.healing && !tabDataLoaded.healing && (
+              <div className="flex items-center justify-center p-12">
+                <div className="text-center">
+                  <FaSpinner className="animate-spin text-4xl text-[#B8A692] mx-auto mb-4" />
+                  <p className="text-gray-600">Loading healing content...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {tabLoadingErrors.healing && !tabDataLoaded.healing && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-800 mb-2">{tabLoadingErrors.healing}</p>
+                <button
+                  onClick={() => {
+                    setTabLoadingErrors(prev => ({ ...prev, healing: null }));
+                    setTabDataLoaded(prev => ({ ...prev, healing: false }));
+                  }}
+                  className="text-sm text-red-600 underline hover:text-red-800"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Content (only show when loaded) */}
+            {tabDataLoaded.healing && (
+              <>
             {/* Header */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h1 className="text-3xl font-bold text-[#383B26] mb-2">Healing Section Management</h1>
@@ -3657,11 +3837,42 @@ const AdminContent: React.FC = () => {
                 </div>
               </div>
             )}
+              </>
+            )}
           </div>
         )}
 
         {activeTab === 'storefront' && (
           <div>
+            {/* Loading State */}
+            {tabLoading.storefront && !tabDataLoaded.storefront && (
+              <div className="flex items-center justify-center p-12">
+                <div className="text-center">
+                  <FaSpinner className="animate-spin text-4xl text-[#B8A692] mx-auto mb-4" />
+                  <p className="text-gray-600">Loading storefront...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {tabLoadingErrors.storefront && !tabDataLoaded.storefront && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-800 mb-2">{tabLoadingErrors.storefront}</p>
+                <button
+                  onClick={() => {
+                    setTabLoadingErrors(prev => ({ ...prev, storefront: null }));
+                    setTabDataLoaded(prev => ({ ...prev, storefront: false }));
+                  }}
+                  className="text-sm text-red-600 underline hover:text-red-800"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Content (only show when loaded) */}
+            {tabDataLoaded.storefront && (
+              <>
             {/* Header */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-md">
               <h1 className="text-3xl font-bold text-[#383B26] mb-2">Storefront Management</h1>
@@ -4262,6 +4473,8 @@ const AdminContent: React.FC = () => {
                   </div>
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}
